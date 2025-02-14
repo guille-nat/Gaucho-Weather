@@ -1,0 +1,39 @@
+dia{
+	- freezingRainIntensityAvg -> Intensidad de lluvia congelada promedio
+	- hailProbabilityAvg -> Probabilidad Promedio Granizo
+	- hailSizeAvg -> granizo Tamaño Promedio
+	- humidityAvg -> humedad media
+	- precipitationProbabilityAvg -> Precipitación Probabilidad Promedio
+	- rainAccumulationAvg -> Promedio de acumulación de lluvia
+	- sunriseTime -> Hora del amanecer
+	- sunsetTime -> Hora de puesta del sol
+	- temperatureApparentAvg -> Temperatura Aparente Promedio
+	- temperatureAvg -> Temperatura media
+	- temperatureMax -> Temperatura Máxima
+	- temperatureMin ->  temperatura Mínima
+	}
+por minuto{
+    - cloudCover -> cubierta de nubes
+    - dewPoint -> Punto de rocío
+    - freezingRainIntensity -> 
+    - hailProbability -> Probabilidad de granizo
+    - hailSize -> GranizoTamaño
+    - humidity -> humedad
+    - precipitationProbability -> Probabilidad de precipitación
+    - pressureSeaLevel -> Presión nivel del mar
+    - pressureSurfaceLevel -> Presión Superficie Nivel
+    - rainIntensity -> Intensidad de lluvia
+    - sleetIntensity -> Intensidad de aguanieve
+    - snowIntensity -> Intensidad de la nieve
+    - temperature -> Temperatura
+    - temperatureApparent -> Temperatura aparente
+    - uvHealthConcern -> Preocupación por la salud ultravioleta
+    - uvIndex -> Indice UV
+    - visibility -> Visibilidad
+    - weatherCode -> Código meteorológico
+    - windDirection -> Dirección del viento
+    - windGust -> Ráfaga de viento
+    - windSpeed -> Velocidad del viento
+    - frost_probability -> Probabilidad de helada
+    }
+	
