@@ -2,6 +2,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,9 +22,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'drf_yasg',
+    'drf_spectacular',
     'channels',
     'rest_framework',
+    'rest_framework_simplejwt',
     'weather',
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -38,6 +43,13 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'weather_backend.urls'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 
 TEMPLATES = [
     {
@@ -54,11 +66,14 @@ TEMPLATES = [
         },
     },
 ]
+# Apunta a la app 'users' y al modelo 'CustomUser'
+AUTH_USER_MODEL = 'users.CustomUser'
 
 WSGI_APPLICATION = 'weather_backend.wsgi.application'
 
 MIGRATION_MODULES = {
     'weather': 'migrations.weather',
+    'users': 'migrations.users'
 }
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -77,12 +92,19 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
+IMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.getenv("SECRET_KEY_JWT"),
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-ar'
 
 TIME_ZONE = 'UTC'
 
