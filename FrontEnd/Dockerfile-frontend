@@ -1,0 +1,19 @@
+# Usamos una imagen ligera de Node.js
+FROM node:20.17-alpine
+
+# Establecemos el directorio de trabajo
+WORKDIR /app
+
+# Copiamos los archivos de dependencias
+COPY package*.json .
+
+# Instalamos las dependencias (incluyendo las de desarrollo)
+RUN npm install
+
+COPY . .
+
+# Exponemos el puerto que usa Vite en desarrollo (por defecto 5173)
+EXPOSE 5173
+
+# Arrancamos Vite en modo desarrollo con hot reload y haciendo que escuche en todas las interfaces
+CMD ["npm", "run", "dev"]

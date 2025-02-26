@@ -1,0 +1,37 @@
+# Entorno virtual de Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos y carpetas de configuración local
+.env
+*.env
+*.env.*
+
+# Archivos de migración de base de datos que no deberían estar en la imagen
+**/migrations/*
+
+# Archivos temporales
+*.log
+*.sqlite3
+db.sqlite3
+*.bak
+
+# Archivos de caché y compilados
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos relacionados a Docker
+Dockerfile-backend
+docker-compose.yml
+
+# Archivos de IDE/editor
+.vscode/
+.idea/
+
+# Otros
+media/
+static/

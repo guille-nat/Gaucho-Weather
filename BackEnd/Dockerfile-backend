@@ -1,0 +1,24 @@
+# Usamos una imagen ligera de Python
+FROM python:3.10-slim
+
+# Establecemos el directorio de trabajo
+WORKDIR /app
+
+# Instalamos dependencias del sistema (por ejemplo, para psycopg2)
+RUN apt-get update && apt-get install -y gcc libpq-dev
+
+# Copiamos el archivo de requerimientos
+COPY requirements.txt .
+
+# Instalamos las dependencias de Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiamos todo el código del proyecto
+COPY . .
+
+# Exponemos el puerto (para desarrollo, usaremos el runserver de Django)
+EXPOSE 8001
+
+# Ejecutamos el servidor
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "weather_backend.wsgi:application"]
+
