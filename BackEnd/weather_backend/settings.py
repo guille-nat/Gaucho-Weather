@@ -1,1 +1,1 @@
-from .config.developer import *
+from .config.production import *
