@@ -1,0 +1,36 @@
+{
+    "data": {
+        "time": "2025-03-10T22:40:00Z",
+        "values": {
+            "cloudBase": null,
+            "cloudCeiling": null,
+            "cloudCover": 0,
+            "dewPoint": 11.5,
+            "freezingRainIntensity": 0,
+            "hailProbability": 99.5,
+            "hailSize": 8.06,
+            "humidity": 50,
+            "precipitationProbability": 0,
+            "pressureSeaLevel": 1011.81,
+            "pressureSurfaceLevel": 1000.78,
+            "rainIntensity": 0,
+            "sleetIntensity": 0,
+            "snowIntensity": 0,
+            "temperature": 22.3,
+            "temperatureApparent": 22.3,
+            "uvHealthConcern": 0,
+            "uvIndex": 0,
+            "visibility": 16,
+            "weatherCode": 1000,
+            "windDirection": 15,
+            "windGust": 6.2,
+            "windSpeed": 3
+        }
+    },
+    "location": {
+        "lat": -32.47549057006836,
+        "lon": -61.57765197753906,
+        "name": "San Martín 409, S2520CYI Las Rosas, Santa Fe, Argentina",
+        "type": "administrative"
+    }
+}

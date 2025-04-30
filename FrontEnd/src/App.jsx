@@ -1,35 +1,49 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { Suspense, lazy, useState } from "react";
+import { BrowserRouter, Route } from "react-router-dom";
+import Graphics from "./components/Graphics";
+import Historic from "./components/Historic";
+import RutesWithNotFound from "./utilities/routes-with-not-found";
+import Reports from "./components/Reports";
+import Loader from "./components/Loader";
+import Register from "./components/Register";
+import { Provider } from "react-redux";
+import store from "./redux/store";
+import { PublicRoutes, PrivateRoutes } from "./routes/routes";
+import AuthGuard from "./guards/auth.guard";
+import "./styles/App.css";
+import UserProfile from "./components/UserProfile";
+
+const Layout = lazy(() => import("./components/Layout"));
+const Home = lazy(() => import("./components/Home"));
+const Login = lazy(() => import("./components/Login"));
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className="app">
+        <Suspense fallback={<Loader />}>
+          <Provider store={store}>
+            <BrowserRouter>
+              <RutesWithNotFound>
+                <Route path={PublicRoutes.HOME} element={<Layout component={<Home />} />} />
+                <Route path={PublicRoutes.LOGIN} element={<Layout component={<Login />} />} />
+                <Route path={PublicRoutes.REGISTER} element={<Layout component={<Register />} />} />
+
+                <Route element={<AuthGuard />}>
+                  <Route path={PrivateRoutes.PROFILE} element={<Layout component={<UserProfile />}/>}/>
+                  <Route path={PrivateRoutes.HISTORIC} element={<Layout component={<Historic />} />} />
+                  <Route path={PrivateRoutes.GRAPHICS} element={<Layout component={<Graphics />} />} />
+                </Route>
+
+                <Route path={PublicRoutes.REPORTS} element={<Layout component={<Reports />} />} />
+
+              </RutesWithNotFound>
+            </BrowserRouter>
+          </Provider>
+        </Suspense>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

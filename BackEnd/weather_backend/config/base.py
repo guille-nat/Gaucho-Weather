@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "channels",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "weather",
     "users",
 ]
@@ -72,23 +73,28 @@ WSGI_APPLICATION = "weather_backend.wsgi.application"
 
 MIGRATION_MODULES = {"weather": "migrations.weather", "users": "migrations.users"}
 
-CORS_ALLOWED_ORIGINS = []
-CORS_ALLOW_METHODS = (
-    "DELETE",
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5174",  # Dirección del frontend
+]
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_METHODS = [
     "GET",
-    "OPTIONS",
-    "PATCH",
     "POST",
     "PUT",
-)
-CORS_ALLOW_HEADERS = (
-    "accept",
-    "authorization",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+CORS_ALLOW_HEADERS = [
     "content-type",
-    "user-agent",
+    "authorization",
     "x-csrftoken",
+    "accept",
+    "accept-language",
     "x-requested-with",
-)
+]
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -105,7 +111,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
-IMPLE_JWT = {
+SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
@@ -117,12 +123,80 @@ IMPLE_JWT = {
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis:6379/1",  # 'redis' es el nombre del servicio
+        "LOCATION": f"redis://{os.getenv('REDIS_HOST', 'redis')}:6379/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
         },
     }
 }
+# Tiempo de vida por defecto para caché (en segundos) - opcional
+CACHE_TTL = 60 * 60  # 1 hora por defecto
+
+# Add cache middleware to ensure caching is active
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.cache.UpdateCacheMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.cache.FetchFromCacheMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+# Configuración de sesiones con Redis
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# Configuración de timeout para caché
+CACHE_MIDDLEWARE_SECONDS = 600  # 10 minutos
+# Add more detailed Redis logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "django_debug.log",
+            "formatter": "verbose",
+        },
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["file", "console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "django.cache": {
+            "handlers": ["file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django_redis": {
+            "handlers": ["file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
