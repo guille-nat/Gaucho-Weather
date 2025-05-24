@@ -1,10 +1,18 @@
 /* Estilos para el componente Home */
 
 .home-container {
+<<<<<<< HEAD
   display: grid;
   grid-template-columns: 50% auto;
   grid-template-rows: auto auto;
   gap: 10px;
+=======
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-items: stretch;
+  align-items: stretch;
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
   min-height: 100vh;
   background: var(--background-color);
   color: var(--text-color);
@@ -12,6 +20,7 @@
   margin: 0 auto;
 }
 
+<<<<<<< HEAD
 .weather-main {
   grid-area: 1 / 1 / 2 / 2;
   width: 100%;
@@ -33,6 +42,8 @@
 
 
 
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 .retry-button{
   background-color: var(--secondary-color);
 }
@@ -56,12 +67,15 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
+<<<<<<< HEAD
 .location {
   margin: 0.5rem 0 0;
   font-size: 1rem;
   opacity: 0.9;
   font-weight: 300;
 }
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 
 .detail-item {
   display: flex;
@@ -112,6 +126,31 @@
     margin: 0;
     color:var(--text-primary);
 }
+<<<<<<< HEAD
+=======
+
+.card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--gradient-primary);
+  border-radius: var(--main-border-radius);
+  color: white;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  
+}
+
+.card-description {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin: 0;
+  color:var(--text-primary);
+}
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 .campo-grid{
   padding: 15px;
   display: grid;

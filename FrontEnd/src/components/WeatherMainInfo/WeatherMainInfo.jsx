@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+<<<<<<< HEAD
 import { formatTemp, formatSpeed } from "../../utilities/convertUnits"
 import SearchLocation from "../SearchLocation";
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 import {
     Sunrise,
     Sunset,
@@ -12,9 +15,16 @@ import {
     Wind,
 } from "lucide-react"
 import "./style/WeatherMainInfo.css"
+<<<<<<< HEAD
 
 
 export default function WeatherMainInfo({ currentWeather, forecastData, weatherCodeData, tempUnit, setTempUnit, setLocation}) {
+=======
+import { formatTemp, formatSpeed } from "../../utilities/convertUnits"
+
+
+export default function WeatherMainInfo({ currentWeather, forecastData, weatherCodeData, tempUnit, setTempUnit }) {
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     const [activeTab, setActiveTab] = useState("daily")
     const [currentTime, setCurrentTime] = useState(new Date())
     // Extract current weather data
@@ -34,7 +44,17 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
     
         return weatherCodeData.weatherCode[weatherCode] || "Despejado";
     };
+<<<<<<< HEAD
     
+=======
+    //TODO
+    // Función para convertir grados a dirección del viento
+    const getWindDirection = (degrees) => {
+        const directions = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+        const index = Math.round(degrees / 45) % 8;
+        return directions[index];
+    };
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     
     // Función para obtener el icono según el código del clima
     const getWeatherIcon = (weatherCode) => {
@@ -163,11 +183,22 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
         return locationName;
     };
 
+<<<<<<< HEAD
     return (
         <div className={`weather-container ${getWeatherBackground()}`}>
             <div className="container-search-location">
                 <SearchLocation/>
             </div>
+=======
+    
+    
+    
+   
+    
+    return (
+        <div className={`weather-container ${getWeatherBackground()}`}>
+
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
             <div className={`weather-card-main ${getWeatherBackground()}`}>
                 {/* Header with current weather */}
                 <div className="weather-header">
@@ -233,7 +264,11 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                         Por Horas
                     </button>
                     <button className={`tab ${activeTab === "daily" ? "active" : ""}`} onClick={() => setActiveTab("daily")}>
+<<<<<<< HEAD
                         Próximos 6 Días
+=======
+                        Próximos 5 Días
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                     </button>
                 </div>
 
@@ -267,8 +302,14 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                                 const icon = getWeatherIcon(day.values.weatherCodeMin)
                                 return (
                                     <div key={index} className="forecast-item">
+<<<<<<< HEAD
                                         <p className="day">{formatDay(day.time)}</p>
                                         <p className="date">{formatDayNumber(day.time)}</p>
+=======
+                                        <p className="day">{index == 0 ? "hoy":formatDay(day.time) }</p>
+                                        <p className="date">{formatDayNumber(day.time)}</p>
+                                        
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                                         <div className="icon-container">
                                             <img
                                                 src={icon}

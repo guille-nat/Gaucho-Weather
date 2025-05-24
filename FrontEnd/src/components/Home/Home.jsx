@@ -1,12 +1,28 @@
 import { useState, useEffect } from "react";
 import { format, set } from "date-fns";
 import { es, tr } from "date-fns/locale";
+<<<<<<< HEAD
 import { weatherService } from "../../services/weatherService";
 import { useSelector, useDispatch } from "react-redux";
 import WeatherMainInfo from "../WeatherMainInfo";
 import WeatherDetails from "../WeatherDetails";
 import weatherCodeData from "../../data/weather_code_data.json";
 import { getUserLocation } from "../../utilities/locationService";
+=======
+import {
+    ChevronDown,
+    ChevronUp,
+} from "lucide-react"
+import { weatherService } from "../../services/weatherService";
+import { getUserProfile } from "../../services/userProfileServices";
+import { setPreferences } from "../../redux/slices/userPreferencesSlice";
+import { useSelector, useDispatch } from "react-redux";
+import weatherCodeData from "../../data/weather_code_data.json";
+import { getUserLocation } from "../../utilities/locationService";
+import WeatherDetails from "../WeatherDetails";
+import WeatherMainInfo from "../WeatherMainInfo";
+import CitySelector from "../CitySelector";
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 import {
     formatTemp,
     formatSize,
@@ -20,12 +36,17 @@ import "../../styles/Main.css";
 const Home = () => {
     // Obtener isLoggedIn
     const isLoggedIn = useSelector((store) => store.auth.isLoggedIn);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     const units = useSelector((state) => state.userPreferences.preferredUnits);
     const dispatch = useDispatch();
     const [currentWeather, setCurrentWeather] = useState(null);
     const [forecastData, setForecastData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+<<<<<<< HEAD
     // nombre de la localidad que se esta mostrando en pantalla
     const [location, setLocation] = useState("");
     // ubicación que busca el usuario 
@@ -38,10 +59,18 @@ const Home = () => {
     const [userData, setUserData] = useState(null);
 
     // Estados para la interactividad
+=======
+    const [location, setLocation] = useState("");
+    const [userData, setUserData] = useState(null);
+
+    // Estados para la interactividad
+    const [expandedSection, setExpandedSection] = useState(null)
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     const [selectedForecastDay, setSelectedForecastDay] = useState(null);
     const [showDetailedInfo, setShowDetailedInfo] = useState(false);
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState(null);
+<<<<<<< HEAD
     const [tempUnit, setTempUnit] = useState(units || 'metric');
 
     useEffect(() => { 
@@ -64,6 +93,18 @@ const Home = () => {
                 }else{
                     const { latitude, longitude} = await getUserLocation();
                     
+=======
+    const [tempUnit, setTempUnit] = useState(units);
+    const [currentTime, setCurrentTime] = useState(new Date())
+
+    useEffect(() => {
+        const fetchWeatherData = async () => {
+            try {
+                // Obtener localización actual del usuario.
+                if (selectedLocation == null) {
+                    const { latitude, longitude } = await getUserLocation();
+
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                     const [current, forecast] = await Promise.all([
                         weatherService.getCurrentWeather({ location, latitude, longitude }),
                         weatherService.getForecast({ location, latitude, longitude }),
@@ -71,8 +112,20 @@ const Home = () => {
                     setCurrentWeather(current);
                     setForecastData(forecast);
                 }
+<<<<<<< HEAD
                 
 
+=======
+                else {
+                    const { latitude, longitude } = ""
+                    const [current, forecast] = await Promise.all([
+                        weatherService.getCurrentWeather({ location, latitude, longitude }),
+                        weatherService.getForecast({ location, latitude, longitude }),
+                    ]);
+                    setCurrentWeather(current);
+                    setForecastData(forecast);
+                };
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                 setError(null);
             } catch (err) {
                 setError("Error al cargar los datos del clima");
@@ -86,8 +139,46 @@ const Home = () => {
         const interval = setInterval(fetchWeatherData, 30 * 60 * 1000); // Actualizar cada 30 minutos
 
         return () => clearInterval(interval);
+<<<<<<< HEAD
     }, [location, isLoggedIn, tempUnit,localizationSearch]);
 
+=======
+    }, [location, isLoggedIn, tempUnit]);
+    useEffect(() => {
+        const setDataUser = async () => {
+            try {
+                if (isLoggedIn) {
+                    const data_profile = await getUserProfile();
+                    dispatch(setPreferences({
+                        favoriteLocation: data_profile.preferences.favorite_location,
+                        preferredUnits: data_profile.preferences.preferred_units,
+                        alertsEnabled: data_profile.preferences.alerts_enabled,
+                    }))
+                }
+            }
+            catch (err) {
+                setError("Error al cargar los datos del clima");
+                console.error("Error fetching weather data:", err);
+            }
+        }
+        setDataUser()
+    }, []);
+    const toggleSection = (section) => {
+        if (expandedSection === section) {
+            setExpandedSection(null)
+        } else {
+            setExpandedSection(section)
+        }
+    }
+     // Update current time every minute
+     useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date())
+        }, 60000)
+
+        return () => clearInterval(timer)
+    }, [])
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     // Función para formatear la ubicación
     const formatLocation = (locationName) => {
         if (!locationName) return "";
@@ -115,6 +206,7 @@ const Home = () => {
         setLocation(locationName);
         return locationName;
     };
+<<<<<<< HEAD
 
     // Función para obtener el icono según el código del clima
     const getWeatherIcon = (weatherCode) => {
@@ -160,6 +252,25 @@ const Home = () => {
         const index = Math.round(degrees / 45) % 8;
         return directions[index];
     };
+=======
+    // Get appropriate weather background class
+    const getWeatherBackground = () => {
+        if (!currentWeather) return "weather-clear"
+
+        const hour = currentTime.getHours()
+        const isNight = hour < 6 || hour > 19
+        const weatherCode = currentWeather.data.values.weatherCode
+
+        if (weatherCode >= 4000) {
+            return "weather-rainy"
+        } else if (weatherCode >= 1001) {
+            return isNight ? "weather-cloudy-night" : "weather-cloudy"
+        } else {
+            return isNight ? "weather-clear-night" : "weather-clear"
+        }
+    }
+
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 
     // Función para obtener el nivel de preocupación UV
     const getUVConcernText = (level) => {
@@ -255,24 +366,38 @@ const Home = () => {
     }
 
     return (
+<<<<<<< HEAD
         <div className="home-container">
             <section className="weather-main">
+=======
+        <div className={`home-container ${getWeatherBackground()}`}>
+            <section className="weather-main">
+                <CitySelector />
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                 <WeatherMainInfo
                     currentWeather={currentWeather}
                     forecastData={forecastData}
                     weatherCodeData={weatherCodeData}
                     tempUnit={tempUnit}
                     setTempUnit={setTempUnit}
+<<<<<<< HEAD
                     setLocation={setLocation}
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                 />
             </section>
 
             <section className="campo-info">
+<<<<<<< HEAD
                 <div className="campo-header">
+=======
+                <div className="campo-header" onClick={() => toggleSection("info")}>
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                     <h2 className="campo-title">Información para el Campo</h2>
                     <p className="campo-description">
                         Datos complementarios sobre el campo
                     </p>
+<<<<<<< HEAD
                 </div>
 
                 <div className="campo-grid">
@@ -415,6 +540,166 @@ const Home = () => {
                     forecastData={forecastData}
                     tempUnit={tempUnit}
                 />
+=======
+                    {expandedSection === "info" ? (
+                        <ChevronUp className="toggle-icon" />
+                    ) : (
+                        <ChevronDown className="toggle-icon" />
+                    )}
+                </div>
+                {expandedSection === "info" && (
+                    <div className="campo-grid">
+                        <div className="campo-card conditions">
+                            <h3>Condiciones Actuales</h3>
+                            <div className="campo-details">
+                                <div className="campo-detail-item">
+                                    <div className="detail-header">
+                                        <span className="detail-icon">🌧️</span>
+                                        <span className="detail-title">Precipitación</span>
+                                    </div>
+                                    <div className="detail-content">
+                                        <span className="detail-value">
+                                            {
+                                                forecastData.weather_daily_data[0].values
+                                                    .precipitationProbabilityAvg
+                                            }
+                                            %
+                                        </span>
+                                        <span className="detail-description">Probabilidad</span>
+                                    </div>
+                                </div>
+                                {forecastData.weather_daily_data[0].values.hailProbabilityAvg ? (
+                                    <>
+                                        <div className="campo-detail-item">
+                                            <div className="detail-header">
+                                                <span className="detail-icon">❄️</span>
+                                                <span className="detail-title">Granizo</span>
+                                            </div>
+                                            <div className="detail-content">
+                                                <span className="detail-value">
+                                                    {
+                                                        forecastData.weather_daily_data[0].values
+                                                            .hailProbabilityAvg
+                                                    }
+                                                    %
+                                                </span>
+                                                <span className="detail-description">Probabilidad</span>
+                                            </div>
+                                        </div>
+                                        <div className="campo-detail-item">
+                                            <div className="detail-header">
+                                                <span className="detail-icon">📏</span>
+                                                <span className="detail-title">Tamaño Granizo</span>
+                                            </div>
+                                            <div className="detail-content">
+                                                <span className="detail-value">
+                                                    {formatSize(
+                                                        forecastData.weather_daily_data[0].values.hailSizeAvg,
+                                                        tempUnit
+                                                    )}{" "}
+                                                    {tempUnit === "metric" ? "mm" : "in"}
+                                                </span>
+                                                <span className="detail-description">Diámetro</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : null}
+
+                                <div className="campo-detail-item">
+                                    <div className="detail-header">
+                                        <span className="detail-icon">💧</span>
+                                        <span className="detail-title">Punto Rocío</span>
+                                    </div>
+                                    <div className="detail-content">
+                                        <span className="detail-value">
+                                            {formatTemp(
+                                                forecastData.weather_daily_data[0].values.dewPointAvg,
+                                                tempUnit
+                                            )}{" "}
+                                            °{tempUnit === "metric" ? "C" : "F"}
+                                        </span>
+                                        <span className="detail-description">Temperatura</span>
+                                    </div>
+                                </div>
+                                <div className="campo-detail-item">
+                                    <div className="detail-header">
+                                        <span className="detail-icon">👁️</span>
+                                        <span className="detail-title">Visibilidad</span>
+                                    </div>
+                                    <div className="detail-content">
+                                        <span className="detail-value">
+                                            {formatDistance(
+                                                currentWeather.data.values.visibility,
+                                                tempUnit
+                                            )}{" "}
+                                            {tempUnit === "metric" ? " km/h" : " mi"}
+                                        </span>
+                                        <span className="detail-description">Distancia</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="campo-card recomendaciones">
+                            <h3>Recomendaciones</h3>
+                            <div className="recomendaciones-list">
+                                {getRecomendaciones().map((recomendacion, index) => (
+                                    <div key={index} className="recomendacion-item">
+                                        <span className="recomendacion-icon">✅</span>
+                                        <p>{recomendacion}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="alert-section">
+                                <div
+                                    className={`alert-indicator ${currentWeather.data.values.hailProbability > 20
+                                        ? "warning"
+                                        : "safe"
+                                        }`}
+                                >
+                                    <span className="alert-icon">⚠️</span>
+                                    <span>
+                                        Riesgo de granizo:{" "}
+                                        {currentWeather.data.values.hailProbability > 20
+                                            ? "Moderado"
+                                            : "Bajo"}
+                                    </span>
+                                </div>
+                                <div
+                                    className={`alert-indicator ${currentWeather.data.values.uvHealthConcern > 2
+                                        ? "warning"
+                                        : "safe"
+                                        }`}
+                                >
+                                    <span className="alert-icon">☀️</span>
+                                    <span>
+                                        Protección UV:{" "}
+                                        {getUVConcernText(currentWeather.data.values.uvHealthConcern)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>)}
+            </section>
+
+            <section className="weather-detail" >
+                <div className="card-header" onClick={() => toggleSection("details")}>
+                    <h2 className="card-title">Información Meteorológica Detallada</h2>
+                    <p className="card-description">Datos complementarios sobre las condiciones actuales</p>
+                    {expandedSection === "details" ? (
+                        <ChevronUp className="toggle-icon" />
+                    ) : (
+                        <ChevronDown className="toggle-icon" />
+                    )}
+                </div>
+
+                {expandedSection === "details" && (
+                    <WeatherDetails
+                        currentWeather={currentWeather}
+                        forecastData={forecastData}
+                        tempUnit={tempUnit}
+                    />)}
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
             </section>
         </div>
     );

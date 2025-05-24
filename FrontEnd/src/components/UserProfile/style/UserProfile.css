@@ -517,8 +517,17 @@
 .units-content {
   padding-left: 2.5rem;
 }
+<<<<<<< HEAD
 
 .units-options {
+=======
+.units-content label{
+  width: 150px;
+}
+
+.units-options {
+  width: 100%;
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -533,6 +542,10 @@
 .radio {
   margin: 0;
   cursor: pointer;
+<<<<<<< HEAD
+=======
+  width: 50px;
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 }
 
 .radio-label {

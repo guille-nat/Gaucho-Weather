@@ -10,10 +10,14 @@ export default function WeatherDetails({
 
     return (
         <div className="weather-card">
+<<<<<<< HEAD
             <div className="card-header">
                 <h2 className="card-title">Información Meteorológica Detallada</h2>
                 <p className="card-description">Datos complementarios sobre las condiciones actuales</p>
             </div>
+=======
+            
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
             <div className="card-content">
                 <div className="tabs">
                     <div className="tabs-list">

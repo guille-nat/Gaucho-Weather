@@ -11,11 +11,13 @@ class UserSerializer(serializers.ModelSerializer):
     con la creación automática del user preferences por defecto.
     """
 
-    email = serializers.EmailField(required=True)  # Asegura que sea obligatorio
+    # Asegura que sea obligatorio
+    email = serializers.EmailField(required=True)
 
     class Meta:
         model = CustomUser
-        fields = ["id", "username", "email", "password"]
+        fields = ["id", "username", "email",
+                  "password", "last_name", "first_name"]
         read_only_fields = ["id"]
         extra_kwargs = {"password": {"write_only": True}}
 
@@ -26,8 +28,11 @@ class UserSerializer(serializers.ModelSerializer):
             user = CustomUser.objects.create_user(
                 username=validated_data["username"].lower(),
                 # Ahora sabemos que no será None
+                last_name=validated_data["last_name"].lower(),
+                first_name=validated_data["first_name"].lower(),
                 email=validated_data["email"].lower(),
                 password=password,
+
             )
 
             # Verificamos si ya existe UserPreferences

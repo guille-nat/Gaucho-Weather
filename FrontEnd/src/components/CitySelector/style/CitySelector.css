@@ -1,0 +1,16 @@
+.search-city{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+.search-city button{
+    display: flex;
+    place-content: center;
+    align-items: center;
+    background-color: var(--secondary-color);
+    width: 80px;
+    height: 40px;
+    margin: 8px;
+}

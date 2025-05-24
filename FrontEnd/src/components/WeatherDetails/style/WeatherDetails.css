@@ -10,6 +10,7 @@
     transition: all var(--transition-speed) ease;
 }
 
+<<<<<<< HEAD
 .card-header {
     padding: 1.5rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -32,6 +33,8 @@
     color:var(--text-primary);
 }
 
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 .card-content {
     padding: 1.5rem;
 }

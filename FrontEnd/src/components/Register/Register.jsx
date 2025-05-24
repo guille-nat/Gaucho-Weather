@@ -3,19 +3,34 @@ import { PublicRoutes } from "../../routes/routes";
 import { useDispatch } from 'react-redux';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { registerUser } from '../../services/registerService';
+<<<<<<< HEAD
 import { userLogin } from '../../services/auth.service'; // Añadida esta importación
 import { login } from '../../redux/slices/authSlice'; // Añadida esta importación
+=======
+import { userLogin } from '../../services/auth.service'; 
+import { login } from '../../redux/slices/authSlice'; 
+import { setPreferences } from '../../redux/slices/userPreferencesSlice';
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 
 import '../../styles/Auth-Register.css';
 
 const Register = () => {
     const [formData, setFormData] = useState({
+<<<<<<< HEAD
         first_name: "",
         last_name: "",
         username: "",
         email: "",
         password: "",
         confirmPassword: "",
+=======
+        first_name: '',
+    last_name: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     })
     const [errors, setErrors] = useState({})
     const [isLoading, setIsLoading] = useState(false)
@@ -76,7 +91,11 @@ const Register = () => {
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
     const handleSubmit = async (e) => {
         e.preventDefault()
         if (validateForm()) {
@@ -94,7 +113,10 @@ const Register = () => {
                         token: loginData.access,
                         refreshToken: loginData.refresh,
                     }));
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                     setRedirectToHome(true);
                 } else {
                     // Manejar error de registro

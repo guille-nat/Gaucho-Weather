@@ -3,7 +3,10 @@ import { useDispatch } from 'react-redux';
 import { login } from '../../redux/slices/authSlice';
 import {setPreferences} from '../../redux/slices/userPreferencesSlice';
 import { userLogin } from '../../services/auth.service';
+<<<<<<< HEAD
 import {getUserProfile} from '../../services/userProfileServices'
+=======
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 import { PublicRoutes } from "../../routes/routes";
 import { Navigate, useNavigate } from 'react-router-dom';
 import AuthErrorLogin from '../AuthErrorLogin'
@@ -26,12 +29,16 @@ const Login = () => {
                 token: data.access,
                 refreshToken: data.refresh,
             }));
+<<<<<<< HEAD
             const data_profile = await getUserProfile();
             dispatch(setPreferences({
                 favoriteLocation: data_profile.preferences.favorite_location,
                 preferredUnits: data_profile.preferences.preferred_units,
                 alertsEnabled: data_profile.preferences.alerts_enabled,
             }))
+=======
+            
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
             setRedirectToHome(true);
         } catch (error) {
             if (error.status === 401) {

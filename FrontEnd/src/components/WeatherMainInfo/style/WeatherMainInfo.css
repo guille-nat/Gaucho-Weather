@@ -78,6 +78,10 @@
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+<<<<<<< HEAD
+=======
+  
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 }
 
 .date {
@@ -140,7 +144,11 @@
 }
 
 .current-temp {
+<<<<<<< HEAD
   font-size: 2.5rem;
+=======
+  font-size: xx-large;
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
   font-weight: 700;
   line-height: 1;
   text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.774);
@@ -329,8 +337,14 @@
     transform: rotate(360deg);
   }
 }
+<<<<<<< HEAD
 
 /* Responsive adjustments */
+=======
+/* Responsive adjustments */
+
+
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 @media (max-width: 480px) {
   .current-weather{
     gap:10px;
@@ -338,9 +352,13 @@
   .current-weather svg{
     transform: scale(1.4);
   }
+<<<<<<< HEAD
   .current-temp{
     font-size:xx-large;
   }
+=======
+  
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
   .temp-display{
     display: flex;
     flex-direction: column;

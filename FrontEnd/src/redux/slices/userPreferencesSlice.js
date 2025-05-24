@@ -3,8 +3,13 @@ import {createSlice} from "@reduxjs/toolkit";
 // Estado inicial
 const initialState = {
     favoriteLocation: JSON.parse(window.localStorage.getItem('favoriteLocation')) || [],
+<<<<<<< HEAD
     preferredUnits: window.localStorage.getItem('preferredUnits') || null,
     alertsEnabled: window.localStorage.getItem('alertsEnabled') || null,
+=======
+    preferredUnits: window.localStorage.getItem('preferredUnits') || "metric",
+    alertsEnabled: window.localStorage.getItem('alertsEnabled') || false,
+>>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 };
 
 // Slice de Redux
