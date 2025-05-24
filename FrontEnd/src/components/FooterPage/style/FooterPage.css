@@ -1,0 +1,117 @@
+/* -Estilos del footer */
+.footer {
+    background: var(--background-color);
+    color: var(--text-primary);
+    padding: 20px;
+    width: 100%;
+    margin-top: auto;
+    bottom: 0;
+    left: 0;
+    box-sizing: border-box;
+
+    /* Incluye padding en el tamaño total */
+}
+
+.content-footer-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-app-footer {
+    width: 60px;
+    border-radius: 50%;
+    margin: auto;
+    margin-right: 8px;
+    padding: 0;
+    background-color: var(--background-color-secondary);
+}
+
+.non_decore {
+    text-decoration: none;
+}
+
+.footer .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 80%;
+    max-width: 1200px;
+    margin-bottom: 20px;
+}
+
+.footer-logo img {
+    width: 50px;
+}
+
+.footer-logo {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+}
+
+.footer-logo a {
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+}
+
+.footer-links {
+    display: flex;
+    gap: 20px;
+}
+
+.footer-links a {
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+}
+
+
+
+.footer-bottom {
+    text-align: center;
+    font-size: 14px;
+    border-top: 1px solid var(--primary-color);
+    padding-top: 10px;
+    width: 80%;
+    max-width: 1200px;
+}
+
+@media (hover:hover) {
+
+    /* footer */
+    .footer-links a:hover,
+    .footer-logo a:hover {
+        color: var(--secondary-color);
+    }
+}
+
+@media (max-width: 600px) {
+
+    /* -footer */
+    .footer-content {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+
+    .footer-links {
+        border-left: 1px solid var(--primary-color);
+        padding-left: 8px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin: 8px;
+        margin-right: 0px;
+        gap: 20px;
+    }
+
+    .footer-logo {
+        margin: 8px;
+        margin-right: 12px;
+    }
+}

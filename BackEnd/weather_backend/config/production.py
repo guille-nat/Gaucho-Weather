@@ -2,7 +2,7 @@ from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-ALLOWED_HOSTS = []  # todo: cambiar en producción
+ALLOWED_HOSTS = ["*"]  # todo: cambiar en producción
 
 
 DATABASES = {

@@ -1,0 +1,232 @@
+.graphics-container {
+    padding: 2rem;
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 30px;
+}
+
+.location-select {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.location-btn {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background var(--transition-speed);
+}
+
+.location-btn:hover {
+    filter: brightness(1.1);
+}
+
+.charts-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 10px 10px;
+    justify-items: stretch;
+    align-items: stretch;
+    justify-content: center;
+    align-content: center;
+    gap: 2rem;
+}
+
+.chart-card {
+    background-color: var(--card-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    padding: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.chart-card:hover {
+    transform: scale(1.01);
+}
+
+.location-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 10px;
+}
+
+/* Style Checkbox current location */
+/* From Uiverse.io by fedormamyc46597 */
+/* From Uiverse.io by 3HugaDa3 */
+.checkbox-wrapper {
+    --checkbox-size: 25px;
+    --checkbox-color: #00ff88;
+    --checkbox-shadow: rgba(0, 255, 136, 0.3);
+    --checkbox-border: rgba(0, 255, 136, 0.7);
+    display: flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    padding: 10px;
+}
+
+.checkbox-wrapper input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkbox-wrapper .checkmark {
+    position: relative;
+    width: var(--checkbox-size);
+    height: var(--checkbox-size);
+    border: 2px solid var(--checkbox-border);
+    border-radius: 8px;
+    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* Используем более плавный кубический безе */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 15px var(--checkbox-shadow);
+    overflow: hidden;
+}
+
+.checkbox-wrapper .checkmark::before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, var(--checkbox-color), #00ffcc);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* Используем более плавный кубический безе */
+    transform: scale(0) rotate(-45deg);
+}
+
+.checkbox-wrapper input:checked~.checkmark::before {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+}
+
+.checkbox-wrapper .checkmark svg {
+    width: 0;
+    height: 0;
+    color: #1a1a1a;
+    z-index: 1;
+    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* Используем более плавный кубический безе */
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+.checkbox-wrapper input:checked~.checkmark svg {
+    width: 18px;
+    height: 18px;
+    /* transform: rotate(360deg); <-- УДАЛЕНО */
+}
+
+.checkbox-wrapper:hover .checkmark {
+    border-color: var(--checkbox-color);
+    transform: scale(1.1);
+    box-shadow:
+        0 0 20px var(--checkbox-shadow),
+        0 0 40px var(--checkbox-shadow),
+        inset 0 0 10px var(--checkbox-shadow);
+    transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* Добавляем плавный переход */
+}
+
+.checkbox-wrapper input:checked~.checkmark {
+    animation: pulse 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 15px var(--checkbox-shadow);
+        /* Уменьшаем начальный бокс-шадоу */
+    }
+
+    50% {
+        transform: scale(0.95);
+        /* Меняем значение для более плавного эффекта */
+        box-shadow:
+            0 0 25px var(--checkbox-shadow),
+            0 0 40px var(--checkbox-shadow);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 15px var(--checkbox-shadow);
+        /* Уменьшаем конечный бокс-шадоу */
+    }
+}
+
+.checkbox-wrapper .label {
+    margin-left: 15px;
+    font-family: "Segoe UI", sans-serif;
+    color: var(--checkbox-color);
+    font-size: 18px;
+    text-shadow: 0 0 10px var(--checkbox-shadow);
+    opacity: 0.9;
+    transition: all 0.3s ease;
+    /* Используем стандартное easing */
+}
+
+.checkbox-wrapper:hover .label {
+    opacity: 1;
+    transform: translateX(5px);
+}
+
+/* Glowing dots animation */
+.checkbox-wrapper::after,
+.checkbox-wrapper::before {
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--checkbox-color);
+    opacity: 0;
+    transition: all 0.5s ease;
+    /* Используем стандартное easing */
+}
+
+.checkbox-wrapper::before {
+    left: -10px;
+    top: 50%;
+}
+
+.checkbox-wrapper::after {
+    right: -10px;
+    top: 50%;
+}
+
+.checkbox-wrapper:hover::before {
+    opacity: 1;
+    transform: translateX(-10px);
+    box-shadow: 0 0 10px var(--checkbox-color);
+}
+
+.checkbox-wrapper:hover::after {
+    opacity: 1;
+    transform: translateX(10px);
+    box-shadow: 0 0 10px var(--checkbox-color);
+}
+
+
+@media (max-width: 880px) {
+    .charts-wrapper {
+        grid-template-columns: 100%;
+    }
+    .location-selector{
+        flex-direction: column;
+    }
+}

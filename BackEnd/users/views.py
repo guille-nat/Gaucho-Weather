@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 import requests
 
 
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def create_users(request):
     serializer = UserSerializer(data=request.data)
@@ -18,11 +18,11 @@ def create_users(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_whit_preferences(request):
     """
-        Devuelve tanto el user como sus preferencias para los datos del perfil. El usuario debe de estar autenticado.
+    Devuelve tanto el user como sus preferencias para los datos del perfil. El usuario debe de estar autenticado.
     """
     user = request.user
     user_serializer = UserSerializer(user)
@@ -30,20 +30,22 @@ def get_user_whit_preferences(request):
         user_preferences = UserPreferences.objects.get(user=user)
         preferences_serializer = UserPreferencesSerializer(user_preferences)
     except UserPreferences.DoesNotExist:
-        return Response({"error": "No se encontraron preferencias para el usuario."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "No se encontraron preferencias para el usuario."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
-    return Response({
-        "user": user_serializer.data,
-        "preferences": preferences_serializer.data
-    }, status=status.HTTP_200_OK)
+    return Response(
+        {"user": user_serializer.data, "preferences": preferences_serializer.data},
+        status=status.HTTP_200_OK,
+    )
 
 
-@api_view(['PATCH'])
+@api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_user(request):
     user = request.user
-    serializer = UserSerializer(
-        instance=user, data=request.data, partial=True)
+    serializer = UserSerializer(instance=user, data=request.data, partial=True)
 
     if serializer.is_valid():
         serializer.save()
@@ -51,16 +53,16 @@ def update_user(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['PATCH'])
+@api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_preferences(request):
     user = request.user  # Obtenemos el usuario autenticado
     preferences_instance = user.preferences  # Accedemos a sus preferencias
 
     serializer = UserPreferencesSerializer(
-        instance=preferences_instance,  # Pasamos la instancia correcta
+        instance=preferences_instance,
         data=request.data,
-        partial=True
+        partial=True,
     )
 
     if serializer.is_valid():

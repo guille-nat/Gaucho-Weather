@@ -20,5 +20,5 @@ COPY . .
 EXPOSE 8001
 
 # Ejecutamos el servidor
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "weather_backend.wsgi:application"]
-
+# Para PRODUCCIÓN -> CMD ["gunicorn", "--bind", "0.0.0.0:8001", "weather_backend.wsgi:application"]
+CMD [ "python", "manage.py", "runserver", "0.0.0.0:8001" ]

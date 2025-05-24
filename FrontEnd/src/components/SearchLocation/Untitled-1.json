@@ -1,0 +1,137 @@
+{
+    "address_components": [
+        {
+            "long_name": "Las Rosas",
+            "short_name": "Las Rosas",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Belgrano Department",
+            "short_name": "Belgrano Department",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Santa Fe Province",
+            "short_name": "Santa Fe Province",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Argentina",
+            "short_name": "AR",
+            "types": [
+                "country",
+                "political"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"locality\">Las Rosas</span>, <span class=\"region\">Santa Fe Province</span>, <span class=\"country-name\">Argentina</span>",
+    "formatted_address": "Las Rosas, Santa Fe Province, Argentina",
+    "geometry": {
+        "location": {
+            "lat": -32.4751189,
+            "lng": -61.5766664
+        },
+        "viewport": {
+            "south": -32.49258093006777,
+            "west": -61.60158179733872,
+            "north": -32.46102119018575,
+            "east": -61.56048264008199
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Las Rosas",
+    "photos": [
+        {
+            "height": 947,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 719
+        },
+        {
+            "height": 1096,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 913,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 1140,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 537,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 525,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 4000,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/108900925335046092719\">Juan Ducler</a>"
+            ],
+            "width": 3998
+        },
+        {
+            "height": 392,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 423
+        },
+        {
+            "height": 2560,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/100506075309326308080\">Susana Rojas</a>"
+            ],
+            "width": 1536
+        },
+        {
+            "height": 401,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/118012268765740649339\">Fabian</a>"
+            ],
+            "width": 720
+        }
+    ],
+    "place_id": "ChIJPdK735UdypURzWGuhG71xyg",
+    "reference": "ChIJPdK735UdypURzWGuhG71xyg",
+    "types": [
+        "locality",
+        "political"
+    ],
+    "url": "https://maps.google.com/?q=Las+Rosas,+Santa+Fe+Province,+Argentina&ftid=0x95ca1d95dfbbd23d:0x28c7f56e84ae61cd",
+    "utc_offset": -180,
+    "vicinity": "Las Rosas",
+    "html_attributions": [],
+    "utc_offset_minutes": -180
+}

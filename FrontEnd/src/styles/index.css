@@ -1,0 +1,166 @@
+:root {
+  /* Modern color palette */
+  --primary-color: #1976D2;
+  --secondary-color: #FF9800;
+  --success-color: #2E7D32;
+  --warning-color: #ED6C02;
+  --error-color: #D32F2F;
+  --text-primary: #1A1A1A;
+  --text-secondary: #666666;
+  --background-color: #F8FAFC;
+  --background-color-secondary:#b6d9fd;
+  --card-color: #dfdfdf;
+  --border-radius: 16px;
+  --main-border-radius:0px 0px 16px 16px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --gradient-primary: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  --gradient-secondary: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+  --transition-speed: 0.2s;
+  
+  /* Modern typography */
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  
+  /* System preferences */
+  color-scheme: light dark;
+  color: var(--text-primary);
+  background-color: var(--background-color);
+
+  /* Rendering optimizations */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--background-color);
+}
+
+/* Modern button styles */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  background: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Modern form elements */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: white;
+}
+
+input:hover, select:hover, textarea:hover {
+  border-color: #CBD5E1;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+/* Typography utilities */
+.text-sm { font-size: 0.875rem; }
+.text-base { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.text-3xl { font-size: 1.875rem; }
+
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: #FFFFFF;
+    --text-secondary: #A0AEC0;
+    --background-color: #0F172A;
+    --background-color-secondary:#0F172A;
+    --card-color: #1E293B;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  input, select, textarea {
+    background-color: #1E293B;
+    border-color: #2D3748;
+    color: white;
+  }
+
+  input:hover, select:hover, textarea:hover {
+    border-color: #4A5568;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Loading states */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.2) 37%,
+    rgba(255, 255, 255, 0.1) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}

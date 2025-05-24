@@ -1,0 +1,210 @@
+/* Navbar styles */
+.navbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: var(--primary-color);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+.logo-app {
+    width: 60px;
+    margin: auto;
+    padding: 0;
+    filter: drop-shadow(1px 1px 20px rgb(255, 255, 255));
+}
+
+.navbar-link{
+    text-decoration: none;
+    width: 100%;
+    text-align: center;
+    color: white;
+}
+
+
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo-text {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-menu {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0.5rem;
+}
+
+.navbar-menu li {
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navbar-menu li:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.navbar-menu li.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-weight: 500;
+}
+
+.menu-icon {
+  font-size: 1.2rem;
+}
+
+.auth-buttons {
+  display: flex;
+  
+  gap: 0.75rem;
+}
+
+.auth-button {
+  border-radius: 12px;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: auto;
+  padding-right: 20px;
+  transition: all 0.2s ease;
+}
+
+.auth-button.login {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.auth-button.register {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.auth-button.logout {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.auth-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.auth-icon {
+  font-size: 1.2rem;
+}
+
+.menu-toggle {
+  display: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.hamburger {
+  width: 24px;
+  height: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background-color: white;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.hamburger.active span:nth-child(1) {
+  transform: translateY(9px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+  transform: translateY(-9px) rotate(-45deg);
+}
+
+@media (max-width: 1400px) {
+  .menu-toggle {
+    display: block;
+  }
+
+  .navbar-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    flex-direction: column;
+    background-color: var(--primary-color);
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .navbar-menu.active {
+    max-height: 400px;
+    opacity: 1;
+    visibility: visible;
+    padding: 1rem 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .navbar-menu li {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    border-radius: 0;
+  }
+
+  .auth-text {
+    color:#fff;
+    font-weight: 700;
+  }
+
+  .auth-button {
+    padding: 0.75rem;
+  }
+
+  .auth-icon {
+    margin: 0;
+  }
+}
