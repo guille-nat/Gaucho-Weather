@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Python / Django
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+staticfiles/
+media/
+db.sqlite3
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
+
+# Plantilla generada de .env local (contiene secretos de desarrollo)
+env.local.generated

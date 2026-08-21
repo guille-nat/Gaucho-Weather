@@ -1,7 +1,7 @@
 /* -Estilos del footer */
 .footer {
-    background: var(--background-color);
-    color: var(--text-primary);
+    background: var(--surface-base);
+    color: var(--content-primary);
     padding: 20px;
     width: 100%;
     margin-top: auto;
@@ -25,11 +25,17 @@
     margin: auto;
     margin-right: 8px;
     padding: 0;
-    background-color: var(--background-color-secondary);
+    background-color: var(--surface-accent);
 }
 
 .non_decore {
     text-decoration: none;
+    /* 150x24px link, well under the 44px touch target floor. Padding
+       expands the tappable area; the matching negative margin keeps the
+       visual size/position identical. */
+    display: inline-block;
+    padding: 10px 8px;
+    margin: -10px -8px;
 }
 
 .footer .container {
@@ -40,7 +46,7 @@
 
 .footer-content {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     width: 80%;
     max-width: 1200px;
@@ -58,26 +64,14 @@
 }
 
 .footer-logo a {
-    color: var(--text-primary);
+    color: var(--content-primary);
     transition: color 0.3s ease;
 }
-
-.footer-links {
-    display: flex;
-    gap: 20px;
-}
-
-.footer-links a {
-    color: var(--text-primary);
-    transition: color 0.3s ease;
-}
-
-
 
 .footer-bottom {
     text-align: center;
     font-size: 14px;
-    border-top: 1px solid var(--primary-color);
+    border-top: 1px solid var(--brand);
     padding-top: 10px;
     width: 80%;
     max-width: 1200px;
@@ -86,30 +80,14 @@
 @media (hover:hover) {
 
     /* footer */
-    .footer-links a:hover,
     .footer-logo a:hover {
-        color: var(--secondary-color);
+        color: var(--fill-orange);
     }
 }
 
 @media (max-width: 600px) {
 
     /* -footer */
-    .footer-content {
-        flex-direction: row;
-        justify-content: space-between;
-    }
-
-    .footer-links {
-        border-left: 1px solid var(--primary-color);
-        padding-left: 8px;
-        flex-direction: row;
-        flex-wrap: wrap;
-        margin: 8px;
-        margin-right: 0px;
-        gap: 20px;
-    }
-
     .footer-logo {
         margin: 8px;
         margin-right: 12px;

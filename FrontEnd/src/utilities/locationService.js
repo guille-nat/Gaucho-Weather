@@ -28,9 +28,13 @@ export const getUserLocation = () => {
                 reject(new Error(errorMsg));
             },
             {
-                enableHighAccuracy: true, // Mayor precisión
+                // Sin alta precisión: en desktop no hay GPS y pedirla suele
+                // terminar en TIMEOUT. Para clima alcanza la precisión de red.
+                enableHighAccuracy: false,
                 timeout: 10000, // Espera hasta 10 segundos
-                maximumAge: 0, // No usar ubicaciones en caché
+                // Una ubicación de hace 5 minutos sigue siendo válida para el
+                // clima y evita forzar un fix fresco en cada carga.
+                maximumAge: 5 * 60 * 1000,
             }
         );
     });

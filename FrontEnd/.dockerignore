@@ -13,9 +13,9 @@ dist/
 build/
 coverage/
 
-# Archivos de Docker y configuración
-Dockerfile-frontend
-docker-compose.yml
+# Control de versiones
+.git/
+.gitignore
 
 # Archivos de IDE/editor
 .vscode/

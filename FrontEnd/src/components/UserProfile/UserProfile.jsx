@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { useDispatch } from "react-redux"
+import { useNavigate } from "react-router-dom"
 import {
     User,
     Mail,
@@ -16,14 +18,40 @@ import {
     ChevronDown,
     ChevronUp,
     AlertTriangle,
+    Pencil,
 } from "lucide-react"
+import { getUserProfile, updateUserProfile, updateUserPreferences } from "../../services/userProfileServices"
+import { setPreferences, clearPreferences } from "../../redux/slices/userPreferencesSlice"
+import { logout } from "../../redux/slices/authSlice"
+import { PublicRoutes } from "../../routes/routes"
+import Feedback from "../Feedback"
 import "./style/UserProfile.css"
 
+// El backend devuelve errores de validación como {campo: ["mensaje", ...]}.
+// Nos quedamos con el primer mensaje de cada campo para mostrarlo bajo el
+// input correspondiente.
+const mapServerErrors = (data) => {
+    const mapped = {}
+    Object.entries(data).forEach(([field, messages]) => {
+        mapped[field] = Array.isArray(messages) ? messages[0] : String(messages)
+    })
+    return mapped
+}
+
 export default function UserProfile() {
-    // State for user data
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
+
+    // Estado del perfil (fuente de verdad: la última respuesta del backend)
     const [profile, setProfile] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [loadError, setLoadError] = useState(null)
+
     const [editMode, setEditMode] = useState(false)
+    const [profileSnapshot, setProfileSnapshot] = useState(null)
+    const [savingProfile, setSavingProfile] = useState(false)
+    const [savingPreferences, setSavingPreferences] = useState(false)
+
     const [expandedSection, setExpandedSection] = useState(null)
     const [activeTab, setActiveTab] = useState("profile")
     const [newLocation, setNewLocation] = useState({
@@ -32,60 +60,36 @@ export default function UserProfile() {
         lon: "",
     })
     const [formErrors, setFormErrors] = useState({})
+    const [feedback, setFeedback] = useState(null)
 
-    // Fetch user data (simulated)
-    useEffect(() => {
-        // In a real app, this would be an API call
-        const fetchUserProfile = async () => {
-            try {
-                // Simulated API response
-                const mockUserProfile = {
-                    user: {
-                        id: 1,
-                        username: "usuario_ejemplo",
-                        email: "usuario@ejemplo.com",
-                        email_verify: true,
-                        first_name: "Usuario",
-                        last_name: "Ejemplo",
-                        date_joined: "2023-01-15T10:30:00Z",
-                        last_login: "2025-03-18T08:45:00Z",
-                    },
-                    preferences: {
-                        id: 1,
-                        user: 1,
-                        favorite_location: [
-                            {
-                                lat: -32.4782971,
-                                lon: -61.5805422,
-                                name: "Rosario",
-                            },
-                            {
-                                lat: -34.6037,
-                                lon: -58.3816,
-                                name: "Buenos Aires",
-                            },
-                        ],
-                        alerts_enabled: true,
-                        preferred_units: "metric",
-                    },
-                }
-
-                setProfile(mockUserProfile)
-                setLoading(false)
-            } catch (error) {
-                console.error("Error fetching user profile:", error)
-                showToast("Error", "No se pudo cargar el perfil de usuario", "error")
-                setLoading(false)
-            }
+    const fetchProfile = useCallback(async () => {
+        setLoading(true)
+        setLoadError(null)
+        try {
+            const data = await getUserProfile()
+            setProfile(data)
+        } catch (error) {
+            console.error("Error fetching user profile:", error)
+            setLoadError("No pudimos cargar tu perfil. Verificá tu conexión e intentá de nuevo.")
+        } finally {
+            setLoading(false)
         }
-
-        fetchUserProfile()
     }, [])
 
-    // Simple toast notification function
-    const showToast = (title, message, type = "success") => {
-        // In a real app, you would use a toast library or custom implementation
-        alert(`${title}: ${message}`)
+    useEffect(() => {
+        fetchProfile()
+    }, [fetchProfile])
+
+    const enterEditMode = () => {
+        setProfileSnapshot(profile.user)
+        setFormErrors({})
+        setEditMode(true)
+    }
+
+    const cancelEdit = () => {
+        setProfile((prev) => (prev ? { ...prev, user: profileSnapshot } : prev))
+        setFormErrors({})
+        setEditMode(false)
     }
 
     // Handle form submission
@@ -111,19 +115,70 @@ export default function UserProfile() {
             return
         }
 
-        // Clear any previous errors
         setFormErrors({})
-
-        // In a real app, this would be an API call to update the profile
+        setSavingProfile(true)
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 800))
+            const emailChanged = profile.user.email !== profileSnapshot?.email
+            const updatedUser = await updateUserProfile({
+                username: profile.user.username,
+                email: profile.user.email,
+                first_name: profile.user.first_name,
+                last_name: profile.user.last_name,
+            })
 
+            setProfile((prev) => ({ ...prev, user: updatedUser }))
             setEditMode(false)
-            showToast("Perfil actualizado", "Los cambios han sido guardados correctamente")
+            setFeedback({
+                type: "success",
+                message: emailChanged
+                    ? "Perfil actualizado. Tu nuevo email queda pendiente de verificación."
+                    : "Perfil actualizado correctamente.",
+            })
         } catch (error) {
             console.error("Error updating profile:", error)
-            showToast("Error", "No se pudo actualizar el perfil", "error")
+            const serverErrors = error.response?.data
+            if (serverErrors && typeof serverErrors === "object") {
+                setFormErrors(mapServerErrors(serverErrors))
+            }
+            setFeedback({
+                type: "error",
+                message: "No se pudo actualizar el perfil. Revisá los datos e intentá de nuevo.",
+            })
+        } finally {
+            setSavingProfile(false)
+        }
+    }
+
+    // Persiste todas las preferencias (unidades, alertas, ubicaciones
+    // favoritas) de una sola vez, y refleja el resultado en Redux para que
+    // el resto de la app (Home, Reports, Graphics) quede sincronizado.
+    const handleSavePreferences = async () => {
+        if (!profile) return
+        setSavingPreferences(true)
+        try {
+            const updatedPreferences = await updateUserPreferences({
+                favorite_location: profile.preferences.favorite_location,
+                alerts_enabled: profile.preferences.alerts_enabled,
+                preferred_units: profile.preferences.preferred_units,
+            })
+
+            setProfile((prev) => ({ ...prev, preferences: updatedPreferences }))
+            dispatch(
+                setPreferences({
+                    favoriteLocation: updatedPreferences.favorite_location,
+                    preferredUnits: updatedPreferences.preferred_units,
+                    alertsEnabled: updatedPreferences.alerts_enabled,
+                }),
+            )
+            setFeedback({ type: "success", message: "Tus preferencias fueron guardadas correctamente." })
+        } catch (error) {
+            console.error("Error updating preferences:", error)
+            setFeedback({
+                type: "error",
+                message: "No se pudieron guardar las preferencias. Intentá de nuevo.",
+            })
+        } finally {
+            setSavingPreferences(false)
         }
     }
 
@@ -136,12 +191,25 @@ export default function UserProfile() {
         }
     }
 
-    // Handle adding a new location
+    // Los encabezados de las secciones de preferencias son divs con onClick,
+    // sin semántica de control: mismo patrón de accesibilidad que
+    // Home.jsx campo-header (role, tabIndex, aria-expanded/aria-controls,
+    // Enter/Space).
+    const handleSectionHeaderKeyDown = (section) => (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            toggleSection(section)
+        }
+    }
+
+    // Las siguientes acciones (agregar/quitar ubicación, cambiar unidades,
+    // activar alertas) solo tocan el borrador local: recién se persisten al
+    // backend cuando se toca "Guardar todas las preferencias". Mostrar un
+    // aviso de éxito acá antes de ese guardado real sería mentir.
     const handleAddLocation = (e) => {
         e.preventDefault()
         if (!profile) return
 
-        // Validate location data
         const errors = {}
 
         if (!newLocation.name) {
@@ -165,94 +233,83 @@ export default function UserProfile() {
             return
         }
 
-        // Clear any previous errors
         setFormErrors({})
-
-        // Add the new location
-        const updatedProfile = { ...profile }
-        updatedProfile.preferences.favorite_location.push({
-            name: newLocation.name,
-            lat: Number(newLocation.lat),
-            lon: Number(newLocation.lon),
-        })
-
-        setProfile(updatedProfile)
+        setProfile((prev) => ({
+            ...prev,
+            preferences: {
+                ...prev.preferences,
+                favorite_location: [
+                    ...prev.preferences.favorite_location,
+                    { name: newLocation.name, lat: Number(newLocation.lat), lon: Number(newLocation.lon) },
+                ],
+            },
+        }))
         setNewLocation({ name: "", lat: "", lon: "" })
-
-        showToast("Ubicación agregada", `${newLocation.name} ha sido agregada a tus ubicaciones favoritas`)
     }
 
-    // Handle removing a location
     const handleRemoveLocation = (index) => {
         if (!profile) return
-
-        const locationName = profile.preferences.favorite_location[index].name
-        const updatedProfile = { ...profile }
-        updatedProfile.preferences.favorite_location.splice(index, 1)
-
-        setProfile(updatedProfile)
-
-        showToast("Ubicación eliminada", `${locationName} ha sido eliminada de tus ubicaciones favoritas`)
+        setProfile((prev) => ({
+            ...prev,
+            preferences: {
+                ...prev.preferences,
+                favorite_location: prev.preferences.favorite_location.filter((_, i) => i !== index),
+            },
+        }))
     }
 
-    // Handle toggling alerts
     const handleToggleAlerts = () => {
         if (!profile) return
-
-        const updatedProfile = { ...profile }
-        updatedProfile.preferences.alerts_enabled = !updatedProfile.preferences.alerts_enabled
-
-        setProfile(updatedProfile)
-
-        showToast(
-            updatedProfile.preferences.alerts_enabled ? "Alertas activadas" : "Alertas desactivadas",
-            updatedProfile.preferences.alerts_enabled
-                ? "Recibirás notificaciones sobre alertas climáticas"
-                : "No recibirás notificaciones sobre alertas climáticas",
-        )
+        setProfile((prev) => ({
+            ...prev,
+            preferences: { ...prev.preferences, alerts_enabled: !prev.preferences.alerts_enabled },
+        }))
     }
 
-    // Handle changing units
     const handleChangeUnits = (value) => {
         if (!profile) return
-
-        const updatedProfile = { ...profile }
-        updatedProfile.preferences.preferred_units = value
-
-        setProfile(updatedProfile)
-
-        showToast("Unidades actualizadas", `Has cambiado a unidades ${value === "metric" ? "métricas" : "imperiales"}`)
+        setProfile((prev) => ({
+            ...prev,
+            preferences: { ...prev.preferences, preferred_units: value },
+        }))
     }
 
-    // Format date for display
-    const formatDate = (dateString) => {
-        const date = new Date(dateString)
-        return new Intl.DateTimeFormat("es-ES", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        }).format(date)
+    const handleLogout = () => {
+        dispatch(logout())
+        dispatch(clearPreferences())
+        navigate(PublicRoutes.HOME)
     }
 
     if (loading) {
         return (
-            <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Cargando perfil...</p>
+            <div className="profile-container">
+                <div className="profile-card profile-card--skeleton" aria-busy="true" aria-live="polite">
+                    <div className="skeleton-header">
+                        <span className="skeleton skeleton-avatar" />
+                        <div className="skeleton-header-text">
+                            <span className="skeleton skeleton-line skeleton-line--wide" />
+                            <span className="skeleton skeleton-line skeleton-line--narrow" />
+                        </div>
+                    </div>
+                    <div className="skeleton-body">
+                        <span className="skeleton skeleton-field" />
+                        <span className="skeleton skeleton-field" />
+                        <span className="skeleton skeleton-field" />
+                    </div>
+                    <span className="sr-only">Cargando perfil…</span>
+                </div>
             </div>
         )
     }
 
-    if (!profile) {
+    if (loadError) {
         return (
             <div className="error-container">
                 <div className="error-card">
                     <div className="error-title">Error</div>
-                    <p className="error-message">No se pudo cargar la información del perfil</p>
+                    <p className="error-message">{loadError}</p>
                     <div className="error-footer">
-                        <button onClick={() => window.location.reload()} className="button">
+                        <button onClick={fetchProfile} className="button">
                             Reintentar
                         </button>
                     </div>
@@ -261,8 +318,16 @@ export default function UserProfile() {
         )
     }
 
+    if (!profile) {
+        return null
+    }
+
     return (
         <div className="profile-container">
+            {feedback && (
+                <Feedback type={feedback.type} message={feedback.message} onDismiss={() => setFeedback(null)} />
+            )}
+
             <div className="profile-tabs">
                 <div className="tabs-list">
                     <button className={`tab ${activeTab === "profile" ? "active" : ""}`} onClick={() => setActiveTab("profile")}>
@@ -283,32 +348,32 @@ export default function UserProfile() {
                             <div className="profile-header">
                                 <div className="edit-button-container">
                                     {editMode ? (
-                                        <button className="edit-button" onClick={handleSaveProfile}>
+                                        <button className="edit-button" onClick={handleSaveProfile} disabled={savingProfile}>
                                             <Save className="icon-small" />
                                             <span className="sr-only">Guardar</span>
                                         </button>
                                     ) : (
-                                        <button className="edit-button" onClick={() => setEditMode(true)}>
-                                            ✍️
+                                        <button className="edit-button" onClick={enterEditMode}>
+                                            <Pencil className="icon-small" />
                                             <span className="sr-only">Editar</span>
                                         </button>
                                     )}
                                 </div>
 
                                 <div className="user-info">
+                                    {/* Antes acá había una imagen remota de api.dicebear.com
+                                        que le mandaba el username a un tercero solo para
+                                        pintar el avatar — y el div de iniciales de abajo ya
+                                        lo tapaba por completo (position: absolute encima),
+                                        así que ni se llegaba a ver. */}
                                     <div className="user-avatar">
-                                        <img
-                                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${profile.user.username}`}
-                                            alt={profile.user.username}
-                                            className="avatar-image"
-                                        />
                                         <div className="avatar-fallback">{profile.user.username.substring(0, 2).toUpperCase()}</div>
                                     </div>
 
                                     <div className="user-details">
-                                        <h2 className="user-name">
+                                        <h1 className="user-name">
                                             {profile.user.first_name} {profile.user.last_name}
-                                        </h2>
+                                        </h1>
                                         <div className="user-username">
                                             <User className="icon-tiny" />@{profile.user.username}
                                             {profile.user.email_verify && (
@@ -415,19 +480,10 @@ export default function UserProfile() {
                                         </>
                                     )}
                                 </form>
-
-                                <div className="dates-section">
-                                    <div className="dates-grid">
-                                        <div className="date-item">
-                                            <p className="date-label">Fecha de registro</p>
-                                            <p className="date-value">{formatDate(profile.user.date_joined)}</p>
-                                        </div>
-                                        <div className="date-item">
-                                            <p className="date-label">Último acceso</p>
-                                            <p className="date-value">{formatDate(profile.user.last_login)}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* "Fecha de registro" / "Último acceso" se sacaron de acá: el
+                                    backend (UserSerializer, BackEnd/users/serializers.py) nunca
+                                    serializa date_joined ni last_login, así que no hay dato real
+                                    que mostrar. Ver reporte de Wave 2 para más detalle. */}
                             </div>
 
                             <div className="profile-footer">
@@ -436,23 +492,29 @@ export default function UserProfile() {
                                         <button
                                             type="button"
                                             className="button button-outline cancel-button"
-                                            onClick={() => setEditMode(false)}
+                                            onClick={cancelEdit}
+                                            disabled={savingProfile}
                                         >
                                             Cancelar
                                         </button>
-                                        <button type="button" className="button save-button" onClick={handleSaveProfile}>
+                                        <button
+                                            type="button"
+                                            className="button save-button"
+                                            onClick={handleSaveProfile}
+                                            disabled={savingProfile}
+                                        >
                                             <Save className="icon-small" />
-                                            Guardar cambios
+                                            {savingProfile ? "Guardando..." : "Guardar cambios"}
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <button type="button" className="button button-outline logout-button">
+                                        <button type="button" className="button button-outline logout-button" onClick={handleLogout}>
                                             <LogOut className="icon-small" />
                                             Cerrar sesión
                                         </button>
-                                        <button type="button" className="button edit-profile-button" onClick={() => setEditMode(true)}>
-                                        ✍️
+                                        <button type="button" className="button edit-profile-button" onClick={enterEditMode}>
+                                            <Pencil className="icon-small" />
                                             Editar perfil
                                         </button>
                                     </>
@@ -467,14 +529,22 @@ export default function UserProfile() {
                     <div className="tab-content">
                         <div className="preferences-card">
                             <div className="card-header">
-                                <h2 className="card-title">Preferencias de usuario</h2>
+                                <h1 className="card-title">Preferencias de usuario</h1>
                                 <p className="card-description">Configura tus preferencias para personalizar tu experiencia</p>
                             </div>
 
                             <div className="preferences-content">
                                 {/* Units Preference */}
                                 <div className="preference-section">
-                                    <div className="section-header" onClick={() => toggleSection("units")}>
+                                    <div
+                                        className="section-header"
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-expanded={expandedSection === "units"}
+                                        aria-controls="units-section-panel"
+                                        onClick={() => toggleSection("units")}
+                                        onKeyDown={handleSectionHeaderKeyDown("units")}
+                                    >
                                         <div className="section-title">
                                             <Ruler className="section-icon" />
                                             <h3>Sistema de unidades</h3>
@@ -487,7 +557,7 @@ export default function UserProfile() {
                                     </div>
 
                                     {expandedSection === "units" && (
-                                        <div className="section-content units-content">
+                                        <div id="units-section-panel" className="section-content units-content">
                                             <div className="units-options">
                                                 <div className="radio-option">
                                                     <input
@@ -524,7 +594,15 @@ export default function UserProfile() {
 
                                 {/* Alerts Preference */}
                                 <div className="preference-section">
-                                    <div className="section-header" onClick={() => toggleSection("alerts")}>
+                                    <div
+                                        className="section-header"
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-expanded={expandedSection === "alerts"}
+                                        aria-controls="alerts-section-panel"
+                                        onClick={() => toggleSection("alerts")}
+                                        onKeyDown={handleSectionHeaderKeyDown("alerts")}
+                                    >
                                         <div className="section-title">
                                             {profile.preferences.alerts_enabled ? (
                                                 <Bell className="section-icon active-icon" />
@@ -541,7 +619,7 @@ export default function UserProfile() {
                                     </div>
 
                                     {expandedSection === "alerts" && (
-                                        <div className="section-content alerts-content">
+                                        <div id="alerts-section-panel" className="section-content alerts-content">
                                             <div className="alerts-toggle-container">
                                                 <div className="alerts-info">
                                                     <label htmlFor="alerts-toggle" className="toggle-label">
@@ -578,7 +656,15 @@ export default function UserProfile() {
 
                                 {/* Favorite Locations */}
                                 <div className="preference-section">
-                                    <div className="section-header" onClick={() => toggleSection("locations")}>
+                                    <div
+                                        className="section-header"
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-expanded={expandedSection === "locations"}
+                                        aria-controls="locations-section-panel"
+                                        onClick={() => toggleSection("locations")}
+                                        onKeyDown={handleSectionHeaderKeyDown("locations")}
+                                    >
                                         <div className="section-title">
                                             <MapPin className="section-icon" />
                                             <h3>Ubicaciones favoritas</h3>
@@ -592,7 +678,7 @@ export default function UserProfile() {
                                     </div>
 
                                     {expandedSection === "locations" && (
-                                        <div className="section-content locations-content">
+                                        <div id="locations-section-panel" className="section-content locations-content">
                                             {profile.preferences.favorite_location.length > 0 ? (
                                                 <div className="locations-list">
                                                     {profile.preferences.favorite_location.map((location, index) => (
@@ -689,12 +775,11 @@ export default function UserProfile() {
                                 <button
                                     type="button"
                                     className="button save-preferences-button"
-                                    onClick={() => {
-                                        showToast("Preferencias guardadas", "Tus preferencias han sido actualizadas correctamente")
-                                    }}
+                                    onClick={handleSavePreferences}
+                                    disabled={savingPreferences}
                                 >
                                     <Save className="icon-small" />
-                                    Guardar todas las preferencias
+                                    {savingPreferences ? "Guardando..." : "Guardar todas las preferencias"}
                                 </button>
                             </div>
                         </div>
@@ -704,4 +789,3 @@ export default function UserProfile() {
         </div>
     )
 }
-

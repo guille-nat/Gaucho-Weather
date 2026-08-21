@@ -1,11 +1,19 @@
 .graphics-container {
     padding: 2rem;
-    background-color: var(--background-color);
-    color: var(--text-primary);
+    background-color: var(--surface-base);
+    color: var(--content-primary);
     display: flex;
     flex-direction: column;
     width: 100%;
     gap: 30px;
+}
+
+/* Matches the global h2 styling this heading used before the h1 promotion
+   (index.css h1 defaults to --text-4xl, one step larger). */
+.graphics-title {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    font-weight: var(--weight-bold);
 }
 
 .location-select {
@@ -17,12 +25,15 @@
 
 .location-btn {
     background: var(--gradient-primary);
-    color: white;
+    /* --gradient-primary never reacts to theme (raw blue-500/600
+       primitives), so this stays a constant white rather than the
+       theme-reactive --content-on-brand. */
+    color: var(--neutral-0);
     padding: 0.5rem 1rem;
     border: none;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-xl);
     cursor: pointer;
-    transition: background var(--transition-speed);
+    transition: background var(--duration-normal);
 }
 
 .location-btn:hover {
@@ -42,11 +53,20 @@
 }
 
 .chart-card {
-    background-color: var(--card-color);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-md);
+    background-color: var(--surface-raised);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-2);
     padding: 1rem;
     transition: transform 0.2s ease;
+}
+
+/* Matches the global h3 styling this title used before the h1/h2 promotion
+   fixed heading order (page title is now h1, chart titles h2; index.css h2
+   defaults to --text-3xl/bold, one step larger/heavier). */
+.chart-card-title {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-tight);
+    font-weight: var(--weight-semibold);
 }
 
 .chart-card:hover {
@@ -60,167 +80,27 @@
     gap: 10px 10px;
 }
 
-/* Style Checkbox current location */
-/* From Uiverse.io by fedormamyc46597 */
-/* From Uiverse.io by 3HugaDa3 */
-.checkbox-wrapper {
-    --checkbox-size: 25px;
-    --checkbox-color: #00ff88;
-    --checkbox-shadow: rgba(0, 255, 136, 0.3);
-    --checkbox-border: rgba(0, 255, 136, 0.7);
+/* Plain native checkbox: replaces a copy-pasted Uiverse.io widget that
+   painted the label text at 1.23:1 contrast (neon green on a near-white
+   tint) and was keyboard-inaccessible in spirit even if technically
+   focusable. Checkbox color comes from the global
+   input[type=checkbox]{accent-color:var(--brand)} rule in index.css. */
+.location-checkbox {
     display: flex;
     align-items: center;
-    position: relative;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: var(--space-2) 0;
     cursor: pointer;
-    padding: 10px;
+    font-size: var(--text-base);
+    color: var(--content-primary);
 }
 
-.checkbox-wrapper input {
-    position: absolute;
-    opacity: 0;
+.location-checkbox input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    height: 0;
-    width: 0;
 }
-
-.checkbox-wrapper .checkmark {
-    position: relative;
-    width: var(--checkbox-size);
-    height: var(--checkbox-size);
-    border: 2px solid var(--checkbox-border);
-    border-radius: 8px;
-    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-    /* Используем более плавный кубический безе */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.2);
-    box-shadow: 0 0 15px var(--checkbox-shadow);
-    overflow: hidden;
-}
-
-.checkbox-wrapper .checkmark::before {
-    content: "";
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(45deg, var(--checkbox-color), #00ffcc);
-    opacity: 0;
-    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-    /* Используем более плавный кубический безе */
-    transform: scale(0) rotate(-45deg);
-}
-
-.checkbox-wrapper input:checked~.checkmark::before {
-    opacity: 1;
-    transform: scale(1) rotate(0);
-}
-
-.checkbox-wrapper .checkmark svg {
-    width: 0;
-    height: 0;
-    color: #1a1a1a;
-    z-index: 1;
-    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-    /* Используем более плавный кубический безе */
-    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
-}
-
-.checkbox-wrapper input:checked~.checkmark svg {
-    width: 18px;
-    height: 18px;
-    /* transform: rotate(360deg); <-- УДАЛЕНО */
-}
-
-.checkbox-wrapper:hover .checkmark {
-    border-color: var(--checkbox-color);
-    transform: scale(1.1);
-    box-shadow:
-        0 0 20px var(--checkbox-shadow),
-        0 0 40px var(--checkbox-shadow),
-        inset 0 0 10px var(--checkbox-shadow);
-    transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-    /* Добавляем плавный переход */
-}
-
-.checkbox-wrapper input:checked~.checkmark {
-    animation: pulse 1s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 15px var(--checkbox-shadow);
-        /* Уменьшаем начальный бокс-шадоу */
-    }
-
-    50% {
-        transform: scale(0.95);
-        /* Меняем значение для более плавного эффекта */
-        box-shadow:
-            0 0 25px var(--checkbox-shadow),
-            0 0 40px var(--checkbox-shadow);
-    }
-
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 15px var(--checkbox-shadow);
-        /* Уменьшаем конечный бокс-шадоу */
-    }
-}
-
-.checkbox-wrapper .label {
-    margin-left: 15px;
-    font-family: "Segoe UI", sans-serif;
-    color: var(--checkbox-color);
-    font-size: 18px;
-    text-shadow: 0 0 10px var(--checkbox-shadow);
-    opacity: 0.9;
-    transition: all 0.3s ease;
-    /* Используем стандартное easing */
-}
-
-.checkbox-wrapper:hover .label {
-    opacity: 1;
-    transform: translateX(5px);
-}
-
-/* Glowing dots animation */
-.checkbox-wrapper::after,
-.checkbox-wrapper::before {
-    content: "";
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--checkbox-color);
-    opacity: 0;
-    transition: all 0.5s ease;
-    /* Используем стандартное easing */
-}
-
-.checkbox-wrapper::before {
-    left: -10px;
-    top: 50%;
-}
-
-.checkbox-wrapper::after {
-    right: -10px;
-    top: 50%;
-}
-
-.checkbox-wrapper:hover::before {
-    opacity: 1;
-    transform: translateX(-10px);
-    box-shadow: 0 0 10px var(--checkbox-color);
-}
-
-.checkbox-wrapper:hover::after {
-    opacity: 1;
-    transform: translateX(10px);
-    box-shadow: 0 0 10px var(--checkbox-color);
-}
-
 
 @media (max-width: 880px) {
     .charts-wrapper {

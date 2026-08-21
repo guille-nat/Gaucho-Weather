@@ -1,8 +1,8 @@
 .auth-error {
     display: flex;
     align-items: flex-start;
-    background-color: #fee2e2;
-    border: 1px solid #ef4444;
+    background-color: color-mix(in srgb, var(--feedback-error) 12%, var(--surface-raised));
+    border: 1px solid var(--feedback-error);
     border-radius: 4px;
     padding: 12px;
     margin-bottom: 16px;
@@ -10,8 +10,10 @@
 }
 
 .auth-error-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
     margin-right: 12px;
-    font-size: 18px;
 }
 
 .auth-error-content {
@@ -20,25 +22,34 @@
 
 .auth-error-title {
     margin: 0 0 4px 0;
-    color: #b91c1c;
+    color: var(--feedback-error);
     font-size: 16px;
     font-weight: 600;
 }
 
 .auth-error-message {
     margin: 0;
-    color: #7f1d1d;
+    color: color-mix(in srgb, var(--feedback-error) 80%, black);
     font-size: 14px;
 }
 
 .auth-error-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     background: none;
     border: none;
-    color: #b91c1c;
+    color: var(--feedback-error);
     cursor: pointer;
-    font-size: 18px;
     padding: 0;
     margin-left: 8px;
+}
+
+.auth-error-close svg {
+    width: 18px;
+    height: 18px;
 }
 
 @keyframes fadeIn {

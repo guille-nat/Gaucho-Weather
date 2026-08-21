@@ -3,17 +3,35 @@
     margin: 10px;
 }
 
-.input-search-location {
+/* index.css's global input reset (`input:not([type='checkbox']):not([type='radio'])`,
+   specificity 0,2,1) was beating the plain `.input-search-location` class
+   (0,1,0) and overwriting the 40px left padding the search icon needs to
+   clear the placeholder. Qualifying the selector with the input's own id
+   (already on the element, see SearchLocation.jsx) raises specificity past
+   the global rule for good, independent of stylesheet load order. */
+#search-location.input-search-location {
     width: 100%;
     max-width: 600px;
+    height: 44px;
     white-space: nowrap;
     overflow-x: auto;
     padding: 10px 0px 10px 40px;
     border-radius: 9999px;
-    border: solid 1px #333;
+    border: solid 1px var(--neutral-700);
     transition: all .2s ease-in-out;
     outline: none;
     opacity: 0.8;
+}
+
+/* Reserva el mismo alto/ancho que el input real mientras
+   @react-google-maps/api carga en un chunk aparte (ver React.lazy en
+   WeatherMainInfo.jsx): mismas dimensiones para que no haya salto de
+   layout cuando el input real aparece. */
+.search-location-skeleton.skeleton {
+    width: 100%;
+    max-width: 600px;
+    height: 44px;
+    border-radius: 9999px;
 }
 
 .container-search-location svg {
@@ -23,7 +41,17 @@
     transform: translate(0, -50%);
 }
 
-.input-search-location:focus {
+#search-location.input-search-location:focus {
     opacity: 1;
-    border:dashed 2px var(--secondary-color);
+    border:dashed 2px var(--fill-orange);
+}
+/* Mensaje cuando el usuario escribe sin elegir una sugerencia de la lista. */
+.search-location-error {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-raised);
+    color: var(--feedback-error);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
 }

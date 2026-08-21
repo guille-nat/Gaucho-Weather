@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, lazy, Suspense } from "react"
+import PropTypes from "prop-types"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-<<<<<<< HEAD
 import { formatTemp, formatSpeed } from "../../utilities/convertUnits"
-import SearchLocation from "../SearchLocation";
-=======
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
+import { WEATHER_ICON_SLUGS } from "../../data/weatherIconSlugs";
 import {
     Sunrise,
     Sunset,
@@ -15,18 +13,20 @@ import {
     Wind,
 } from "lucide-react"
 import "./style/WeatherMainInfo.css"
-<<<<<<< HEAD
 
+// @react-google-maps/api (usado por SearchLocation) es el bloque más pesado
+// del bundle de entrada; se saca del chunk inicial y se carga recién cuando
+// este componente se monta. El fallback de Suspense reserva el mismo alto
+// que el input real (ver .search-location-skeleton en SearchLocation.css)
+// para no producir salto de layout mientras carga.
+const SearchLocation = lazy(() => import("../SearchLocation"));
 
-export default function WeatherMainInfo({ currentWeather, forecastData, weatherCodeData, tempUnit, setTempUnit, setLocation}) {
-=======
-import { formatTemp, formatSpeed } from "../../utilities/convertUnits"
+const SearchLocationSkeleton = () => (
+    <div className="search-location-skeleton skeleton" aria-hidden="true" />
+);
 
-
-export default function WeatherMainInfo({ currentWeather, forecastData, weatherCodeData, tempUnit, setTempUnit }) {
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
+export default function WeatherMainInfo({ currentWeather, forecastData, weatherCodeData, tempUnit, setTempUnit, setLocation, weatherBackground }) {
     const [activeTab, setActiveTab] = useState("daily")
-    const [currentTime, setCurrentTime] = useState(new Date())
     // Extract current weather data
     const current = currentWeather.data.values
 
@@ -44,82 +44,60 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
     
         return weatherCodeData.weatherCode[weatherCode] || "Despejado";
     };
-<<<<<<< HEAD
-    
-=======
-    //TODO
-    // Función para convertir grados a dirección del viento
-    const getWindDirection = (degrees) => {
-        const directions = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
-        const index = Math.round(degrees / 45) % 8;
-        return directions[index];
-    };
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
-    
-    // Función para obtener el icono según el código del clima
+    // Función para obtener el icono según el código del clima.
+    // El nombre de archivo se arma con WEATHER_ICON_SLUGS (siempre en inglés,
+    // ver ese archivo), nunca con el texto traducido de weatherCodeData: así
+    // traducir la condición al español no rompe la ruta del ícono.
     const getWeatherIcon = (weatherCode) => {
-        const conditionName = weatherCodeData.weatherCode[weatherCode];
+        const iconSlug = WEATHER_ICON_SLUGS[weatherCode];
 
-        if (conditionName) {
-            const formattedConditionName = conditionName
-                .toLowerCase()
-                .replace(/\s+/g, "_");
+        if (iconSlug) {
             const now = new Date();
             const hours = now.getHours();
             const sunriseTime = formatTime(dailyForecast[0].values.sunriseTime).split(':')
             const sunsetTime = formatTime(dailyForecast[0].values.sunsetTime).split(':')
             // Corregido el error en la condición compuesta
             if (weatherCode >= 1102 || weatherCode === 1001) {
-                return `/icons/weather_code/${formattedConditionName}.svg`;
+                return `/icons/weather_code/${iconSlug}.svg`;
             } if (
                 (weatherCode === 1000 ||
                     weatherCode === 1100 ||
                     weatherCode === 1101) &&
                 hours >= sunsetTime[0]|| (hours >= 0 && hours <=sunriseTime[0])
             ) {
-                return `/icons/weather_code/${formattedConditionName}_night.svg`;
+                return `/icons/weather_code/${iconSlug}_night.svg`;
             } else {
-                return `/icons/weather_code/${formattedConditionName}_day.svg`;
+                return `/icons/weather_code/${iconSlug}_day.svg`;
             }
         }
 
         return `/icons/weather_code/1000_clear_small@2x.png`; // Default icon
     };
 
-    // Update current time every minute
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(new Date())
-        }, 60000)
-
-        return () => clearInterval(timer)
-    }, [])
-
-
-
-    // Get appropriate weather background class
-    const getWeatherBackground = () => {
-        if (!currentWeather) return "weather-clear"
-
-        const hour = currentTime.getHours()
-        const isNight = hour < 6 || hour > 19
-        const weatherCode = currentWeather.data.values.weatherCode
-
-        if (weatherCode >= 4000) {
-            return "weather-rainy"
-        } else if (weatherCode >= 1001) {
-            return isNight ? "weather-cloudy-night" : "weather-cloudy"
-        } else {
-            return isNight ? "weather-clear-night" : "weather-clear"
+    // El selector de unidad es un div interactivo: mismo patrón de
+    // accesibilidad que los encabezados de acordeón de Home.jsx (role,
+    // tabIndex, aria-label, Enter/Space), adaptado a un toggle en vez de un
+    // disclosure (por eso aria-label describe la acción, no aria-expanded).
+    const toggleTempUnit = () => setTempUnit(tempUnit === "metric" ? "imperial" : "metric")
+    const handleTempToggleKeyDown = (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            toggleTempUnit()
         }
     }
+
+    // weatherBackground llega como prop: antes este componente tenía su
+    // propio reloj (setInterval) y su propia copia de getWeatherBackground(),
+    // duplicados byte a byte con los de Home.jsx. Home ya tiene el reloj que
+    // gobierna el fondo del home-container; ahora es la única fuente de
+    // verdad y este componente solo consume el resultado.
 
     // Format date for display
     const formatDate = (dateString) => {
         try {
             const date = new Date(dateString)
             return format(date, "EEEE, d 'de' MMMM", { locale: es })
-        } catch (error) {
+        } catch {
             return "Fecha desconocida"
         }
     }
@@ -129,7 +107,7 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
         try {
             const date = new Date(dateString)
             return format(date, "HH:mm", { locale: es })
-        } catch (error) {
+        } catch {
             return "--:--"
         }
     }
@@ -139,7 +117,7 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
         try {
             const date = new Date(dateString)
             return format(date, "EEE", { locale: es })
-        } catch (error) {
+        } catch {
             return "---"
         }
     }
@@ -149,13 +127,17 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
         try {
             const date = new Date(dateString)
             return format(date, "d", { locale: es })
-        } catch (error) {
+        } catch {
             return "--"
         }
     }
 
 
-    // Función para formatear la ubicación
+    // Función PURA para formatear la ubicación: solo calcula, no toca estado
+    // de nadie. Antes llamaba a setLocation() (estado del padre, Home) acá
+    // adentro, durante el render de este componente — "Cannot update a
+    // component while rendering a different component". El efecto que
+    // propaga el nombre corto a Home vive aparte, más abajo.
     const formatLocation = (locationName) => {
         if (!locationName) return "";
         const parts = locationName.split(",");
@@ -179,38 +161,49 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                 .join(",")
                 .trim();
         }
-        setLocation(locationName);
         return locationName;
     };
 
-<<<<<<< HEAD
-    return (
-        <div className={`weather-container ${getWeatherBackground()}`}>
-            <div className="container-search-location">
-                <SearchLocation/>
-            </div>
-=======
-    
-    
-    
-   
-    
-    return (
-        <div className={`weather-container ${getWeatherBackground()}`}>
+    const locationName = currentWeather.location.name;
+    const displayLocation = formatLocation(locationName);
 
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
-            <div className={`weather-card-main ${getWeatherBackground()}`}>
+    // Cuando el nombre no trae la estructura de 3+ partes (código postal +
+    // localidad + provincia + país), se propaga tal cual al estado
+    // `location` de Home — después del render, no durante.
+    useEffect(() => {
+        if (!locationName) return;
+        const parts = locationName.split(",");
+        if (parts.length < 3) {
+            setLocation(locationName);
+        }
+    }, [locationName, setLocation]);
+
+    return (
+        <div className={`weather-container ${weatherBackground}`}>
+            <div className="container-search-location">
+                <Suspense fallback={<SearchLocationSkeleton />}>
+                    <SearchLocation />
+                </Suspense>
+            </div>
+            <div className={`weather-card-main ${weatherBackground}`}>
                 {/* Header with current weather */}
                 <div className="weather-header">
                     <div className="location-info">
                         <div className="location">
                             <MapPin size={18} />
-                            <h1>{formatLocation(currentWeather.location.name)}</h1>
+                            <h1>{displayLocation}</h1>
                         </div>
                         <p className="date">{formatDate(currentWeather.data.time)}</p>
                     </div>
 
-                    <div className="temp-toggle" onClick={() => setTempUnit(tempUnit === "metric" ? "imperial" : "metric")}>
+                    <div
+                        className="temp-toggle"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={tempUnit === "metric" ? "Cambiar a grados Fahrenheit" : "Cambiar a grados Celsius"}
+                        onClick={toggleTempUnit}
+                        onKeyDown={handleTempToggleKeyDown}
+                    >
                         <span className={tempUnit === "metric" ? "active" : ""}>°C</span>
                         <span className="divider">|</span>
                         <span className={tempUnit === "imperial" ? "active" : ""}>°F</span>
@@ -218,8 +211,8 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                 </div>
 
                 {/* Current weather display */}
-                
-                <div className={`current-weather ${getWeatherBackground()}`}>
+
+                <div className={`current-weather ${weatherBackground}`}>
                     <div className="temp-display">
                         <span className="current-temp">{formatTemp(current.temperatureApparent,tempUnit)}{tempUnit === "metric" ? ' °C' : ' °F'}</span>
                         <img
@@ -264,11 +257,7 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                         Por Horas
                     </button>
                     <button className={`tab ${activeTab === "daily" ? "active" : ""}`} onClick={() => setActiveTab("daily")}>
-<<<<<<< HEAD
                         Próximos 6 Días
-=======
-                        Próximos 5 Días
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                     </button>
                 </div>
 
@@ -287,6 +276,7 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                                                 src={icon}
                                                 alt={getWeatherCondition(hour.values.weatherCode)}
                                                 className="weather-icon"
+                                                loading="lazy"
                                             />
                                         </div>
                                         <p className="temp">{formatTemp(hour.values.temperature,tempUnit)}°</p>
@@ -297,24 +287,23 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
                     )}
 
                     {activeTab === "daily" && (
-                        <div className="daily-forecast">
+                        <div
+                            className="daily-forecast"
+                            tabIndex={0}
+                            aria-label="Pronóstico de los próximos 6 días, desplazable"
+                        >
                             {dailyForecast.map((day, index) => {
                                 const icon = getWeatherIcon(day.values.weatherCodeMin)
                                 return (
                                     <div key={index} className="forecast-item">
-<<<<<<< HEAD
-                                        <p className="day">{formatDay(day.time)}</p>
+                                        <p className="day">{index === 0 ? "Hoy" : formatDay(day.time)}</p>
                                         <p className="date">{formatDayNumber(day.time)}</p>
-=======
-                                        <p className="day">{index == 0 ? "hoy":formatDay(day.time) }</p>
-                                        <p className="date">{formatDayNumber(day.time)}</p>
-                                        
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
                                         <div className="icon-container">
                                             <img
                                                 src={icon}
                                                 alt={getWeatherCondition(day.values.weatherCodeMin)}
                                                 className="weather-icon"
+                                                loading="lazy"
                                             />
                                         </div>
                                         <div className="temp-range">
@@ -331,5 +320,52 @@ export default function WeatherMainInfo({ currentWeather, forecastData, weatherC
             </div>
         </div>
     )
+}
+
+WeatherMainInfo.propTypes = {
+    currentWeather: PropTypes.shape({
+        location: PropTypes.shape({
+            name: PropTypes.string,
+        }).isRequired,
+        data: PropTypes.shape({
+            time: PropTypes.string,
+            values: PropTypes.shape({
+                temperatureApparent: PropTypes.number,
+                weatherCode: PropTypes.number,
+                humidity: PropTypes.number,
+                windSpeed: PropTypes.number,
+            }).isRequired,
+        }).isRequired,
+    }).isRequired,
+    forecastData: PropTypes.shape({
+        weather_hourly_data: PropTypes.arrayOf(
+            PropTypes.shape({
+                time: PropTypes.string,
+                values: PropTypes.shape({
+                    weatherCode: PropTypes.number,
+                    temperature: PropTypes.number,
+                }),
+            })
+        ).isRequired,
+        weather_daily_data: PropTypes.arrayOf(
+            PropTypes.shape({
+                time: PropTypes.string,
+                values: PropTypes.shape({
+                    sunriseTime: PropTypes.string,
+                    sunsetTime: PropTypes.string,
+                    temperatureMax: PropTypes.number,
+                    temperatureMin: PropTypes.number,
+                    weatherCodeMin: PropTypes.number,
+                }),
+            })
+        ).isRequired,
+    }).isRequired,
+    weatherCodeData: PropTypes.shape({
+        weatherCode: PropTypes.objectOf(PropTypes.string),
+    }).isRequired,
+    tempUnit: PropTypes.string.isRequired,
+    setTempUnit: PropTypes.func.isRequired,
+    setLocation: PropTypes.func.isRequired,
+    weatherBackground: PropTypes.string.isRequired,
 }
 

@@ -1,0 +1,6 @@
+/* La página reutiliza casi todo de Auth-Register.css (auth-wrapper,
+   auth-card...). Solo el espaciado entre el aviso y el resto del contenido
+   es propio de este flujo — mismo patrón que ResetPassword.css. */
+.auth-content .feedback {
+  margin-top: 0;
+}

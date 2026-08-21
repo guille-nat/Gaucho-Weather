@@ -1,21 +1,24 @@
-import React, { Suspense, lazy, useState } from "react";
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Route } from "react-router-dom";
-import Graphics from "./components/Graphics";
-import Historic from "./components/Historic";
 import RutesWithNotFound from "./utilities/routes-with-not-found";
-import Reports from "./components/Reports";
 import Loader from "./components/Loader";
-import Register from "./components/Register";
 import { Provider } from "react-redux";
 import store from "./redux/store";
 import { PublicRoutes, PrivateRoutes } from "./routes/routes";
 import AuthGuard from "./guards/auth.guard";
 import "./styles/App.css";
-import UserProfile from "./components/UserProfile";
+import Home from "./components/Home";
 
 const Layout = lazy(() => import("./components/Layout"));
-const Home = lazy(() => import("./components/Home"));
 const Login = lazy(() => import("./components/Login"));
+const Register = lazy(() => import("./components/Register"));
+const Reports = lazy(() => import("./components/Reports"));
+const UserProfile = lazy(() => import("./components/UserProfile"));
+const Historic = lazy(() => import("./components/Historic"));
+const Graphics = lazy(() => import("./components/Graphics"));
+const ForgotPassword = lazy(() => import("./components/ForgotPassword"));
+const ResetPassword = lazy(() => import("./components/ResetPassword"));
+const VerifyEmail = lazy(() => import("./components/VerifyEmail"));
 
 function App() {
   return (
@@ -28,6 +31,9 @@ function App() {
                 <Route path={PublicRoutes.HOME} element={<Layout component={<Home />} />} />
                 <Route path={PublicRoutes.LOGIN} element={<Layout component={<Login />} />} />
                 <Route path={PublicRoutes.REGISTER} element={<Layout component={<Register />} />} />
+                <Route path={PublicRoutes.FORGOT_PASSWORD} element={<Layout component={<ForgotPassword />} />} />
+                <Route path={PublicRoutes.RESET_PASSWORD} element={<Layout component={<ResetPassword />} />} />
+                <Route path={PublicRoutes.VERIFY_EMAIL} element={<Layout component={<VerifyEmail />} />} />
 
                 <Route element={<AuthGuard />}>
                   <Route path={PrivateRoutes.PROFILE} element={<Layout component={<UserProfile />}/>}/>

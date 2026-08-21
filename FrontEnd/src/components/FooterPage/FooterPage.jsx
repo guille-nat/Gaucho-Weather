@@ -13,21 +13,11 @@ function FooterPage() {
                             />
                             <a
                                 target="_blank"
+                                rel="noreferrer"
                                 href="https://www.nataliullacoder.com"
                                 className="non_decore"
                             >
                                 nataliullacoder.com
-                            </a>
-                        </div>
-                        <div className="footer-links">
-                            <a className="non_decore" href="#about" target="_blank">
-                                Sobre Nosotros
-                            </a>
-                            <a className="non_decore" href="#services" target="_blank">
-                                Servicios
-                            </a>
-                            <a className="non_decore" href="#contact" target="_blank">
-                                Contacto
                             </a>
                         </div>
                     </div>

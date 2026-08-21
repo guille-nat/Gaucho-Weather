@@ -1,0 +1,112 @@
+/* Estado honesto de "Próximamente": mismo lenguaje visual que FrostRiskCard
+   (tag + ícono + texto, ícono y color siempre junto al texto) en vez del
+   selector de fechas y el gráfico placeholder que ninguno hacía nada. */
+.historic-container {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.historic-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-default);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-1);
+}
+
+.historic-card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  /* var(--brand) on this 8%-tinted background is 4.14:1 in light mode — a
+     near-miss on AA's 4.5:1 floor. --brand-hover is one ramp step darker in
+     light mode (blue-600, 5.18:1 here) and one step lighter in dark mode
+     (blue-200), so it stays readable against the tint in both themes. */
+  color: var(--brand-hover);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.historic-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.historic-card-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand);
+}
+
+.historic-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.historic-card-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--content-primary);
+}
+
+.historic-card-detail {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--content-secondary);
+}
+
+.historic-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--brand);
+  color: var(--content-on-brand);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition: background-color var(--duration-normal) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+
+.historic-card-cta:hover {
+  background: var(--brand-hover);
+}
+
+.historic-card-cta:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 480px) {
+  .historic-card {
+    padding: var(--space-5) var(--space-4);
+  }
+
+  .historic-card-cta {
+    align-self: stretch;
+  }
+}

@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { CircleCheck, Thermometer, CloudRain, Droplets } from "lucide-react";
 import { weatherService } from "../../services/weatherService";
+import { getUserLocation } from "../../utilities/locationService";
+import { DEFAULT_LOCATION } from "../../constants/constants";
+import { formatTemp, formatSize } from "../../utilities/convertUnits";
 import "./style/Reports.css";
 
 const Reports = () => {
@@ -18,15 +22,17 @@ const Reports = () => {
     useEffect(() => {
         const fetchLocation = async () => {
             try {
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject);
-                });
-                setCurrentCoords({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                });
-            } catch (err) {
-                setError("No se pudo obtener la ubicación actual.");
+                const { latitude, longitude } = await getUserLocation();
+                setCurrentCoords({ latitude, longitude });
+            } catch (geoError) {
+                // Misma política que Home: sin geolocalización caemos a la
+                // ubicación por defecto. Antes esto dejaba loading clavado en
+                // true para siempre porque currentCoords nunca se resolvía.
+                console.warn(
+                    "Geolocalización no disponible, usando ubicación por defecto:",
+                    geoError.message
+                );
+                setCurrentCoords({ ...DEFAULT_LOCATION });
             }
         };
 
@@ -39,26 +45,26 @@ const Reports = () => {
                 setLoading(true);
                 let forecast;
 
+                // El backend siempre devuelve métrico (ver weatherService); la
+                // conversión a la unidad preferida del usuario se hace acá
+                // abajo, al mostrar los valores, no al pedirlos.
                 if (selectedLocation === "current" && currentCoords) {
                     forecast = await weatherService.getForecast({
                         latitude: currentCoords.latitude,
                         longitude: currentCoords.longitude,
-                        unitTemp: window.localStorage.getItem("preferredUnits"),
                     });
                 } else if (selectedLocation !== "current") {
                     const loc = favoriteLocation.find((loc) => loc.name === selectedLocation);
                     forecast = await weatherService.getForecast({
                         latitude: loc.lat,
                         longitude: loc.lon,
-                        unitTemp: window.localStorage.getItem("preferredUnits"),
                     });
                 }
 
                 const analysis = analyzeForecast(forecast.weather_daily_data);
                 setWeeklyData(analysis);
                 setLoading(false);
-            } catch (err) {
-                
+            } catch {
                 setError("Error al cargar el informe semanal");
                 setLoading(false);
             }
@@ -114,7 +120,7 @@ const Reports = () => {
 
     return (
         <div className="reports-container">
-            <h2>Informe Semanal</h2>
+            <h1>Informe Semanal</h1>
 
             {favoriteLocation?.length > 0 && (
                 <div className="location-selector">
@@ -128,64 +134,84 @@ const Reports = () => {
             )}
 
             {loading ? (
-                <p>Cargando informe...</p>
+                <p className="loading">Cargando informe...</p>
             ) : error ? (
-                <p>{error}</p>
+                <p className="error">{error}</p>
             ) : weeklyData ? (
                 <div className="report-section">
-                    <div className="report-grid">
-                        <div className="report-card">
-                            <h3>Temperatura Máx.</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.tempMax}{unitTemp}</strong>
-                                <span>Durante la semana</span>
-                            </div>
-                        </div>
-                        <div className="report-card">
-                            <h3>Temperatura Mín.</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.tempMin}{unitTemp}</strong>
-                                <span>Durante la semana</span>
-                            </div>
-                        </div>
-                        <div className="report-card">
-                            <h3>Lluvia Acumulada</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.lluviaTotal.toFixed(1)} {unitRain}</strong>
-                                <span>Total en 7 días</span>
-                            </div>
-                        </div>
-                        <div className="report-card">
-                            <h3>Días de lluvia</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.diasLluvia}</strong>
-                                <span>Días con alta probabilidad</span>
-                            </div>
-                        </div>
-                        <div className="report-card">
-                            <h3>Humedad Promedio</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.humedadProm}%</strong>
-                                <span>Humedad relativa</span>
-                            </div>
-                        </div>
-                        <div className="report-card">
-                            <h3>Evapotranspiración</h3>
-                            <div className="report-item">
-                                <strong>{weeklyData.evapotranspiracion.toFixed(2)} mm</strong>
-                                <span>En la semana</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="recommendations">
-                        <h3>Recomendaciones</h3>
-                        <ul>
+                    {/* La decisión primero (PRODUCT.md, principio 1): las
+                        recomendaciones son la conclusión del informe y
+                        lideran la pantalla. Las 6 métricas crudas que las
+                        justifican quedan como resumen compacto más abajo,
+                        agrupadas por tema en vez de repetidas como tarjetas
+                        idénticas. */}
+                    <section className="report-recommendations" aria-labelledby="recommendations-heading">
+                        <h2 id="recommendations-heading">Qué hacer esta semana</h2>
+                        <ul className="recommendations-list">
                             {weeklyData.recomendaciones.map((rec, index) => (
-                                <li key={index}>{rec}</li>
+                                <li key={index} className="recommendation-item">
+                                    <CircleCheck className="recommendation-icon" aria-hidden="true" />
+                                    <p>{rec}</p>
+                                </li>
                             ))}
                         </ul>
-                    </div>
+                    </section>
+
+                    <section className="report-summary" aria-labelledby="summary-heading">
+                        <h2 id="summary-heading">Resumen de la semana</h2>
+                        <div className="summary-groups">
+                            <div className="summary-group">
+                                <h3 className="summary-group-title">
+                                    <Thermometer aria-hidden="true" />
+                                    Temperatura
+                                </h3>
+                                <dl className="summary-rows">
+                                    <div className="summary-row">
+                                        <dt>Máxima</dt>
+                                        <dd>{formatTemp(weeklyData.tempMax, units)}{unitTemp}</dd>
+                                    </div>
+                                    <div className="summary-row">
+                                        <dt>Mínima</dt>
+                                        <dd>{formatTemp(weeklyData.tempMin, units)}{unitTemp}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+
+                            <div className="summary-group">
+                                <h3 className="summary-group-title">
+                                    <CloudRain aria-hidden="true" />
+                                    Lluvia
+                                </h3>
+                                <dl className="summary-rows">
+                                    <div className="summary-row">
+                                        <dt>Acumulada (7 días)</dt>
+                                        <dd>{formatSize(weeklyData.lluviaTotal, units)} {unitRain}</dd>
+                                    </div>
+                                    <div className="summary-row">
+                                        <dt>Días con alta probabilidad</dt>
+                                        <dd>{weeklyData.diasLluvia}</dd>
+                                    </div>
+                                </dl>
+                            </div>
+
+                            <div className="summary-group">
+                                <h3 className="summary-group-title">
+                                    <Droplets aria-hidden="true" />
+                                    Suelo y humedad
+                                </h3>
+                                <dl className="summary-rows">
+                                    <div className="summary-row">
+                                        <dt>Humedad relativa promedio</dt>
+                                        <dd>{weeklyData.humedadProm}%</dd>
+                                    </div>
+                                    <div className="summary-row">
+                                        <dt>Evapotranspiración (7 días)</dt>
+                                        <dd>{weeklyData.evapotranspiracion.toFixed(2)} mm</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             ) : (
                 <p>No hay datos disponibles.</p>

@@ -4,37 +4,15 @@
     height: 100%;
     margin: 0 auto;
     margin-bottom: 8px;
-    box-shadow: var(--shadow-md);
-    background-color: var(--card-color);
+    box-shadow: var(--elevation-2);
+    background-color: var(--surface-raised);
     overflow: hidden;
-    transition: all var(--transition-speed) ease;
+    transition: all var(--duration-normal) ease;
 }
 
-<<<<<<< HEAD
-.card-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background: var(--gradient-primary);
-    border-radius: var(--main-border-radius);
-    color: white;
-}
+/* .card-header / .card-title / .card-description live in styles/Main.css:
+   Home.jsx renders that header as the accordion trigger for this section. */
 
-.card-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem 0;
-    
-}
-
-.card-description {
-    font-size: 0.875rem;
-    opacity: 0.9;
-    margin: 0;
-    color:var(--text-primary);
-}
-
-=======
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 .card-content {
     padding: 1.5rem;
 }
@@ -49,8 +27,8 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
     margin-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background-color: var(--background-color-secondary);
+    border-bottom: 1px solid var(--line-default);
+    background-color: var(--surface-accent);
 }
 
 .tab-trigger {
@@ -60,22 +38,22 @@
     padding: 0.75rem;
     background: none;
     border: none;
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     cursor: pointer;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--text-secondary);
-    transition: all var(--transition-speed) ease;
+    color: var(--content-secondary);
+    transition: all var(--duration-normal) ease;
 }
 
 .tab-trigger:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-    color: var(--secondary-color);
+    background-color: color-mix(in srgb, black 3%, transparent);
+    color: var(--fill-orange);
 }
 
 .tab-trigger.active {
-    color: var(--secondary-color);
-    border-bottom: 2px solid var(--primary-color);
+    color: var(--fill-orange);
+    border-bottom: 2px solid var(--brand);
     font-weight: 600;
 }
 
@@ -126,22 +104,22 @@
 }
 
 .metric-box {
-    background-color: var(--background-color-secondary);
-    border-radius: var(--border-radius);
+    background-color: var(--surface-accent);
+    border-radius: var(--radius-xl);
     padding: 1.25rem;
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-speed) ease;
+    box-shadow: var(--elevation-1);
+    transition: all var(--duration-normal) ease;
 }
 
 .metric-box:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--elevation-2);
     transform: translateY(-2px);
 }
 
 .metric-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--content-secondary);
     margin: 0 0 0.5rem 0;
 }
 
@@ -149,7 +127,16 @@
     font-size: 1.75rem;
     font-weight: 700;
     margin: 0;
-    color: var(--text-primary);
+    color: var(--content-primary);
+}
+
+/* Lectura en lenguaje llano debajo del valor crudo (ej. punto de rocío):
+   mismo tratamiento que .uv-description, un dato opaco -> una decisión. */
+.metric-reading {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    color: var(--content-secondary);
+    line-height: 1.5;
 }
 
 /* UV Indicator */
@@ -163,39 +150,39 @@
     width: 5rem;
     height: 0.5rem;
     border-radius: 9999px;
-    transition: all var(--transition-speed) ease;
+    transition: all var(--duration-normal) ease;
 }
 
 .uv-low {
-    background-color: var(--success-color);
+    background-color: var(--feedback-success);
 }
 
 .uv-moderate {
     width: 40%;
-    background-color: var(--secondary-color);
+    background-color: var(--fill-orange);
 }
 
 .uv-high {
     width: 80%;
-    background-color: var(--warning-color);
+    background-color: var(--feedback-warning);
 }
 
 .uv-extreme {
     width: 100%;
-    background-color: var(--error-color);
+    background-color: var(--feedback-error);
 }
 
 .uv-description {
     font-size: 0.875rem;
     margin-top: 0.75rem;
-    color: var(--text-secondary);
+    color: var(--content-secondary);
     line-height: 1.5;
 }
 
 /* Separator */
 .separator {
     height: 1px;
-    background-color: rgba(0, 0, 0, 0.08);
+    background-color: var(--line-default);
     margin: 1.75rem 0;
 }
 
@@ -213,23 +200,23 @@
 }
 
 .metric-card {
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background-color: var(--background-color-secondary);
-    border-radius: var(--border-radius);
+    border: 1px solid var(--line-default);
+    background-color: var(--surface-accent);
+    border-radius: var(--radius-xl);
     padding: 1rem;
-    transition: all var(--transition-speed) ease;
+    transition: all var(--duration-normal) ease;
 }
 
 .metric-card:hover {
-    filter:drop-shadow(0px 0px 5px var(--secondary-color));
-    border-color: var(--secondary-color);
+    filter:drop-shadow(0px 0px 5px var(--fill-orange));
+    border-color: var(--fill-orange);
     transform:scale(1.02);
 }
 
 .metric-card-title {
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--content-secondary);
     margin: 0 0 0.25rem 0;
 }
 
@@ -237,5 +224,5 @@
     font-size: 1.25rem;
     font-weight: 600;
     margin: 0.25rem 0 0 0;
-    color: var(--text-primary);
+    color: var(--content-primary);
 }

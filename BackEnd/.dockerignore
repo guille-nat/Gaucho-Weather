@@ -1,5 +1,6 @@
 # Entorno virtual de Python
 .venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -10,8 +11,10 @@ __pycache__/
 *.env
 *.env.*
 
-# Archivos de migración de base de datos que no deberían estar en la imagen
-**/migrations/*
+# OJO: acá NO va una regla que excluya migrations/.
+# La versión anterior tenía `**/migrations/*`, lo que dejaba la imagen sin
+# migraciones: `manage.py migrate` no encontraba nada que aplicar y la base
+# quedaba sin tablas.
 
 # Archivos temporales
 *.log
@@ -19,19 +22,14 @@ __pycache__/
 db.sqlite3
 *.bak
 
-# Archivos de caché y compilados
-*.pyc
-*.pyo
-*.pyd
+# Artefactos generados dentro del contenedor
+staticfiles/
+media/
 
-# Archivos relacionados a Docker
-Dockerfile-backend
-docker-compose.yml
+# Control de versiones
+.git/
+.gitignore
 
 # Archivos de IDE/editor
 .vscode/
 .idea/
-
-# Otros
-media/
-static/

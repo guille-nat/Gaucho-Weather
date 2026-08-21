@@ -1,0 +1,162 @@
+/* Frost risk answer card — "la decisión primero": el veredicto en texto llano
+   va antes que cualquier número. Ícono + texto + color siempre juntos, nunca
+   el color solo (PRODUCT.md, accesibilidad). */
+
+.frost-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line-default);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-1);
+}
+
+/* Etiqueta de categoría: siempre el cian de --risk-frost, independiente de
+   la severidad del día (esa la marca el ícono/tono de abajo). */
+.frost-card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  /* 8%, not the icon badges' 16%: this tint sits under real text, so it
+     needs to stay light enough for --risk-frost to clear 4.5:1 AA. */
+  background: color-mix(in srgb, var(--risk-frost) 8%, transparent);
+  color: var(--risk-frost);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.frost-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.frost-card-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--frost-tone) 16%, transparent);
+  color: var(--frost-tone);
+}
+
+.frost-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.frost-card-verdict {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--content-primary);
+}
+
+.frost-card-detail {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--content-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Severidad: el veredicto en texto ya dice el nivel; el color refuerza sin
+   ser la única señal (ícono + tono de fondo + palabra "riesgo"). */
+.frost-card--none     { --frost-tone: var(--risk-safe); }
+.frost-card--low      { --frost-tone: var(--risk-watch); }
+.frost-card--moderate { --frost-tone: var(--risk-warning); }
+.frost-card--high     { --frost-tone: var(--risk-danger); }
+
+/* "high" y "severe" antes eran visualmente idénticas (mismo tono tenue):
+   severe pasa a fondo lleno de --risk-danger, texto e ícono invertidos a
+   --content-on-danger. Sigue siendo ícono + texto + color juntos, nunca
+   el color solo, y --content-on-danger ya está calibrado por tema para
+   mantener AA (ver index.css). */
+.frost-card--severe {
+  --frost-tone: var(--content-on-danger);
+  background: var(--risk-danger);
+  border-color: var(--risk-danger);
+  border-width: 2px;
+}
+
+/* .frost-card-icon already recomputes its background/color from
+   --frost-tone (reassigned above), so it inherits the inverted treatment
+   without a dedicated override. Verdict/detail text need one because they
+   use --content-primary/--content-secondary directly, not --frost-tone. */
+.frost-card--severe .frost-card-verdict,
+.frost-card--severe .frost-card-detail {
+  color: var(--content-on-danger);
+}
+
+/* ==========================================================================
+   Loading — skeleton, nunca spinner: reserva el mismo espacio que el
+   contenido final para que no salte el layout cuando llegan los datos.
+   ========================================================================== */
+.frost-card-skeleton-tag {
+  width: 8rem;
+  height: 1.5rem;
+  border-radius: var(--radius-full);
+}
+
+.frost-card-skeleton-icon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-full);
+}
+
+.frost-card-skeleton-line {
+  display: block;
+  height: 1rem;
+  width: 70%;
+  border-radius: var(--radius-sm);
+}
+
+.frost-card-skeleton-line--wide {
+  width: 90%;
+  height: 1.25rem;
+}
+
+/* ==========================================================================
+   Error — degradación silenciosa: la tarjeta se achica a un aviso discreto,
+   no compite visualmente ni rompe el resto del Home.
+   ========================================================================== */
+.frost-card--error {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  color: var(--content-secondary);
+}
+
+.frost-card-error-icon {
+  flex-shrink: 0;
+  color: var(--content-secondary);
+}
+
+.frost-card-error-text {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 480px) {
+  .frost-card {
+    margin: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .frost-card-verdict {
+    font-size: var(--text-base);
+  }
+}

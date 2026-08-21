@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { Routes,Route} from 'react-router-dom';
 import NotFound from '../components/NotFound';
 import Layout from '../components/Layout';
@@ -9,3 +10,7 @@ export default function RutesWithNotFound({children}) {
         </Routes>
     );
 }
+
+RutesWithNotFound.propTypes = {
+    children: PropTypes.node.isRequired,
+};

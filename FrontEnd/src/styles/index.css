@@ -1,36 +1,246 @@
-:root {
-  /* Modern color palette */
-  --primary-color: #1976D2;
-  --secondary-color: #FF9800;
-  --success-color: #2E7D32;
-  --warning-color: #ED6C02;
-  --error-color: #D32F2F;
-  --text-primary: #1A1A1A;
-  --text-secondary: #666666;
-  --background-color: #F8FAFC;
-  --background-color-secondary:#b6d9fd;
-  --card-color: #dfdfdf;
-  --border-radius: 16px;
-  --main-border-radius:0px 0px 16px 16px;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
-  --gradient-primary: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
-  --gradient-secondary: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-  --transition-speed: 0.2s;
-  
-  /* Modern typography */
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  font-weight: 400;
-  
-  /* System preferences */
-  color-scheme: light dark;
-  color: var(--text-primary);
-  background-color: var(--background-color);
+/* ==========================================================================
+   Gaucho Weather — Design tokens
+   --------------------------------------------------------------------------
+   Layered token architecture:
+     1. Primitives  — raw values, never referenced directly by components
+     2. Semantic    — role-based tokens, the only ones components should use
+     3. Brand gradients — composed values built from primitives, kept
+        separate because they don't reduce to a single semantic token
 
-  /* Rendering optimizations */
+   The legacy alias layer (--primary-color, --text-primary, --shadow-md,
+   etc.) that used to sit here has been fully migrated to the semantic
+   layer above and removed; every component now references semantic
+   tokens directly.
+
+   Rule: component CSS must reference semantic tokens, never raw hex values.
+   ========================================================================== */
+
+/* The webfont is loaded from index.html with preconnect — an @import here
+   would serialize the request behind this stylesheet and delay first paint. */
+
+:root {
+  /* ------------------------------------------------------------------
+     1. PRIMITIVES
+     ------------------------------------------------------------------ */
+
+  /* Brand blue ramp */
+  --blue-50: #E3F2FD;
+  --blue-100: #BBDEFB;
+  --blue-200: #90CAF9;
+  --blue-300: #64B5F6;
+  --blue-400: #42A5F5;
+  --blue-500: #1976D2;
+  --blue-600: #1565C0;
+  --blue-700: #0D47A1;
+  --blue-800: #1A237E; /* darkest ramp step, for the night-sky weather gradient */
+
+  /* Neutral ramp */
+  --neutral-0: #FFFFFF;
+  --neutral-50: #F8FAFC;
+  --neutral-100: #F1F5F9;
+  --neutral-200: #E2E8F0;
+  --neutral-300: #CBD5E1;
+  --neutral-400: #94A3B8;
+  --neutral-500: #64748B;
+  --neutral-600: #666666;
+  --neutral-700: #334155;
+  --neutral-800: #1E293B;
+  --neutral-900: #0F172A;
+  --neutral-950: #1A1A1A;
+
+  /* Status ramp — light-surface variants (AA on --neutral-50) */
+  --green-700: #15803D;
+  --amber-700: #B45309;
+  --orange-700: #C2410C;
+  --red-700: #B91C1C;
+  --cyan-700: #0E7490;
+
+  /* Status ramp — dark-surface variants (AA on --neutral-900) */
+  --green-400: #4ADE80;
+  --amber-400: #FBBF24;
+  --orange-400: #FB923C;
+  --red-400: #F87171;
+  --cyan-400: #22D3EE;
+
+  /* Decorative fills — NOT contrast-safe for text, use for graphics only */
+  --fill-orange: #FF9800;
+  --fill-green: #00D084;
+  --fill-sun-yellow: #FFFC00; /* Loader.css sun gradient highlight */
+
+  /* Chart palette — Graphics.jsx data-viz series (temperature/humidity reuse --fill-orange/--brand) */
+  --chart-green: #2E7D32; /* precipitation */
+  --chart-red: #D32F2F; /* wind */
+  --chart-purple: #8884D8; /* cloud cover */
+
+  /* Legacy "campo" accent green — CTA hover state, distinct from the brand blue
+     and from the risk/status green ramp above */
+  --accent-agro: #5A8C3E;
+  --accent-agro-hover: #4A7A33;
+
+  /* Reports panel — always-dark surface ramp (see Reports.css comment;
+     independent of the app theme, so these stay raw primitives) */
+  --panel-dark-raised: #141F2D;
+  --panel-dark-sunken: #192735;
+  --panel-dark-field: #16222F;
+
+  /* ------------------------------------------------------------------
+     2. SEMANTIC TOKENS
+     ------------------------------------------------------------------ */
+
+  /* Surfaces */
+  --surface-base: var(--neutral-50);
+  --surface-raised: var(--neutral-0);
+  --surface-sunken: var(--neutral-100);
+  --surface-accent: #B6D9FD;
+
+  /* Content */
+  --content-primary: var(--neutral-950);
+  --content-secondary: var(--neutral-600);
+  /* Text/icon color for content painted directly on a solid --brand fill
+     (navbar, primary buttons, .skip-link). Light theme's --brand (blue-500)
+     is dark enough for white text (~4.6:1); dark theme's (blue-300) is
+     light, so it flips to a near-black ink instead — see dark theme block
+     below. Elements on --gradient-primary (built from raw blue-500/600
+     primitives, never reactive to theme) must NOT use this token — they
+     stay a constant white via --neutral-0 instead. */
+  --content-on-brand: var(--neutral-0);
+  /* Text/icon color for content painted directly on a solid --risk-danger
+     fill (FrostRiskCard severe state). Light theme's --risk-danger (red-700)
+     is dark enough for white text (~6.5:1); dark theme's (red-400) is light,
+     so it flips to a near-black ink instead — see dark theme block below. */
+  --content-on-danger: var(--neutral-0);
+
+  /* Brand */
+  --brand: var(--blue-500);
+  --brand-hover: var(--blue-600);
+  --brand-active: var(--blue-700);
+  --brand-subtle: var(--blue-50);
+
+  /* Lines */
+  --line-default: var(--neutral-200);
+  --line-strong: var(--neutral-300);
+
+  /* Focus ring */
+  --focus-ring: var(--blue-500);
+  --focus-ring-offset: 2px;
+  --focus-ring-width: 2px;
+
+  /* Agro risk scale — the domain language of this product.
+     Frost risk is the differentiating signal (calculate_frost_probability). */
+  --risk-safe: var(--green-700);
+  --risk-watch: var(--amber-700);
+  --risk-warning: var(--orange-700);
+  --risk-danger: var(--red-700);
+  --risk-frost: var(--cyan-700);
+
+  /* Generic feedback (maps onto the risk scale for consistency) */
+  --feedback-success: var(--risk-safe);
+  --feedback-warning: var(--risk-warning);
+  --feedback-error: var(--risk-danger);
+  --feedback-info: var(--brand);
+
+  /* ------------------------------------------------------------------
+     Spacing — 4px base rhythm
+     ------------------------------------------------------------------ */
+  --space-1: 0.25rem;  /*  4px */
+  --space-2: 0.5rem;   /*  8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.5rem;   /* 24px */
+  --space-6: 2rem;     /* 32px */
+  --space-7: 3rem;     /* 48px */
+  --space-8: 4rem;     /* 64px */
+
+  /* ------------------------------------------------------------------
+     Typography scale
+     ------------------------------------------------------------------ */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --text-xs: 0.75rem;    /* 12px — captions only, never body */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px — minimum body size */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  --text-5xl: 3rem;      /* 48px — hero temperature readout */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ------------------------------------------------------------------
+     Radius
+     ------------------------------------------------------------------ */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ------------------------------------------------------------------
+     Elevation
+     ------------------------------------------------------------------ */
+  --elevation-1: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --elevation-3: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* ------------------------------------------------------------------
+     Z-index scale — every layered element must use one of these
+     ------------------------------------------------------------------ */
+  --z-base: 0;
+  /* Local "content above its own decorative background" layer — a button
+     label above its spinner, a card's real content above a purely
+     decorative fill within the same component. Not a page-level layer like
+     the ones below; used for same-component stacking only. */
+  --z-raised: 1;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* ------------------------------------------------------------------
+     Motion
+     ------------------------------------------------------------------ */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ------------------------------------------------------------------
+     3. BRAND GRADIENTS
+     Composed values, not 1:1 aliases for a single semantic token — built
+     directly from raw blue-500/blue-600 primitives and intentionally
+     theme-invariant (never overridden in the dark-theme block below),
+     unlike --brand, which lightens in dark mode. Consumers must pair these
+     with a constant text color (var(--neutral-0)), not the theme-reactive
+     var(--content-on-brand), or contrast breaks in dark mode.
+     ------------------------------------------------------------------ */
+  --gradient-primary: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-600) 100%);
+  --gradient-secondary: linear-gradient(135deg, var(--fill-orange) 0%, #F57C00 100%);
+
+  /* ------------------------------------------------------------------
+     Root defaults
+     ------------------------------------------------------------------ */
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-weight: var(--weight-regular);
+
+  color-scheme: light dark;
+  color: var(--content-primary);
+  background-color: var(--surface-base);
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -38,101 +248,237 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-* {
+/* ==========================================================================
+   Dark theme
+   Dark mode uses lighter tonal variants, never inverted light-mode values.
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-base: var(--neutral-900);
+    --surface-raised: var(--neutral-800);
+    --surface-sunken: #0B1220;
+    --surface-accent: var(--neutral-900);
+
+    --content-primary: var(--neutral-0);
+    --content-secondary: #A0AEC0;
+
+    --brand: var(--blue-300);
+    --brand-hover: var(--blue-200);
+    --brand-active: var(--blue-100);
+    --brand-subtle: rgba(100, 181, 246, 0.14);
+
+    --line-default: var(--neutral-700);
+    --line-strong: #475569;
+
+    --focus-ring: var(--blue-300);
+
+    --risk-safe: var(--green-400);
+    --risk-watch: var(--amber-400);
+    --risk-warning: var(--orange-400);
+    --risk-danger: var(--red-400);
+    --risk-frost: var(--cyan-400);
+
+    /* red-400 is a light fill in dark mode, so content painted on it needs
+       to flip to a dark ink instead of white to keep AA contrast. */
+    --content-on-danger: var(--neutral-950);
+
+    /* blue-300 is a light fill in dark mode, so content painted on it needs
+       to flip to a dark ink instead of white to keep AA contrast. */
+    --content-on-brand: var(--neutral-950);
+
+    --elevation-1: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --elevation-3: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ==========================================================================
+   Base reset
+   ========================================================================== */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background: var(--background-color);
+  min-height: 100dvh;
+  background: var(--surface-base);
+  color: var(--content-primary);
 }
 
-/* Modern button styles */
+/* Headings inherit the type scale rather than browser defaults */
+h1 { font-size: var(--text-4xl); line-height: var(--leading-tight); font-weight: var(--weight-bold); }
+h2 { font-size: var(--text-3xl); line-height: var(--leading-tight); font-weight: var(--weight-bold); }
+h3 { font-size: var(--text-2xl); line-height: var(--leading-tight); font-weight: var(--weight-semibold); }
+h4 { font-size: var(--text-xl);  line-height: var(--leading-normal); font-weight: var(--weight-semibold); }
+h5 { font-size: var(--text-lg);  line-height: var(--leading-normal); font-weight: var(--weight-semibold); }
+h6 { font-size: var(--text-base); line-height: var(--leading-normal); font-weight: var(--weight-semibold); }
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* ==========================================================================
+   Interactive elements
+   ========================================================================== */
 button {
   cursor: pointer;
   font-family: inherit;
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   border: none;
   background: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+  color: inherit;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  min-height: 44px; /* touch target minimum */
+  transition: background-color var(--duration-normal) var(--ease-standard),
+              color var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
 }
 
-button:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-button:active {
+button:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-/* Modern form elements */
-input, select, textarea {
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Single focus treatment for every interactive element */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ==========================================================================
+   Form controls
+   ========================================================================== */
+/* Checkboxes and radios are excluded: they are sized by the browser and
+   would stretch to full width under the shared rule below. */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
   font-family: inherit;
-  font-size: 1rem;
-  border: 2px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
+  font-size: var(--text-base); /* 16px prevents iOS auto-zoom on focus */
+  color: var(--content-primary);
+  border: 2px solid var(--line-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   width: 100%;
-  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
-  background-color: white;
+  min-height: 44px;
+  background-color: var(--surface-raised);
+  transition: border-color var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard);
 }
 
-input:hover, select:hover, textarea:hover {
-  border-color: #CBD5E1;
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--brand);
+  cursor: pointer;
 }
 
-input:focus, select:focus, textarea:focus {
+input:hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-subtle);
 }
 
-/* Typography utilities */
-.text-sm { font-size: 0.875rem; }
-.text-base { font-size: 1rem; }
-.text-lg { font-size: 1.125rem; }
-.text-xl { font-size: 1.25rem; }
-.text-2xl { font-size: 1.5rem; }
-.text-3xl { font-size: 1.875rem; }
-
-.font-normal { font-weight: 400; }
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text-primary: #FFFFFF;
-    --text-secondary: #A0AEC0;
-    --background-color: #0F172A;
-    --background-color-secondary:#0F172A;
-    --card-color: #1E293B;
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-
-  input, select, textarea {
-    background-color: #1E293B;
-    border-color: #2D3748;
-    color: white;
-  }
-
-  input:hover, select:hover, textarea:hover {
-    border-color: #4A5568;
-  }
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* Animations */
+/* Read-only must look different from disabled */
+input:read-only:not(:disabled),
+textarea:read-only:not(:disabled) {
+  background-color: var(--surface-sunken);
+  border-style: dashed;
+}
+
+::placeholder {
+  color: var(--content-secondary);
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+.text-xs   { font-size: var(--text-xs); }
+.text-sm   { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg   { font-size: var(--text-lg); }
+.text-xl   { font-size: var(--text-xl); }
+.text-2xl  { font-size: var(--text-2xl); }
+.text-3xl  { font-size: var(--text-3xl); }
+
+.font-normal   { font-weight: var(--weight-regular); }
+.font-medium   { font-weight: var(--weight-medium); }
+.font-semibold { font-weight: var(--weight-semibold); }
+.font-bold     { font-weight: var(--weight-bold); }
+
+/* Numeric readouts: fixed-width digits stop temperatures and percentages
+   from shifting layout as values update. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Visually hidden but announced by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard users need a way past the navigation */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--brand);
+  color: var(--content-on-brand);
+  font-weight: var(--weight-semibold);
+  transform: translateY(-200%);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   Animation
+   ========================================================================== */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -148,19 +494,34 @@ input:focus, select:focus, textarea:focus {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* Loading states */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.1) 25%,
-    rgba(255, 255, 255, 0.2) 37%,
-    rgba(255, 255, 255, 0.1) 63%
-  );
-  background-size: 400% 100%;
-  animation: skeleton-loading 1.4s ease infinite;
-}
-
 @keyframes skeleton-loading {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
+}
+
+/* Skeleton derives from surface tokens so it stays visible in both themes */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-sunken) 25%,
+    var(--line-default) 37%,
+    var(--surface-sunken) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-loading 1.4s var(--ease-standard) infinite;
+}
+
+/* ==========================================================================
+   Reduced motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

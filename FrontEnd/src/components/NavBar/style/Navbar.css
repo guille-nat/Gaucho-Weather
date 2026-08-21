@@ -4,24 +4,25 @@
   top: 0;
   left: 0;
   width: 100%;
-  background: var(--primary-color);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  background: var(--brand);
+  box-shadow: 0 4px 20px color-mix(in srgb, black 10%, transparent);
+  z-index: var(--z-sticky);
   transition: all 0.3s ease;
 }
 .logo-app {
     width: 60px;
     margin: auto;
     padding: 0;
-    filter: drop-shadow(1px 1px 20px rgb(255, 255, 255));
+    filter: drop-shadow(1px 1px 20px var(--neutral-0));
 }
 
 .navbar-link{
     text-decoration: none;
     width: 100%;
     text-align: center;
-    color: white;
+    /* .navbar's background is var(--brand) (= var(--brand)),
+       theme-reactive — --content-on-brand flips with it to stay AA. */
+    color: var(--content-on-brand);
 }
 
 
@@ -40,11 +41,11 @@
 }
 
 .logo-text {
-  color: white;
+  color: var(--content-on-brand);
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: 1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 2px 4px color-mix(in srgb, black 20%, transparent);
 }
 
 .navbar-menu {
@@ -60,7 +61,7 @@
   padding: 0.75rem 1.25rem;
   border-radius: 12px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.9);
+  color: color-mix(in srgb, var(--neutral-0) 90%, transparent);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -68,65 +69,73 @@
 }
 
 .navbar-menu li:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: white;
+  background-color: color-mix(in srgb, var(--neutral-0) 15%, transparent);
+  color: var(--content-on-brand);
   transform: translateY(-2px);
 }
 
 .navbar-menu li.active {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  background-color: color-mix(in srgb, var(--neutral-0) 20%, transparent);
+  color: var(--content-on-brand);
   font-weight: 500;
 }
 
 .menu-icon {
-  font-size: 1.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
 }
 
 .auth-buttons {
   display: flex;
-  
+  align-items: center;
   gap: 0.75rem;
 }
 
 .auth-button {
+  min-height: 44px;
   border-radius: 12px;
   cursor: pointer;
-  color: white;
+  color: var(--content-on-brand);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  margin: auto;
-  padding-right: 20px;
+  padding: 0.6rem 1.1rem;
   transition: all 0.2s ease;
 }
 
 .auth-button.login {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: color-mix(in srgb, var(--neutral-0) 15%, transparent);
 }
 
 .auth-button.register {
-  background-color: var(--secondary-color);
-  color: var(--text-color);
+  background-color: var(--fill-orange);
+  color: var(--content-primary);
 }
 
 .auth-button.logout {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: color-mix(in srgb, var(--neutral-0) 15%, transparent);
 }
 
 .auth-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, black 15%, transparent);
 }
 
 .auth-icon {
-  font-size: 1.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
 }
 
 .menu-toggle {
   display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   cursor: pointer;
-  padding: 0.5rem;
   border-radius: 8px;
   transition: all 0.3s ease;
 }
@@ -144,7 +153,9 @@
   display: block;
   height: 2px;
   width: 100%;
-  background-color: white;
+  /* Icon bars on the navbar's brand background: same theme-reactive
+     treatment as the nav text. */
+  background-color: var(--content-on-brand);
   border-radius: 4px;
   transition: all 0.3s ease;
 }
@@ -161,32 +172,43 @@
   transform: translateY(-9px) rotate(-45deg);
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1000px) {
   .menu-toggle {
-    display: block;
+    display: flex;
   }
 
+  /* Antes animaba `all` sobre max-height (0→400px) + padding, que fuerza
+     reflow durante toda la transición. transform/opacity componen en su
+     propia capa: nada de layout, nada de paint del resto de la página.
+     `visibility` no se anima (es un salto), pero el delay la sincroniza con
+     el fade: al cerrar espera a que termine el fade-out para sacar los
+     links del tab order (comportamiento de Wave A); al abrir, sin delay. */
   .navbar-menu {
     position: absolute;
     top: 100%;
     left: 0;
     width: 100%;
     flex-direction: column;
-    background-color: var(--primary-color);
-    padding: 0;
-    max-height: 0;
-    overflow: hidden;
+    background-color: var(--brand);
+    padding: 1rem 0;
+    box-shadow: 0 4px 12px color-mix(in srgb, black 10%, transparent);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity var(--duration-normal) var(--ease-out),
+                transform var(--duration-normal) var(--ease-out),
+                visibility 0s var(--duration-normal);
   }
 
   .navbar-menu.active {
-    max-height: 400px;
     opacity: 1;
     visibility: visible;
-    padding: 1rem 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(0);
+    pointer-events: auto;
+    transition: opacity var(--duration-normal) var(--ease-out),
+                transform var(--duration-normal) var(--ease-out),
+                visibility 0s;
   }
 
   .navbar-menu li {
@@ -196,7 +218,7 @@
   }
 
   .auth-text {
-    color:#fff;
+    color: var(--neutral-0);
     font-weight: 700;
   }
 
@@ -206,5 +228,29 @@
 
   .auth-icon {
     margin: 0;
+  }
+}
+
+/* Narrow phones (320-430px): the logo + hamburger + auth buttons share one
+   row (navbar-menu is pulled out of flow above). Two labeled auth buttons
+   plus the register CTA clip off-screen here, so the buttons collapse to an
+   icon-only compact form; the label moves to aria-label so the action stays
+   announced to assistive tech. */
+@media (max-width: 480px) {
+  .navbar-container {
+    padding: 0.75rem;
+  }
+
+  .auth-buttons {
+    gap: 0.5rem;
+  }
+
+  .auth-button {
+    width: 44px;
+    padding: 0;
+  }
+
+  .auth-text {
+    display: none;
   }
 }

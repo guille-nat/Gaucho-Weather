@@ -30,31 +30,19 @@
   }
 }
 
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes spin {
+/* Entrada única (no-loop) para el ícono de "alertas activadas": reemplaza
+   el bounce infinito, que index.css prohíbe como ruido decorativo sin fin.
+   Se dispara una sola vez porque Bell/BellOff son elementos distintos que
+   se montan/desmontan según el estado, así que cada montaje reproduce el
+   efecto una vez y se detiene. */
+@keyframes icon-pop {
   from {
-    transform: rotate(0deg);
+    transform: scale(0.8);
+    opacity: 0;
   }
   to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -66,23 +54,61 @@
   animation: fadeIn 0.5s ease-out;
 }
 
-/* Loading state */
-.loading-container {
+/* Loading state — skeleton, no spinner: mismo espacio que la tarjeta real
+   para que no salte el layout cuando llega la respuesta. */
+.profile-card--skeleton {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  min-height: 320px;
 }
 
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(25, 118, 210, 0.2);
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skeleton-avatar {
+  flex-shrink: 0;
+  width: 5rem;
+  height: 5rem;
   border-radius: 50%;
-  border-top-color: var(--primary-color);
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+}
+
+.skeleton-header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-line {
+  display: block;
+  height: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line--wide {
+  width: 60%;
+  height: 1.25rem;
+}
+
+.skeleton-line--narrow {
+  width: 40%;
+}
+
+.skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-field {
+  display: block;
+  height: 2.75rem;
+  border-radius: var(--radius-lg);
 }
 
 /* Error state */
@@ -97,14 +123,14 @@
 .error-card {
   width: 100%;
   max-width: 500px;
-  background-color: var(--card-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
+  background-color: var(--surface-raised);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-2);
   padding: 1.5rem;
 }
 
 .error-title {
-  color: var(--error-color);
+  color: var(--feedback-error);
   text-align: center;
   font-size: 1.5rem;
   font-weight: 600;
@@ -130,30 +156,30 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   margin-bottom: 2rem;
-  background-color: var(--background-color);
-  border-radius: var(--border-radius);
+  background-color: var(--surface-base);
+  border-radius: var(--radius-xl);
   padding: 4px;
 }
 
 .tab {
   font-size: 1rem;
   padding: 0.75rem 1rem;
-  transition: all var(--transition-speed) ease;
+  transition: all var(--duration-normal) ease;
   background: none;
   border: none;
   cursor: pointer;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-xl);
 }
 
 .tab.active {
-  background-color: var(--card-color);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--surface-raised);
+  box-shadow: var(--elevation-1);
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--brand);
 }
 
 .tab:hover:not(.active) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: color-mix(in srgb, black 5%, transparent);
 }
 
 .tab-content {
@@ -164,30 +190,31 @@
 .profile-card,
 .preferences-card {
   width: 100%;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
-  transition: all var(--transition-speed) ease;
-  background-color: var(--card-color);
+  box-shadow: var(--elevation-2);
+  transition: all var(--duration-normal) ease;
+  background-color: var(--surface-raised);
 }
 
 .profile-card:hover,
 .preferences-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-3);
   transform: translateY(-2px);
 }
 
 /* Profile header */
 .profile-header {
   position: relative;
-  background: linear-gradient(to right, rgba(25, 118, 210, 0.8), var(--primary-color));
+  background: linear-gradient(to right, color-mix(in srgb, var(--blue-500) 80%, transparent), var(--brand));
   padding: 1.5rem;
-  color: white;
+  /* Right stop is var(--brand), theme-reactive. */
+  color: var(--content-on-brand);
 }
 
 .card-header {
   padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--line-default);
 }
 
 .card-title {
@@ -197,7 +224,7 @@
 }
 
 .card-description {
-  color: var(--text-secondary);
+  color: var(--content-secondary);
   margin: 0;
 }
 
@@ -205,18 +232,19 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  z-index: 10;
+  z-index: var(--z-raised);
 }
 
 .edit-button {
   height: 2rem;
   width: 2rem;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: color-mix(in srgb, var(--neutral-0) 20%, transparent);
   backdrop-filter: blur(4px);
   border: none;
-  color: white;
-  transition: all var(--transition-speed) ease;
+  /* Sits on .profile-header's reactive brand gradient. */
+  color: var(--content-on-brand);
+  transition: all var(--duration-normal) ease;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -224,7 +252,7 @@
 }
 
 .edit-button:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: color-mix(in srgb, var(--neutral-0) 30%, transparent);
   transform: scale(1.05);
 }
 
@@ -239,17 +267,11 @@
   height: 5rem;
   width: 5rem;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-speed) ease;
+  border: 2px solid color-mix(in srgb, var(--neutral-0) 50%, transparent);
+  box-shadow: var(--elevation-2);
+  transition: transform var(--duration-normal) ease;
   overflow: hidden;
   position: relative;
-}
-
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .user-avatar:hover {
@@ -266,8 +288,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--brand);
+  /* var(--brand) is theme-reactive. */
+  color: var(--content-on-brand);
 }
 
 .user-details {
@@ -285,14 +308,15 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: color-mix(in srgb, var(--neutral-0) 80%, transparent);
 }
 
 .verified-badge {
   margin-left: 0.5rem;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
-  transition: all var(--transition-speed) ease;
+  background-color: color-mix(in srgb, var(--neutral-0) 20%, transparent);
+  /* Sits on .profile-header's reactive brand gradient. */
+  color: var(--content-on-brand);
+  transition: all var(--duration-normal) ease;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -301,7 +325,7 @@
 }
 
 .verified-badge:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: color-mix(in srgb, var(--neutral-0) 30%, transparent);
 }
 
 /* Profile content */
@@ -331,73 +355,49 @@
 .field-icon {
   width: 1rem;
   height: 1rem;
-  color: var(--text-secondary);
+  color: var(--content-secondary);
 }
 
 .field-value {
   font-size: 1rem;
   margin: 0.5rem 0;
+  /* #root { text-align: center } (Vite boilerplate leftover, App.css) is
+     inherited all the way down here since this is a plain <p> with no
+     layout of its own; field-label reads left-aligned only because it's a
+     flex container, which doesn't inherit text-align the same way. */
+  text-align: left;
 }
 
 .input {
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-xl);
   font-size: 1rem;
-  transition: border-color var(--transition-speed) ease;
+  transition: border-color var(--duration-normal) ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 20%, transparent);
 }
 
 .input-error {
-  border-color: var(--error-color);
+  border-color: var(--feedback-error);
 }
 
 .error-text {
-  color: var(--error-color);
+  color: var(--feedback-error);
   font-size: 0.75rem;
   margin-top: 0.25rem;
-}
-
-.dates-section {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.dates-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.date-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.date-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.date-value {
-  font-weight: 500;
-  margin: 0;
 }
 
 /* Profile footer */
 .profile-footer {
   display: flex;
   justify-content: space-between;
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: color-mix(in srgb, black 3%, transparent);
   padding: 1.5rem;
 }
 
@@ -406,29 +406,30 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem 1rem;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-xl);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-speed) ease;
+  transition: all var(--duration-normal) ease;
   border: none;
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--brand);
+  /* var(--brand) is theme-reactive. */
+  color: var(--content-on-brand);
 }
 
 .button:hover {
-  background-color: var(--primary-dark);
+  background-color: var(--brand-hover);
 }
 
 .button-outline {
   background-color: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+  border: 1px solid var(--line-default);
+  color: var(--content-secondary);
 }
 
 .button-outline:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--text-primary);
+  background-color: color-mix(in srgb, black 5%, transparent);
+  color: var(--content-primary);
 }
 
 .logout-button,
@@ -454,14 +455,14 @@
 }
 
 .preference-section {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  transition: all var(--transition-speed) ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .preference-section:hover {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--elevation-1);
 }
 
 .section-header {
@@ -470,11 +471,11 @@
   justify-content: space-between;
   padding: 1rem;
   cursor: pointer;
-  transition: background-color var(--transition-speed) ease;
+  transition: background-color var(--duration-normal) ease;
 }
 
 .section-header:hover {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: color-mix(in srgb, black 3%, transparent);
 }
 
 .section-title {
@@ -492,24 +493,24 @@
 .section-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--primary-color);
+  color: var(--brand);
 }
 
 .active-icon {
-  color: var(--primary-color);
-  animation: bounce 2s infinite;
+  color: var(--brand);
+  animation: icon-pop var(--duration-normal) var(--ease-out);
 }
 
 .toggle-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--text-secondary);
-  transition: transform var(--transition-speed) ease;
+  color: var(--content-secondary);
+  transition: transform var(--duration-normal) ease;
 }
 
 .section-content {
   padding: 1rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--line-default);
   animation: slideIn 0.3s ease-out;
 }
 
@@ -517,17 +518,12 @@
 .units-content {
   padding-left: 2.5rem;
 }
-<<<<<<< HEAD
-
-.units-options {
-=======
-.units-content label{
+.units-content label {
   width: 150px;
 }
 
 .units-options {
   width: 100%;
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -542,10 +538,6 @@
 .radio {
   margin: 0;
   cursor: pointer;
-<<<<<<< HEAD
-=======
-  width: 50px;
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
 }
 
 .radio-label {
@@ -575,7 +567,7 @@
 
 .toggle-description {
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--content-secondary);
   margin: 0;
 }
 
@@ -600,7 +592,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--line-strong);
   transition: .4s;
   border-radius: 34px;
 }
@@ -612,13 +604,16 @@
   width: 16px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
+  /* Switch thumb, not text-on-brand content: stays a constant neutral
+     circle against both the off (--line-strong) and on (--primary-color)
+     track colors, so it doesn't use --content-on-brand. */
+  background-color: var(--neutral-0);
   transition: .4s;
   border-radius: 50%;
 }
 
 .toggle-input:checked + .toggle-label-switch {
-  background-color: var(--primary-color);
+  background-color: var(--brand);
 }
 
 .toggle-input:checked + .toggle-label-switch:before {
@@ -628,9 +623,9 @@
 .alerts-notice {
   margin-top: 1rem;
   padding: 0.75rem;
-  background-color: rgba(237, 108, 2, 0.05);
-  border: 1px solid rgba(237, 108, 2, 0.2);
-  border-radius: var(--border-radius);
+  background-color: color-mix(in srgb, var(--feedback-warning) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--feedback-warning) 20%, transparent);
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -639,14 +634,14 @@
 .notice-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--warning-color);
+  color: var(--feedback-warning);
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
 
 .notice-text {
   font-size: 0.875rem;
-  color: rgba(237, 108, 2, 0.8);
+  color: color-mix(in srgb, var(--feedback-warning) 80%, transparent);
   margin: 0;
 }
 
@@ -657,8 +652,8 @@
 
 .locations-count {
   margin-left: 0.5rem;
-  background-color: rgba(25, 118, 210, 0.1);
-  color: var(--primary-color);
+  background-color: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
   padding: 0.25rem 0.5rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -677,14 +672,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem;
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: var(--border-radius);
-  transition: all var(--transition-speed) ease;
+  background-color: color-mix(in srgb, black 2%, transparent);
+  border-radius: var(--radius-xl);
+  transition: all var(--duration-normal) ease;
 }
 
 .location-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-  border: solid 1px var(--secondary-color);
+  background-color: color-mix(in srgb, black 4%, transparent);
+  border: solid 1px var(--fill-orange);
 }
 
 .location-info {
@@ -696,7 +691,7 @@
 .location-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--primary-color);
+  color: var(--brand);
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
@@ -714,13 +709,13 @@
 
 .location-coordinates {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--content-secondary);
   margin: 0;
 }
 
 .delete-location-button {
   opacity: 0;
-  transition: opacity var(--transition-speed) ease;
+  transition: opacity var(--duration-normal) ease;
   background: none;
   border: none;
   cursor: pointer;
@@ -729,7 +724,7 @@
 }
 
 .delete-location-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: color-mix(in srgb, black 5%, transparent);
 }
 
 .location-item:hover .delete-location-button {
@@ -739,7 +734,7 @@
 .delete-icon {
   width: 1rem;
   height: 1rem;
-  color: var(--error-color);
+  color: var(--feedback-error);
 }
 
 .no-locations {
@@ -747,7 +742,7 @@
   flex-direction: column;
   align-items: center;
   padding: 2rem 0;
-  color: var(--text-secondary);
+  color: var(--content-secondary);
 }
 
 .no-locations-icon {
@@ -760,7 +755,7 @@
 .add-location-section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--line-default);
 }
 
 .add-location-title {
@@ -807,7 +802,7 @@
 
 /* Preferences footer */
 .preferences-footer {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: color-mix(in srgb, black 3%, transparent);
   padding: 1.5rem;
 }
 
@@ -858,10 +853,6 @@
 
   .user-username {
     justify-content: center;
-  }
-
-  .dates-grid {
-    grid-template-columns: 1fr;
   }
 
   .profile-footer,

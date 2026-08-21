@@ -1,0 +1,60 @@
+/* Aviso inline reutilizable — reemplaza alert()/window.confirm en toda la
+   app. Un solo tono por variante (--tone), nunca color como única señal:
+   el ícono y el texto también cambian según el tipo. */
+.feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--tone);
+  background: color-mix(in srgb, var(--tone) 10%, var(--surface-raised));
+  animation: feedback-in var(--duration-slow) var(--ease-out);
+}
+
+.feedback--success { --tone: var(--feedback-success); }
+.feedback--error   { --tone: var(--feedback-error); }
+.feedback--warning { --tone: var(--feedback-warning); }
+.feedback--info    { --tone: var(--feedback-info); }
+
+.feedback-icon {
+  flex-shrink: 0;
+  color: var(--tone);
+  margin-top: 1px;
+}
+
+.feedback-message {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--content-primary);
+}
+
+.feedback-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--content-secondary);
+}
+
+.feedback-close:hover {
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--tone);
+}
+
+@keyframes feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

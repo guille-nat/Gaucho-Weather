@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PropTypes from "prop-types";
 import { Cloud, Droplets, Sun, Wind } from "lucide-react";
 import { formatPressure, formatSpeed, formatDistance,formatTemp} from "../../utilities/convertUnits";
 import "./style/WeatherDetails.css";
@@ -10,14 +11,8 @@ export default function WeatherDetails({
 
     return (
         <div className="weather-card">
-<<<<<<< HEAD
-            <div className="card-header">
-                <h2 className="card-title">Información Meteorológica Detallada</h2>
-                <p className="card-description">Datos complementarios sobre las condiciones actuales</p>
-            </div>
-=======
-            
->>>>>>> 4957e5227bf302910829f85454d42ff1f85d815b
+            {/* El encabezado y su control de plegado los aporta Home.jsx,
+                que es quien gobierna el acordeón de esta sección. */}
             <div className="card-content">
                 <div className="tabs">
                     <div className="tabs-list">
@@ -101,6 +96,9 @@ export default function WeatherDetails({
                                 <div className="metric-box">
                                     <h3 className="metric-label">Punto de rocío</h3>
                                     <p className="metric-value-large">{formatTemp(currentWeather.data.values.dewPoint, tempUnit)} °{tempUnit === 'metric' ? 'C': 'F'}</p>
+                                    <p className="metric-reading">
+                                        {getDewPointReading(currentWeather.data.values.temperature, currentWeather.data.values.dewPoint)}
+                                    </p>
                                 </div>
                                 <div className="metric-box">
                                     <h3 className="metric-label">Presión</h3>
@@ -124,6 +122,36 @@ export default function WeatherDetails({
     )
 }
 
+WeatherDetails.propTypes = {
+    currentWeather: PropTypes.shape({
+        data: PropTypes.shape({
+            values: PropTypes.shape({
+                windSpeed: PropTypes.number,
+                windGust: PropTypes.number,
+                visibility: PropTypes.number,
+                cloudBase: PropTypes.number,
+                uvIndex: PropTypes.number,
+                humidity: PropTypes.number,
+                temperature: PropTypes.number,
+                dewPoint: PropTypes.number,
+                pressureSeaLevel: PropTypes.number,
+            }).isRequired,
+        }).isRequired,
+    }).isRequired,
+    forecastData: PropTypes.shape({
+        weather_daily_data: PropTypes.arrayOf(
+            PropTypes.shape({
+                values: PropTypes.shape({
+                    windGustMin: PropTypes.number,
+                    windSpeedMax: PropTypes.number,
+                    cloudBaseAvg: PropTypes.number,
+                }),
+            })
+        ).isRequired,
+    }).isRequired,
+    tempUnit: PropTypes.string.isRequired,
+}
+
 function MetricCard({ title, value }) {
     return (
         <div className="metric-card">
@@ -131,6 +159,11 @@ function MetricCard({ title, value }) {
             <p className="metric-card-value">{value}</p>
         </div>
     )
+}
+
+MetricCard.propTypes = {
+    title: PropTypes.string.isRequired,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
 }
 
 function UVIndicator({ level }) {
@@ -145,6 +178,27 @@ function UVIndicator({ level }) {
     }
 
     return <div className={`uv-indicator ${colorClass}`}></div>
+}
+
+UVIndicator.propTypes = {
+    level: PropTypes.number.isRequired,
+}
+
+// Traduce el punto de rocío a una lectura de decisión: qué tan cerca está el
+// aire de saturarse, que es lo que determina si hay rocío o niebla al
+// amanecer. Cualitativa y genérica a propósito, sin inventar agronomía.
+function getDewPointReading(temperature, dewPoint) {
+    if (typeof temperature !== "number" || typeof dewPoint !== "number") {
+        return null;
+    }
+    const spread = temperature - dewPoint;
+    if (spread <= 2) {
+        return "Aire casi saturado: probable rocío o niebla al amanecer.";
+    }
+    if (spread <= 5) {
+        return "Humedad alta: puede formarse rocío en superficies frías.";
+    }
+    return "Aire seco: rocío poco probable.";
 }
 
 function getUVDescription(level) {

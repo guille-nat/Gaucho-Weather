@@ -1,12 +1,21 @@
 .layout {
     min-height: 100vh;
-    background-color: var(--background-color);
+    background-color: var(--surface-base);
     display: flex;
     flex-direction: column;
   }
   
   .layout-content {
     flex: 1;
+    /* Flex column, not just a block box: a single stretched block child
+       behaves identically to plain block flow (default align-items:
+       stretch fills the width, height still follows content), but this
+       lets a page opt into vertical centering via margin-top/bottom: auto
+       on its own root element when its content is shorter than the
+       available height (see Reports.css) instead of leaving a dead gap
+       above the sticky footer. */
+    display: flex;
+    flex-direction: column;
     position: relative;
   }
   
