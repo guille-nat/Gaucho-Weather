@@ -1,0 +1,215 @@
+{
+ "title": "Elegí el mundo visual de Gaucho Weather",
+ "question": "Segunda tirada: salió \"Ticket de balanza\". Quedate con ese, tomá la alternativa o volvé a tirar (también podés pedirla más segura o más audaz). Pantalla de referencia: \"Mis lotes\", con datos sintéticos.",
+ "options": [
+  {
+   "id": "assigned-r1",
+   "kind": "assigned",
+   "label": "Ticket de balanza",
+   "kicker": "THE ROLL",
+   "lineage": "Ticket de la balanza del acopio o la cooperativa: número de ticket, bruto, tara y neto impresos en matriz de puntos, con copias en carbónico",
+   "thesis": "Cada veredicto es el NETO del ticket. Arriba van las líneas que lo explican (viento, Delta T, temperatura del suelo), igual que el bruto y la tara.",
+   "palette": [
+    "#fbfbf8",
+    "#161616",
+    "#1f3a8a",
+    "#e8b931"
+   ],
+   "materials": [
+    "papel de ticket",
+    "tinta de matriz de puntos",
+    "copia en carbónico azul"
+   ],
+   "viewport": "Barra superior en azul cooperativa. Cada lote es un ticket con su número, el lote, el cultivo y la localidad. Cada factor va en una línea con su valor, alineado en columna, y el veredicto cierra el ticket como NETO en cifra grande. La acción principal, 'Agregar lote', queda al alcance del pulgar.",
+   "risk": "Si los perforados y el texto de matriz de puntos invaden todo, se vuelve disfraz. Lo de la matriz va solo en las cifras.",
+   "raised": [
+    {
+     "from": "challenger-emission-rail",
+     "raise": "El estado también se marca con la forma de la raya (llena, punteada o tachada), no solo con el color."
+    },
+    {
+     "from": "challenger-acetate-manual",
+     "raise": "Cada tipo de decisión (helada, pulverización, piso) tiene un solo color fijo en toda la app."
+    },
+    {
+     "from": "challenger-saville-catalog",
+     "raise": "Una sola cifra manda en cada ticket: el NETO. Todo lo demás queda subordinado."
+    },
+    {
+     "from": "challenger-ticket-wallet",
+     "raise": "Nada desaparece: los veredictos pasados quedan visibles como VENCIDO, lo que da confianza y deja rastro."
+    },
+    {
+     "from": "challenger-mono-marketing",
+     "raise": "Cada afirmación va seguida de su prueba: ningún veredicto sin las líneas que lo justifican."
+    },
+    {
+     "from": "challenger-labanotation",
+     "raise": "La duración se dibuja a escala: una ventana de 10 a 13 h mide exactamente tres horas en su barra."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned-r1.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "model-pick-r1",
+   "kind": "pick",
+   "label": "Almanaque Bristol",
+   "kicker": "IMPECCABLE’S PICK",
+   "lineage": "El Almanaque Bristol: tapa amarilla, tipografía negra y roja, columnas de calendario con fases de la luna",
+   "thesis": "La app es el almanaque de cada lote, pero con datos: cada día es una fila con su veredicto.",
+   "palette": [
+    "#f2c230",
+    "#141414",
+    "#c8102e",
+    "#ffffff"
+   ],
+   "materials": [
+    "tapa amarilla",
+    "tinta negra y roja",
+    "columnas de calendario"
+   ],
+   "viewport": "Barra superior amarilla Bristol con 'Mis lotes' en negro. Cada lote es una entrada de almanaque con la fila de hoy destacada y el veredicto en rojo si es grave. Abajo, la próxima semana en columnas angostas.",
+   "risk": "Encabezó mi lista y es muy familiar para el productor mayor. Pero el Bristol se asocia a pronósticos sin base científica, justo lo contrario de lo que promete la app.",
+   "html": ".impeccable/mocks/decision/model-pick-r1.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "challenger-emission-rail",
+   "kind": "challenger",
+   "catalogId": "operate-c-emission-line-rail",
+   "label": "Raya de emisión",
+   "verdict": "declined",
+   "lineage": "Espectrograma sobre vidrio",
+   "palette": [
+    "#2a2a2a",
+    "#e8e2d4",
+    "#ffd400"
+   ],
+   "materials": [
+    "carbón",
+    "líneas de emisión"
+   ],
+   "case": "Pierde en los dos ejes: es oscuro y de tamaño único, ilegible al sol.",
+   "kept": "El estado se marca con la forma de la raya, no solo con el color."
+  },
+  {
+   "id": "challenger-acetate-manual",
+   "kind": "challenger",
+   "catalogId": "rw-manual-acetate-tab-board",
+   "label": "Manual con acetato",
+   "verdict": "declined",
+   "lineage": "Manual de software en caja",
+   "palette": [
+    "#e8762c",
+    "#f2c230",
+    "#2d6cdf"
+   ],
+   "materials": [
+    "acetato",
+    "separadores de color"
+   ],
+   "case": "Pierde en los dos ejes: el manual con hojas de acetato le es ajeno al campo.",
+   "kept": "Cada tipo de decisión tiene un solo color fijo."
+  },
+  {
+   "id": "challenger-saville-catalog",
+   "kind": "challenger",
+   "catalogId": "brand-identity-canon-saville-catalog-sleeve",
+   "label": "Catálogo Factory",
+   "verdict": "declined",
+   "lineage": "Identidad de Factory Records",
+   "palette": [
+    "#0d0d0d",
+    "#ffffff",
+    "#e03c31"
+   ],
+   "materials": [
+    "negro mate",
+    "código de colores"
+   ],
+   "case": "Pierde en los dos ejes: los códigos de color reemplazan las palabras, lo contrario de la claridad.",
+   "kept": "Una sola cifra manda en cada ticket."
+  },
+  {
+   "id": "challenger-ticket-wallet",
+   "kind": "challenger",
+   "catalogId": "vernacular-ephemera-jet-age-ticket-wallet",
+   "label": "Billetera de pasajes",
+   "verdict": "declined",
+   "lineage": "Pasajes aéreos de los años 60",
+   "palette": [
+    "#1d2b5c",
+    "#c8102e",
+    "#ffffff"
+   ],
+   "materials": [
+    "cupones con carbónico"
+   ],
+   "case": "Pierde en identificación (el pasaje aéreo es ajeno; el ticket de balanza, propio) y empata en claridad.",
+   "kept": "Nada desaparece: los veredictos pasados quedan como VENCIDO."
+  },
+  {
+   "id": "challenger-mono-marketing",
+   "kind": "challenger",
+   "catalogId": "digital-design-canon-monochrome-product-marketing",
+   "label": "Monocromo de producto",
+   "verdict": "declined",
+   "lineage": "Marketing de software monocromo",
+   "palette": [
+    "#fafafa",
+    "#111111",
+    "#2563eb"
+   ],
+   "materials": [
+    "escala neutra"
+   ],
+   "case": "Pierde en los dos ejes: es el dashboard SaaS genérico que PRODUCT.md descarta.",
+   "kept": "Cada afirmación seguida de su prueba."
+  },
+  {
+   "id": "challenger-labanotation",
+   "kind": "challenger",
+   "catalogId": "notation-diagram-systems-labanotation",
+   "label": "Labanotación",
+   "verdict": "declined",
+   "lineage": "Partitura de danza Laban",
+   "palette": [
+    "#ffffff",
+    "#111111",
+    "#bdbdbd"
+   ],
+   "materials": [
+    "pentagrama vertical"
+   ],
+   "case": "Pierde en los dos ejes: la notación de danza es ilegible para el productor.",
+   "kept": "La duración se dibuja a escala."
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "El estándar de la categoría",
+  "thesis": "Una app de clima agro limpia, hecha impecable: fondo blanco, verde campo, tarjetas con íconos.",
+  "palette": [
+   "#ffffff",
+   "#0f172a",
+   "#16a34a"
+  ],
+  "materials": [
+   "grilla limpia",
+   "íconos de clima"
+  ],
+  "viewport": "Encabezado con el lote, una tarjeta por decisión con ícono, semáforo y una línea de explicación, y navegación inferior.",
+  "risk": "Es lo que hace toda la categoría: se confunde con cualquier app de clima.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "390x844"
+ },
+ "followup": true
+}

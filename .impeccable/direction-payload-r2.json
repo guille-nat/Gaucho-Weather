@@ -1,0 +1,220 @@
+{
+ "title": "Elegí el mundo visual de Gaucho Weather",
+ "followup": true,
+ "question": "Tercera tirada, con tu rumbo: más cerca del agro argentino. Salió \"Planilla de lluvias\"; también van la pizarra de cereales y el plano catastral. Pantalla de referencia: \"Mis lotes\", con datos sintéticos.",
+ "options": [
+  {
+   "id": "assigned-r2",
+   "kind": "assigned",
+   "label": "Planilla de lluvias",
+   "kicker": "THE ROLL",
+   "lineage": "La planilla de registro de lluvias que regalan la cooperativa o el semillero y queda colgada en la cocina del campo: grilla de días, milímetros en birome azul y totales en rojo",
+   "thesis": "Cada lote es su renglón de la planilla: los próximos días en celdas, el veredicto anotado como el agua en el pluviómetro y el total al final.",
+   "palette": [
+    "#ffffff",
+    "#141414",
+    "#1d3fb8",
+    "#c62828"
+   ],
+   "materials": [
+    "planilla impresa",
+    "birome azul",
+    "total en rojo"
+   ],
+   "viewport": "Barra superior en azul birome. Cada lote tiene su encabezado y un renglón de 7 celdas (hoy y los días siguientes), con el veredicto de cada día y la lluvia en mm. La columna final es TOTAL, con la lluvia acumulada en rojo. El veredicto de hoy va grande arriba del renglón, seguido del porqué. 'Agregar lote' queda al alcance del pulgar.",
+   "risk": "Si se imita la letra a mano, se vuelve ilegible y disfraz. Los números van con una tipografía tabular limpia en azul birome.",
+   "raised": [
+    {
+     "from": "challenger-split-flap",
+     "raise": "Cuando un veredicto cambia, cambia en su lugar: el renglón no salta de posición."
+    },
+    {
+     "from": "challenger-gate-board",
+     "raise": "Un veredicto que cambió queda marcado 'CAMBIÓ' hasta que el productor lo ve."
+    },
+    {
+     "from": "challenger-star-atlas",
+     "raise": "La gravedad tiene una escala fija de peso y tamaño, siempre la misma en toda la app."
+    },
+    {
+     "from": "challenger-streaming-wall",
+     "raise": "El lote abierto se expande para mostrar el porqué; los demás quedan compactos."
+    },
+    {
+     "from": "challenger-zoo-map",
+     "raise": "Color plano y sin texturas: nada de papel envejecido ni grano."
+    },
+    {
+     "from": "challenger-dark-console",
+     "raise": "'Eliminar lote' queda aislado, con espacio alrededor, para que no se toque por error."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned-r2.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "model-pick-r2",
+   "kind": "pick",
+   "label": "Pizarra de cereales",
+   "kicker": "IMPECCABLE’S PICK",
+   "lineage": "La pizarra de precios de la Bolsa de Comercio de Rosario: filas por grano, cifras pintadas en blanco y amarillo",
+   "thesis": "La app es la pizarra del día de tu campo: una fila por lote y el veredicto como el precio pizarra.",
+   "palette": [
+    "#13261c",
+    "#ffffff",
+    "#f2c230",
+    "#e04b3a"
+   ],
+   "materials": [
+    "pizarra verde negra",
+    "cifras pintadas"
+   ],
+   "viewport": "Cabecera pizarra con 'Mis lotes — pizarra de hoy'. Cada lote es una fila con su veredicto en cifras grandes (−2 °C, 10–13 h). Al tocarla, se abre el detalle en blanco.",
+   "risk": "Encabezó mi lista. El fondo oscuro de pizarra puede reflejar al sol, por eso la pizarra va solo en la cabecera y las filas, y el detalle es blanco.",
+   "html": ".impeccable/mocks/decision/model-pick-r2.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "grounded-catastro",
+   "kind": "grounded",
+   "label": "Plano catastral",
+   "lineage": "Planos de mensura y catastro rural de Santa Fe: colonias en grilla, lotes numerados, flecha de norte y escala",
+   "thesis": "Cada lote se dibuja con su contorno de plano, su número y el veredicto adentro, como en el plano de la colonia.",
+   "palette": [
+    "#ffffff",
+    "#141414",
+    "#d6336c",
+    "#2b6cb0"
+   ],
+   "materials": [
+    "línea de plano",
+    "números de parcela",
+    "flecha de norte"
+   ],
+   "viewport": "Barra superior blanca con filete negro. Cada lote es una tarjeta con el croquis de la parcela en línea negra, su número grande y el veredicto escrito dentro del croquis. Al costado, la localidad y la distancia al lote.",
+   "risk": "Si el lote no tiene contorno cargado, el croquis queda como un rectángulo genérico. Además se acerca a lo que hace cualquier app con mapa.",
+   "html": ".impeccable/mocks/decision/grounded-catastro.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "challenger-split-flap",
+   "kind": "challenger",
+   "catalogId": "signals-instruments-split-flap-concourse",
+   "label": "Tablero de estación",
+   "verdict": "declined",
+   "lineage": "Tablero de persianas de estación de tren",
+   "palette": [
+    "#111111",
+    "#ffffff",
+    "#f2a900"
+   ],
+   "materials": [],
+   "case": "Pierde en identificación: la estación es ajena al campo.",
+   "kept": "El veredicto cambia en su lugar, sin que el renglón salte."
+  },
+  {
+   "id": "challenger-star-atlas",
+   "kind": "challenger",
+   "catalogId": "notation-diagram-systems-star-atlas",
+   "label": "Atlas estelar",
+   "verdict": "declined",
+   "lineage": "Carta celeste",
+   "palette": [
+    "#0b1d3a",
+    "#ffffff",
+    "#ff6a3d"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes: es oscuro y nocturno.",
+   "kept": "La gravedad tiene una escala fija de tamaño."
+  },
+  {
+   "id": "challenger-streaming-wall",
+   "kind": "challenger",
+   "catalogId": "pop-culture-shelf-streaming-title-card-wall",
+   "label": "Pared de streaming",
+   "verdict": "declined",
+   "lineage": "Catálogo de streaming",
+   "palette": [
+    "#141414",
+    "#e50914"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes: entretenimiento, no trabajo.",
+   "kept": "El lote abierto se expande y los demás quedan compactos."
+  },
+  {
+   "id": "challenger-zoo-map",
+   "kind": "challenger",
+   "catalogId": "aww2-zoo-gardens-guide-map",
+   "label": "Mapa de zoológico",
+   "verdict": "declined",
+   "lineage": "Mapa guía de zoológico",
+   "palette": [
+    "#8ed462",
+    "#f5f1e4",
+    "#ff705d"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes: es infantil y en tono crema.",
+   "kept": "Color plano y sin texturas."
+  },
+  {
+   "id": "challenger-gate-board",
+   "kind": "challenger",
+   "catalogId": "vernacular-ephemera-boarding-pass-and-gate-board",
+   "label": "Tarjeta de embarque",
+   "verdict": "declined",
+   "lineage": "Tarjeta de embarque y tablero de puertas",
+   "palette": [
+    "#ffffff",
+    "#111111",
+    "#ff3b30"
+   ],
+   "materials": [],
+   "case": "Pierde en identificación: es ajena al campo.",
+   "kept": "Lo que cambió queda marcado hasta que se ve."
+  },
+  {
+   "id": "challenger-dark-console",
+   "kind": "challenger",
+   "catalogId": "digital-design-canon-dark-first-developer-console",
+   "label": "Consola oscura",
+   "verdict": "declined",
+   "lineage": "Consola de desarrollador",
+   "palette": [
+    "#1e1e1e",
+    "#d4d4d4",
+    "#569cd6"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes: es oscura y de programador.",
+   "kept": "La acción destructiva queda aislada."
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "El estándar de la categoría",
+  "thesis": "Una app de clima agro limpia, hecha impecable: fondo blanco, verde campo, tarjetas con íconos.",
+  "palette": [
+   "#ffffff",
+   "#0f172a",
+   "#16a34a"
+  ],
+  "materials": [
+   "grilla limpia",
+   "íconos de clima"
+  ],
+  "viewport": "Encabezado con el lote, una tarjeta por decisión con ícono, semáforo y una línea de explicación, y navegación inferior.",
+  "risk": "Es lo que hace toda la categoría: se confunde con cualquier app de clima.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "390x844"
+ }
+}

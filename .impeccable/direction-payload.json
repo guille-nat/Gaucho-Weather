@@ -1,0 +1,130 @@
+{
+  "title": "Elegí el mundo visual de Gaucho Weather",
+  "question": "La tirada asignó \"Catálogo de remate\". Quedate con ese, elegí una alternativa o volvé a tirar. Pantalla de referencia: \"Mis lotes\" en el celular, con el veredicto de hoy por lote (datos sintéticos).",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Catálogo de remate",
+      "kicker": "THE ROLL",
+      "lineage": "Catálogos de remate ganadero y de hacienda de la Pampa: lotes numerados, tablas con rayas, sello de 'vendido'",
+      "thesis": "Cada campo es un lote del catálogo. El veredicto del día se estampa sobre él como el sello del rematador.",
+      "palette": ["#ffffff", "#141414", "#4a2c8f", "#c9332b"],
+      "materials": ["papel blanco de catálogo", "tinta negra", "sello de goma violeta"],
+      "viewport": "Barra superior violeta tinta con 'Mis lotes'. Cada lote es una ficha con rayas, su número enorme en grotesca condensada y siempre los mismos campos en el mismo lugar (cultivo, siembra, localidad). El veredicto de hoy va estampado en violeta: 'HIELA ESTA NOCHE · 70 %'. Abajo, la acción principal al alcance del pulgar: 'Agregar lote'.",
+      "risk": "Si el sello se usa en todo, se vuelve disfraz. Va solo en el veredicto del día.",
+      "raised": [
+        {"from": "challenger-character-catalog", "raise": "Ficha fija: cada lote lleva siempre los mismos campos en el mismo lugar, así se lee sin buscar."},
+        {"from": "challenger-japanese-density", "raise": "Las rayas finas del catálogo son el sistema de bordes: sin tarjetas flotantes y sin espacio vacío inflado."},
+        {"from": "challenger-timetable-rack", "raise": "La jerarquía se marca con peso, mayúsculas e inversión, no con tamaños crecientes. Por pantalla, solo el veredicto más grave va en placa invertida."},
+        {"from": "challenger-crouwel-grid", "raise": "La grilla de columnas del catálogo es la estructura visible de la pantalla."},
+        {"from": "challenger-ikeda", "raise": "Nada de grises medios para texto: el secundario se mantiene en 7:1 o más para leerse al sol."}
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html",
+      "htmlFrame": "390x844"
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Ruta nacional",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Señalética vial argentina (DNV): carteles verdes de ruta, rombos amarillos de prevención, escudos de ruta",
+      "thesis": "La app habla como el cartel de la ruta 33: una indicación por banda, legible a 100 metros y al sol.",
+      "palette": ["#0b6b46", "#ffffff", "#f6c400", "#111111"],
+      "materials": ["chapa reflectiva", "pintura vial", "tipografía de señalización"],
+      "viewport": "Cabecera verde ruta con el nombre del lote, como un escudo de ruta. Cada decisión es una banda: verde si está bien, rombo amarillo si hay que tener cuidado ('Pulverizá de 10 a 13 h'), banda roja si no ('Helada a nivel del suelo: −2 °C'). Abajo, la navegación estándar.",
+      "risk": "Encabezó mi propia lista y es la más familiar. Puede leerse como algo del gobierno o de tránsito.",
+      "html": ".impeccable/mocks/decision/model-pick.html",
+      "htmlFrame": "390x844"
+    },
+    {
+      "id": "challenger-terminal-yellow",
+      "kind": "challenger",
+      "catalogId": "wayfinding-cartography-signage-terminal-yellow-wayfinding",
+      "label": "Banda amarilla",
+      "verdict": "competitive",
+      "lineage": "Señalética amarilla de aeropuerto, fusionada con los lotes",
+      "thesis": "Cada lote muestra solo la próxima decisión, en una banda amarilla con el dato principal monumental.",
+      "palette": ["#ffd200", "#111111", "#ffffff"],
+      "materials": ["paneles amarillos", "pictogramas blancos sobre negro"],
+      "viewport": "Una banda amarilla fija por lote: 'Lote 4 · La Esperanza → Esta noche hiela · −2 °C en el suelo'. Pictograma de helada blanco sobre negro, y debajo la lista de los demás lotes.",
+      "case": "Gana en claridad: 'una sola decisión siguiente' es justo el trabajo de decidir hoy. Pierde en identificación: un aeropuerto le es ajeno al productor.",
+      "risk": "El amarillo saturado a pleno sol puede cansar. Y si el amarillo se usa para cosas que no son decisiones, pierde su significado.",
+      "html": ".impeccable/mocks/decision/challenger-terminal-yellow.html",
+      "htmlFrame": "390x844"
+    },
+    {
+      "id": "challenger-character-catalog",
+      "kind": "challenger",
+      "catalogId": "pop-culture-shelf-character-goods-catalog",
+      "label": "Catálogo de personajes",
+      "verdict": "declined",
+      "lineage": "Catálogo japonés de mascotas",
+      "palette": ["#ffd6e0", "#ffffff", "#ff4f7b"],
+      "materials": ["pastel plano", "contorno blanco"],
+      "case": "Pierde en los dos ejes: un productor de 60 años no se identifica con mascotas pastel, y la claridad sufre.",
+      "kept": "Ficha fija: cada lote lleva siempre los mismos campos en el mismo lugar."
+    },
+    {
+      "id": "challenger-japanese-density",
+      "kind": "challenger",
+      "catalogId": "japanese-high-density-web",
+      "label": "Densidad japonesa",
+      "verdict": "declined",
+      "lineage": "Sitios japoneses de alta densidad",
+      "palette": ["#ffffff", "#111111", "#d0021b"],
+      "materials": ["módulos con rayas finas"],
+      "case": "Pierde en los dos ejes: la letra chica es ilegible al sol para usuarios mayores.",
+      "kept": "Las rayas finas como sistema de bordes, sin espacio inflado."
+    },
+    {
+      "id": "challenger-timetable-rack",
+      "kind": "challenger",
+      "catalogId": "rw-timetable-slide-rack",
+      "label": "Horario en diapositivas",
+      "verdict": "declined",
+      "lineage": "Horario de aerolínea de bolsillo sobre mesa de luz",
+      "palette": ["#d9a520", "#1c1c1c", "#c8361f"],
+      "materials": ["vidrio teñido", "papel dorado"],
+      "case": "Pierde en los dos ejes: los contenedores inclinados y el tamaño único de letra van contra la legibilidad.",
+      "kept": "Jerarquía por peso e inversión, con una sola placa invertida por pantalla."
+    },
+    {
+      "id": "challenger-crouwel-grid",
+      "kind": "challenger",
+      "catalogId": "crouwel-grid-specimen",
+      "label": "Grilla de Crouwel",
+      "verdict": "declined",
+      "lineage": "Specimen tipográfico de Wim Crouwel",
+      "palette": ["#ffffff", "#111111", "#2b59c3"],
+      "materials": ["grilla de construcción"],
+      "case": "Pierde en los dos ejes: es un juego tipográfico, no le dice nada al campo.",
+      "kept": "La grilla como estructura visible."
+    },
+    {
+      "id": "challenger-ikeda",
+      "kind": "challenger",
+      "catalogId": "ikeda-datamatics",
+      "label": "Datamatics",
+      "verdict": "declined",
+      "lineage": "Campos de datos de Ryoji Ikeda",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["barras", "monoespaciada"],
+      "case": "Pierde en los dos ejes: los destellos en blanco y negro y la letra monoespaciada densa alejan al usuario.",
+      "kept": "Contraste máximo: nada de grises medios para texto."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "El estándar de la categoría",
+    "thesis": "Una app de clima agro limpia, hecha impecable: fondo blanco, verde campo, tarjetas con íconos.",
+    "palette": ["#ffffff", "#0f172a", "#16a34a"],
+    "materials": ["grilla limpia", "íconos de clima"],
+    "viewport": "Encabezado con el lote, una tarjeta por decisión con ícono, semáforo y una línea de explicación, y navegación inferior.",
+    "risk": "Es lo que hace toda la categoría: se confunde con cualquier app de clima.",
+    "html": ".impeccable/mocks/decision/canon.html",
+    "htmlFrame": "390x844"
+  }
+}

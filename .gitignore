@@ -1,0 +1,11 @@
+.impeccable/mocks/
+.impeccable/config.local.json
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+.ruff_cache/
+coverage/
