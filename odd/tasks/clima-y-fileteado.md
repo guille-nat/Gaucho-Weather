@@ -58,12 +58,30 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
   - **Out of scope:** automatic boundary detection from imagery (option 2, deferred).
   - **Licenses:** every tile and geocoding provider must allow commercial use, or have a free tier that does, with attribution. Report the terms with source URLs.
 
+- **S8 — Weather first** (L6):
+  - The home screen is the forecast of the current location (browser geolocation, asked on first open) or of a place the user searches.
+  - No account is needed for the forecast. Lotes, alerts and per-lote decisions need an account.
+  - Recent and saved places are kept locally.
+- **S9 — Design** (L7, verbatim): "minimalista con colores y diseño moderno, con vida, no con minimalista vacio". It supersedes S2.
+- **S10 — Public API** (extends S5):
+  - `GET /api/pronostico/?lat=<lat>&lon=<lon>`
+    - Public and throttled per IP.
+    - Same payload shape as S5, plus `place: {name, region}|null`.
+    - Coordinates must fall inside the Argentina bounds of Phase 1's S8, else 400 `{"detail": "Por ahora solo cubrimos Argentina."}`.
+    - Served from the archive when the 0.1° cell has a snapshot younger than 3 h. Otherwise it fetches Open-Meteo on demand and archives the result, so a search also enriches backtesting.
+  - `GET /api/lugares/?q=<text>` → `[{name, region, lat, lon}]`, up to 8, Argentina only. Public, throttled and cached.
+  - `GET /api/lugares/reverso/?lat=&lon=` → `{name, region}|null`.
+  - Providers must allow commercial use. Report the terms with URLs.
+
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2 | inline | done | Direction chosen; contract written |
 | T2 | S1, S3, S4, S5, S6 | delegated (unit A: parallel writer) | in progress | Backend: engine v0, forecast endpoint, archiver extension |
 | T3 | S1, S2, S5 | delegated (unit B: parallel writer) | in progress | Frontend: fileteado world app-wide, Hoy en tu lote, Pronóstico tab |
+| T3x | S2 | cancelled (L6) | cancelled | Work stashed, not merged |
+| T5 | S8, S10 | delegated (unit A2: parallel writer) | in progress | Backend public forecast and places |
+| T6 | S1, S8, S9, S10 | delegated (unit B2: parallel writer) | in progress | Frontend weather-first redesign |
 | T4 | S7 | pending: runs after T3, because it edits the same files (LoteForm, MapPicker) | pending | Map search, satellite and boundary drawing with automatic hectares |
 
 ## Log
@@ -75,3 +93,9 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
 - L3 (2026-11-03): direction round on the screen "Hoy en tu lote". The user chose "Fileteado criollo" (seed:94aec30eb0f49ffe).
 - L4 (2026-11-03, user, verbatim): "sabes que le falta tambien un mapa interactivo donde puedan buscarlo y señalarlo para que le sea tambien facil al productor, como tambien poder trazar el tamaño del lote de forma automática"
 - L5 (2026-11-03, user, verbatim): "para empezar el 1 que se calculen solas". Option 1 means drawing the corners with automatic hectares; option 2, automatic detection from imagery, is deferred.
+- L6 (2026-11-03, user, verbatim): "detente quiero un diseño mas minimalista y el pronostico  de la hubicacion actual o la que busque rapidamente, tene en cuenta que tambien es una app del clima nada mas que es mas una herramienta para el agro"
+  - Unit B was stopped. Its unfinished fileteado work is stashed: "wip: fileteado frontend restyle".
+  - The backend f812697 is kept.
+- L7 (2026-11-03, user, verbatim): "minimalista con colores y diseño moderno, con vida, no con minimalista vacio"
+  - S2 (fileteado) is superseded by S8 and S9.
+  - T3 is cancelled and replaced by T5 and T6. T4 (the map) is still pending.

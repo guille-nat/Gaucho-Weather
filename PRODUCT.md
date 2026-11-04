@@ -30,6 +30,19 @@ backtesting, y cada regla cita su fuente (ver `Doc/reglas-agronomicas.md`).
 El éxito es que el productor abra la app, entienda en menos de 10 segundos qué
 hacer en cada lote y confíe en lo que vio, porque la app le explica por qué.
 
+## Product Shape (2026-11-03)
+
+Primero es una app del clima, pensada como herramienta para el agro. Al abrirla
+se ve el pronóstico de la ubicación actual, o del lugar que se busque, sin
+necesidad de cuenta ni de crear nada. Los lotes, las alertas y las decisiones
+por lote son herramientas extra para el productor que tiene cuenta.
+
+Decisión del usuario, textual: "quiero un diseño mas minimalista y el
+pronostico de la hubicacion actual o la que busque rapidamente, tene en cuenta
+que tambien es una app del clima nada mas que es mas una herramienta para el
+agro". Sobre el estilo, textual: "minimalista con colores y diseño moderno, con
+vida, no con minimalista vacio".
+
 ## Brand Personality
 
 Confiable, campechano, directo y con vida. Gaucho Weather representa la
@@ -57,7 +70,11 @@ nunca le quitan legibilidad al dato.
 2. **Legible al rayo del sol.** Contraste AA como piso real (4.5:1 en texto de cuerpo), tipografía generosa, nada de grises lavados. El usuario está afuera, con brillo al máximo.
 3. **Un pulgar, guantes puestos.** Targets táctiles de 44px o más, acciones primarias alcanzables con una mano, flujos de un paso. Mobile first sin excusas.
 4. **Simple por defecto, profundo a pedido.** La vista inicial le alcanza al productor; el técnico expande capas de detalle cuando las necesita. La densidad es opcional, nunca impuesta.
-5. **Criollo y con color, sin perder el dato.** La cultura gaucha da la paleta,
+5. **Moderno, con color y vida, sin perder el dato.** Diseño minimalista y
+   actual, nunca vacío: el color del cielo, cifras grandes y pocos elementos
+   bien elegidos. Lo criollo queda en acentos, nunca como ornamento. Reemplazó
+   el 2026-11-03 a "Criollo y con color" (fileteado), a pedido del usuario.
+   Antes decía: **Criollo y con color, sin perder el dato.** La cultura gaucha da la paleta,
    la tipografía y los motivos de toda la app. El ornamento va en marcos,
    encabezados y momentos clave, nunca encima de un número. Antes este
    principio decía "El gaucho acompaña, no decora"; se reemplazó el 2026-11-03
