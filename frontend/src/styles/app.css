@@ -78,7 +78,7 @@
   height: var(--tabbar-h);
   color: var(--ink-2);
   text-decoration: none;
-  font: 600 0.9375rem / 1 var(--font-survey);
+  font: 600 1rem / 1 var(--font-survey);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

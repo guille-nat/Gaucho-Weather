@@ -1,0 +1,546 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-03T22:00:00-03:00",
+  "title": "Design System: Gaucho Weather",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "paper-sunk": {
+        "role": "neutral",
+        "displayName": "Sunk Paper",
+        "canonical": "#f5f5f2",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252524",
+          "#424240",
+          "#61615f",
+          "#828280",
+          "#a5a5a3",
+          "#c9c9c8",
+          "#eeeeee"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#141414",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink Two",
+        "canonical": "#3b3b38",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252524",
+          "#424240",
+          "#61615e",
+          "#82827f",
+          "#a5a5a3",
+          "#c9c9c7",
+          "#eeeeed"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Card Rule",
+        "canonical": "#8f8f89",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252523",
+          "#42423f",
+          "#62625d",
+          "#83837d",
+          "#a5a5a1",
+          "#c9c9c6",
+          "#eeeeed"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#6b6b66",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252523",
+          "#42423f",
+          "#61615d",
+          "#83837e",
+          "#a5a5a1",
+          "#c9c9c7",
+          "#eeeeed"
+        ]
+      },
+      "survey-blue": {
+        "role": "primary",
+        "displayName": "Survey Blue",
+        "canonical": "#2b6cb0",
+        "tonalRamp": [
+          "#020c19",
+          "#0c2641",
+          "#1b436e",
+          "#2b639f",
+          "#4d85c4",
+          "#7da9da",
+          "#adccf0",
+          "#dff1ff"
+        ]
+      },
+      "survey-blue-ink": {
+        "role": "primary",
+        "displayName": "Survey Blue Ink",
+        "canonical": "#1f5592",
+        "tonalRamp": [
+          "#030b18",
+          "#10263f",
+          "#22436b",
+          "#34639a",
+          "#5585bf",
+          "#83a8d6",
+          "#b1cced",
+          "#e1f0ff"
+        ]
+      },
+      "survey-blue-wash": {
+        "role": "primary",
+        "displayName": "Survey Blue Wash",
+        "canonical": "#eaf1f9",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232528",
+          "#3f4247",
+          "#5c6268",
+          "#7d8389",
+          "#a1a5ab",
+          "#c6c9cd",
+          "#edeff1"
+        ]
+      },
+      "catastro-pink": {
+        "role": "secondary",
+        "displayName": "Catastro Pink",
+        "canonical": "#d6336c",
+        "tonalRamp": [
+          "#1c0108",
+          "#48061e",
+          "#781038",
+          "#ad1c53",
+          "#d54773",
+          "#ec7d99",
+          "#ffafc0",
+          "#ffe0e9"
+        ]
+      },
+      "crit": {
+        "role": "tertiary",
+        "displayName": "Critical Red",
+        "canonical": "#a3001b",
+        "tonalRamp": [
+          "#1c0203",
+          "#470c0e",
+          "#771b1e",
+          "#ab2b2f",
+          "#d25250",
+          "#e9847e",
+          "#fdb3ad",
+          "#ffe2de"
+        ]
+      },
+      "crit-wash": {
+        "role": "tertiary",
+        "displayName": "Critical Wash",
+        "canonical": "#fdecee",
+        "tonalRamp": [
+          "#0d0a0b",
+          "#292324",
+          "#483f40",
+          "#6a5d5f",
+          "#8c7e80",
+          "#ada2a3",
+          "#cfc7c8",
+          "#f2edee"
+        ]
+      },
+      "caut": {
+        "role": "tertiary",
+        "displayName": "Caution Brown",
+        "canonical": "#6e3f00",
+        "tonalRamp": [
+          "#130902",
+          "#34200b",
+          "#5a3a1a",
+          "#825629",
+          "#a5784b",
+          "#c29d7b",
+          "#dec4ab",
+          "#fbebdd"
+        ]
+      },
+      "ok": {
+        "role": "tertiary",
+        "displayName": "Field Green",
+        "canonical": "#145a2a",
+        "tonalRamp": [
+          "#030e05",
+          "#112c17",
+          "#234c2d",
+          "#377044",
+          "#589264",
+          "#86b28d",
+          "#b3d3b8",
+          "#e2f4e5"
+        ]
+      },
+      "wait": {
+        "role": "neutral",
+        "displayName": "Wait",
+        "canonical": "#3b3b38",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252524",
+          "#424240",
+          "#61615e",
+          "#82827f",
+          "#a5a5a3",
+          "#c9c9c7",
+          "#eeeeed"
+        ]
+      },
+      "offline-wash": {
+        "role": "tertiary",
+        "displayName": "Offline Cream",
+        "canonical": "#fff3cf",
+        "tonalRamp": [
+          "#0d0b05",
+          "#292518",
+          "#48422d",
+          "#6a6145",
+          "#8c8265",
+          "#aca58e",
+          "#cec9b8",
+          "#f2eee5"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Tonight's minimum on the lote detail."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Lote name in the detail title block, uppercase."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page titles, uppercase survey face."
+      },
+      "reading": {
+        "displayName": "Reading",
+        "purpose": "Temperature on a lote card, tabular."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Card names, the reading's question, establishment."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text and field labels (bold)."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Hints and fine print; the 16 px floor."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Every button label, uppercase."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section heads, chips, model names, uppercase."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "TOWN · CROP · HA line, uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-hover-lift",
+        "value": "0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -6px rgb(0 0 0 / 0.14)",
+        "purpose": "Hovered lote card only, with the border darkening to ink."
+      },
+      {
+        "name": "title-block-second-rule",
+        "value": "0 3px 0 #ffffff, 0 4px 0 #141414",
+        "purpose": "Second rule under a 3 px ink border on page heads, detail head and auth brand; a rule, not elevation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Default easing for every state transition."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Buttons and inputs: color, border, press scale 0.96."
+      },
+      {
+        "name": "dur-base",
+        "value": "200ms",
+        "purpose": "Card hover, tab pill, disclosure chevron rotation."
+      },
+      {
+        "name": "empty-rise",
+        "value": "420ms translateY(8px) with 60ms stagger",
+        "purpose": "The empty state's entry only."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All animation and transition collapsed under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "form-two-column",
+        "value": "480px"
+      },
+      {
+        "name": "tablet",
+        "value": "600px"
+      },
+      {
+        "name": "desktop-rail",
+        "value": "960px"
+      }
+    ],
+    "focus": {
+      "value": "3px solid #2b6cb0, offset 2px",
+      "purpose": "Global focus ring; inputs offset 1px, tabs inset -4px."
+    },
+    "parcelHatch": {
+      "none": {
+        "stroke": "#141414",
+        "strokeWidth": 1.8,
+        "angle": 45,
+        "tile": 8,
+        "status": "shipped"
+      },
+      "pending": {
+        "fill": "#ffffff",
+        "dash": "7 5",
+        "status": "shipped"
+      },
+      "provisional": {
+        "note": "Defined in ParcelOutline for Phase 2 severities but not rendered in this build; not yet part of the system.",
+        "critical": "#c8102e cross-hatch 1.8 px",
+        "caution": "#c77700 single hatch 2.4 px at -45°",
+        "ok": "#1f7a3a dots r1.6 on 9 px grid"
+      }
+    },
+    "assets": [
+      {
+        "path": "frontend/public/favicon.svg",
+        "provenance": "Authored in-repo for this build: ink rounded square, white parcel outline, catastro-pink diamond."
+      },
+      {
+        "path": "frontend/public/pwa-192.png",
+        "provenance": "Generated in-repo by the frontend writer for this build."
+      },
+      {
+        "path": "frontend/public/pwa-512.png",
+        "provenance": "Generated in-repo by the frontend writer for this build."
+      },
+      {
+        "path": "frontend/public/pwa-maskable-512.png",
+        "provenance": "Generated in-repo by the frontend writer for this build."
+      },
+      {
+        "path": "frontend/public/apple-touch-icon.png",
+        "provenance": "Generated in-repo by the frontend writer for this build."
+      }
+    ],
+    "fonts": [
+      {
+        "family": "Atkinson Hyperlegible Next",
+        "weights": [
+          400,
+          700
+        ],
+        "source": "@fontsource/atkinson-hyperlegible-next, self-hosted"
+      },
+      {
+        "family": "Barlow Semi Condensed",
+        "weights": [
+          500,
+          600,
+          700
+        ],
+        "source": "@fontsource/barlow-semi-condensed, self-hosted"
+      }
+    ],
+    "direction": {
+      "surface": ".impeccable/surfaces/frontend-src-pages-mislotes-tsx.md",
+      "form": "Canon fused with Plano catastral (user-pinned blend)",
+      "seed": "seed:2b91f0427520ad03",
+      "commit": "aefe95d"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink action, one per screen: Agregar lote, submit, auth.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>Agregar lote</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 20px;border:2px solid transparent;border-radius:var(--radius-control,8px);font-weight:700;font-size:1.1875rem;line-height:1;letter-spacing:0.06em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;cursor:pointer;transition:background-color 120ms cubic-bezier(0.2,0,0,1),border-color 120ms,color 120ms,scale 120ms;}.ds-btn:active{scale:0.96;}.ds-btn:focus-visible{outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:2px;}.ds-btn-primary{background:var(--ink,#141414);color:#fff;}.ds-btn-primary:hover{background:#2e2e2c;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Survey-blue outline for non-destructive secondary actions.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 20h4L19 9l-4-4L4 16z\"/></svg>Editar lote</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 20px;border:2px solid transparent;border-radius:var(--radius-control,8px);font-weight:700;font-size:1.1875rem;line-height:1;letter-spacing:0.06em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;cursor:pointer;transition:background-color 120ms cubic-bezier(0.2,0,0,1),border-color 120ms,color 120ms,scale 120ms;}.ds-btn:active{scale:0.96;}.ds-btn:focus-visible{outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:2px;}.ds-btn-secondary{background:var(--paper,#fff);border-color:var(--survey-blue,#2b6cb0);color:var(--survey-blue,#2b6cb0);}.ds-btn-secondary:hover{background:var(--survey-blue-wash,#eaf1f9);color:var(--survey-blue-ink,#1f5592);}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Critical outline for Borrar lote; solid crit only on the confirming step.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Borrar lote</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 20px;border:2px solid transparent;border-radius:var(--radius-control,8px);font-weight:700;font-size:1.1875rem;line-height:1;letter-spacing:0.06em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;cursor:pointer;transition:background-color 120ms cubic-bezier(0.2,0,0,1),border-color 120ms,color 120ms,scale 120ms;}.ds-btn:active{scale:0.96;}.ds-btn:focus-visible{outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:2px;}.ds-btn-danger{background:var(--paper,#fff);border-color:var(--crit,#a3001b);color:var(--crit,#a3001b);}.ds-btn-danger:hover{background:var(--crit-wash,#fdecee);}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "52 px field with bold label above and an example hint below.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Nombre del lote</span><input class=\"ds-input\" type=\"text\"><span class=\"ds-field-hint\">Por ejemplo: Lote 12</span></label>",
+      "css": ".ds-field{display:grid;gap:6px;font-family:var(--font-body,'Atkinson Hyperlegible Next',system-ui,sans-serif);color:#141414;}.ds-field-label{font-weight:700;font-size:1.0625rem;}.ds-field-hint{font-size:1rem;color:var(--ink-2,#3b3b38);}.ds-input{min-height:52px;padding:0 14px;border:1.5px solid var(--rule-strong,#6b6b66);border-radius:var(--radius-control,8px);background:#fff;font:inherit;font-size:1.0625rem;transition:border-color 120ms cubic-bezier(0.2,0,0,1);}.ds-input:hover{border-color:#141414;}.ds-input:focus-visible{border-color:var(--survey-blue,#2b6cb0);outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:1px;}.ds-input[aria-invalid='true']{border:2px solid var(--crit,#a3001b);}"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "chip-none",
+      "description": "State is never colour alone: icon plus uppercase label; dashed means no data yet.",
+      "html": "<span class=\"ds-chip\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0Z\"/><path d=\"M12 17v-6\"/></svg>Pronóstico</span> <span class=\"ds-chip ds-chip-pending\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>Sin datos aún</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 6px;border:1.5px solid currentColor;border-radius:var(--radius-chip,6px);color:var(--ink,#141414);font-weight:700;font-size:1rem;line-height:1.1;letter-spacing:0.05em;white-space:nowrap;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;}.ds-chip-pending{color:var(--wait,#3b3b38);border-style:dashed;}"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Three survey-face tabs; the active icon sits in a survey-blue pill.",
+      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab is-active\" href=\"#\"><span class=\"ds-tab-icon\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 7.5 17 4l3 14-14 2.5Z\"/><path d=\"M8.5 11.5l6-1.5M9.5 15.5l6-1.5\"/></svg></span>Lotes</a><a class=\"ds-tab\" href=\"#\"><span class=\"ds-tab-icon\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 10a6 6 0 1 1 12 0c0 5.5 2.5 7 2.5 7h-17S6 15.5 6 10Z\"/><path d=\"M10 20.5a2.2 2.2 0 0 0 4 0\"/></svg></span>Alertas</a><a class=\"ds-tab\" href=\"#\"><span class=\"ds-tab-icon\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg></span>Perfil</a></nav>",
+      "css": ".ds-tabbar{display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border-top:2px solid var(--ink,#141414);}.ds-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:68px;color:var(--ink-2,#3b3b38);text-decoration:none;font-weight:600;font-size:1rem;line-height:1;letter-spacing:0.04em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;}.ds-tab:hover{color:#141414;}.ds-tab:focus-visible{outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:-4px;}.ds-tab-icon{display:grid;place-items:center;width:56px;height:32px;border-radius:16px;transition:background-color 200ms cubic-bezier(0.2,0,0,1);}.ds-tab.is-active{color:#141414;font-weight:700;}.ds-tab.is-active .ds-tab-icon{background:var(--survey-blue,#2b6cb0);color:#fff;}"
+    },
+    {
+      "name": "Lote Card",
+      "kind": "card",
+      "refersTo": "lote-card",
+      "description": "Parcel, identity and chip on top; the reading and its ink caveat span below.",
+      "html": "<a class=\"ds-lote-card\" href=\"#\"><svg class=\"ds-parcel\" viewBox=\"0 0 120 108\" role=\"img\" aria-label=\"Plano del lote 12, sin aviso todavía\"><defs><pattern id=\"ds-hatch\" width=\"8\" height=\"8\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><path d=\"M0 0V8\" stroke=\"#141414\" stroke-width=\"1.8\"/></pattern></defs><polygon points=\"9,14 92,10 95,98 14,102\" fill=\"url(#ds-hatch)\" stroke=\"#141414\" stroke-width=\"2.6\" stroke-linejoin=\"miter\"/><rect x=\"27\" y=\"34\" width=\"46\" height=\"42\" fill=\"#fff\" stroke=\"#141414\" stroke-width=\"1\"/><text x=\"50\" y=\"67\" font-size=\"34\" font-weight=\"700\" text-anchor=\"middle\" fill=\"#141414\" font-family=\"Barlow Semi Condensed, Arial Narrow, sans-serif\">12</text><g aria-hidden=\"true\"><path d=\"M110 4l6 15-6-4-6 4z\" fill=\"#141414\"/><text x=\"110\" y=\"31\" font-size=\"11\" font-weight=\"700\" text-anchor=\"middle\" fill=\"#141414\" font-family=\"Barlow Semi Condensed, Arial Narrow, sans-serif\">N</text></g></svg><span class=\"ds-lote-head\"><span class=\"ds-lote-name\">Lote 12 · El Ombú</span><span class=\"ds-lote-meta\">Casilda · Trigo · 85 ha</span><span class=\"ds-chip\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0Z\"/><path d=\"M12 17v-6\"/></svg>Pronóstico</span></span><span class=\"ds-lote-go\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 5l7 7-7 7\"/></svg></span><span class=\"ds-lote-read\"><span><b>Mín. esta noche (2&nbsp;m)</b> <span class=\"ds-lote-value\">6,4 °C</span></span><span>Aún no calculamos la helada en el suelo.</span></span></a>",
+      "css": ".ds-lote-card{display:grid;grid-template-columns:80px minmax(0,1fr) 20px;grid-template-areas:'plan head go' 'read read read';column-gap:12px;row-gap:8px;align-items:center;padding:12px;border:1px solid var(--rule,#8f8f89);border-radius:var(--radius-card,12px);background:#fff;color:#141414;text-decoration:none;font-family:var(--font-body,'Atkinson Hyperlegible Next',system-ui,sans-serif);font-size:1.0625rem;transition:border-color 200ms cubic-bezier(0.2,0,0,1),box-shadow 200ms cubic-bezier(0.2,0,0,1);}.ds-lote-card:hover{border-color:#141414;box-shadow:0 1px 2px rgb(0 0 0 / 0.06),0 6px 16px -6px rgb(0 0 0 / 0.14);}.ds-lote-card:active{background:var(--paper-sunk,#f5f5f2);}.ds-lote-card:focus-visible{outline:3px solid var(--survey-blue,#2b6cb0);outline-offset:2px;}.ds-parcel{grid-area:plan;width:80px;height:72px;}.ds-lote-head{grid-area:head;display:flex;flex-direction:column;align-items:flex-start;gap:2px;}.ds-lote-name{font-size:1.125rem;font-weight:700;line-height:1.25;}.ds-lote-meta{font-weight:500;font-size:1rem;letter-spacing:0.04em;color:var(--ink-2,#3b3b38);font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;}.ds-lote-go{grid-area:go;}.ds-lote-read{grid-area:read;display:grid;gap:2px;line-height:1.3;}.ds-lote-value{font-weight:700;font-size:1.5rem;font-variant-numeric:tabular-nums;font-family:var(--font-survey,'Barlow Semi Condensed',sans-serif);}.ds-chip{display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px 4px 6px;border:1.5px solid currentColor;border-radius:6px;font-weight:700;font-size:1rem;letter-spacing:0.05em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;}"
+    },
+    {
+      "name": "Title Block",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "Page head closed by the double survey rule.",
+      "html": "<header class=\"ds-title-block\"><h1 class=\"ds-title\">Mis lotes</h1><p class=\"ds-title-meta\">3 de noviembre · Pronóstico de las 06:10</p></header>",
+      "css": ".ds-title-block{padding:14px 0 10px;border-bottom:3px solid var(--ink,#141414);box-shadow:0 3px 0 #fff,0 4px 0 var(--ink,#141414);color:#141414;}.ds-title{margin:0;font-weight:700;font-size:1.75rem;line-height:1.05;letter-spacing:0.03em;font-family:var(--font-survey,'Barlow Semi Condensed','Arial Narrow',sans-serif);text-transform:uppercase;}.ds-title-meta{margin:4px 0 0;color:var(--ink-2,#3b3b38);font-family:var(--font-body,'Atkinson Hyperlegible Next',system-ui,sans-serif);font-size:1.0625rem;font-variant-numeric:tabular-nums;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Surveyed Parcel",
+    "overview": "Gaucho Weather is the category-standard farm app played straight, with every field (lote) drawn as a parcel on a cadastral plan. The world is a blend the user asked for: the canon farm-app skeleton (cards, a status chip, a black primary action, a bottom tab bar) fused with the material of a \"plano catastral\": black survey line on white paper, hatch fills, a north tick, a double-ruled title block and condensed uppercase survey lettering. It is light only, chosen for the use scene: outdoors, in full sun, with the screen brightness up.\n\nDensity is calm and one-handed. Each screen answers one work question before it shows data; the reading (tonight's minimum at 2 m) is set large in survey type, and the caveat that qualifies it sits beside it in ink, never as grey small print. Brand color is rationed to tiny catastro-pink marks; interaction is survey blue; everything else is ink on paper.\n\nThe built system rejects the generic weather-widget list of city names and the low-contrast \"elegant\" grey-on-white look: secondary text is still 11:1, rules are visible, and state is always carried by an icon and a word.",
+    "keyCharacteristics": [
+      "White paper, ink #141414, 1 px ruled white cards with a 12 px radius.",
+      "Parcel outline signature: survey-line polygon, number stamp, severity hatch, north tick.",
+      "Double title-block rule under every page head.",
+      "Barlow Semi Condensed uppercase for survey lettering over Atkinson Hyperlegible Next for reading.",
+      "Dashed line means \"not data yet\": no-forecast parcel, \"Sin datos aún\" chip, pending panel, loading skeleton."
+    ],
+    "rules": [
+      {
+        "name": "The Ink Information Rule",
+        "body": "Information is ink; only controls are blue. The attention icon, pin and info icons, the caveat and the parcel itself are ink. If it is not clickable, it is not survey blue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pink Mark Rule",
+        "body": "Catastro pink appears as a small filled mark (diamond, pin center, drawing accent), never as text, fill area or state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never Colour Alone Rule",
+        "body": "A state tone always travels with an icon and an uppercase label inside a chip, and with a distinct hatch in the parcel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Survey Lettering Rule",
+        "body": "Uppercase belongs to the survey face only: titles, labels, chips, buttons, tabs, meta lines. Sentences are never uppercase and never condensed.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sixteen Floor Rule",
+        "body": "No reading text below 16 px on any viewport; on desktop the card meta, chip, caveat and waiting text step up to 17 px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Drawn Depth Rule",
+        "body": "Surfaces are flat at rest; hierarchy comes from rule weight (1 / 1.5 / 2 / 3+1 px). Shadow appears only as a hover response on a card that is a link.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Dashed Means Not-Yet Rule",
+        "body": "A dashed edge means \"no data yet\", never decoration: a parcel without forecast (no hatch, 7/5 dash), the \"Sin datos aún\" chip, the pending tonight panel, the loading skeleton card, the Phase 1 placeholder.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** draw every lote as a parcel outline with its number stamp and north tick, hatched by severity.",
+      "**Do** close every page head with the double title-block rule (3 px ink, 1 px gap, 1 px ink).",
+      "**Do** set titles, labels, chips, buttons, tabs and meta lines in uppercase Barlow Semi Condensed, and every sentence in Atkinson Hyperlegible Next.",
+      "**Do** put a reading's caveat in ink, bold, directly beside the value it qualifies.",
+      "**Do** pair every state color with an icon and a label; use a dashed edge for \"no data yet\".",
+      "**Do** keep touch targets at 44 px or more (buttons and inputs are 52 px) and reading text at 16 px or more.",
+      "**Do** keep motion short (120 to 200 ms, cubic-bezier(0.2, 0, 0, 1)) and honor reduced motion."
+    ],
+    "donts": [
+      "**Don't** use survey blue for anything that is not interactive; information icons are ink.",
+      "**Don't** set text, fills or state in catastro pink.",
+      "**Don't** use grey below ink-2 for reading text, or washed hatches under 3:1.",
+      "**Don't** convey a state by color alone, or stamp the area inside the parcel.",
+      "**Don't** add a navigation tab for a screen that does not exist yet.",
+      "**Don't** add shadows to resting surfaces; depth is rule weight."
+    ]
+  }
+}
