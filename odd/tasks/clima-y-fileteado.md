@@ -47,12 +47,24 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
   - hourly `precipitation`, `relative_humidity_2m`, `wind_direction_10m`, `cloud_cover`, `weather_code` where missing.
   - It stays idempotent.
 
+- **S7 — Interactive map** (L4, verbatim): "le falta tambien un mapa interactivo donde puedan buscarlo y señalarlo para que le sea tambien facil al productor, como tambien poder trazar el tamaño del lote de forma automática". Clarified (L5): "para empezar el 1 que se calculen solas".
+  - **Search:** a locality or paraje search box (Argentina) that flies the map there.
+  - **Satellite:** a satellite base layer to recognise fields, with a toggle to the street map.
+  - **Draw:** the farmer taps the corners of the lote on the map to draw its outline.
+    - The outline can be edited (move, insert or delete vertices) and cleared.
+    - `area_ha` is computed automatically (geodesic area) and shown live.
+    - `boundary` (GeoJSON Polygon) is saved, and lat/lon is set to the centroid when no pin was placed.
+  - **Kept:** GPS and typed coordinates.
+  - **Out of scope:** automatic boundary detection from imagery (option 2, deferred).
+  - **Licenses:** every tile and geocoding provider must allow commercial use, or have a free tier that does, with attribution. Report the terms with source URLs.
+
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2 | inline | done | Direction chosen; contract written |
 | T2 | S1, S3, S4, S5, S6 | delegated (unit A: parallel writer) | in progress | Backend: engine v0, forecast endpoint, archiver extension |
 | T3 | S1, S2, S5 | delegated (unit B: parallel writer) | in progress | Frontend: fileteado world app-wide, Hoy en tu lote, Pronóstico tab |
+| T4 | S7 | pending: runs after T3, because it edits the same files (LoteForm, MapPicker) | pending | Map search, satellite and boundary drawing with automatic hectares |
 
 ## Log
 - L1 (2026-11-03, user, verbatim): "primero perdiop toda la escencia lde agro argentino, faltan metricas e info que ayude al productor poder tomar deciciones, oredicciones de lluvia, horarios, etc. es Gaucho Weather asi que tiene que representar eso en una cultura donde el gaucho es el representante del campo, le falta vida y color"
@@ -61,3 +73,5 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
   - Principle 6 was added: "Información para decidir".
   - The decisions engine v0 is pulled forward from Phase 2 because the user asked for decision help now. It is labelled unvalidated until backtesting.
 - L3 (2026-11-03): direction round on the screen "Hoy en tu lote". The user chose "Fileteado criollo" (seed:94aec30eb0f49ffe).
+- L4 (2026-11-03, user, verbatim): "sabes que le falta tambien un mapa interactivo donde puedan buscarlo y señalarlo para que le sea tambien facil al productor, como tambien poder trazar el tamaño del lote de forma automática"
+- L5 (2026-11-03, user, verbatim): "para empezar el 1 que se calculen solas". Option 1 means drawing the corners with automatic hectares; option 2, automatic detection from imagery, is deferred.

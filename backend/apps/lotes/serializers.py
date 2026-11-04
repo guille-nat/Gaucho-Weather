@@ -3,6 +3,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from rest_framework import serializers
 
 from apps.archiver.cells import grid_cell
+from apps.archiver.forecast import forecasts
 from apps.archiver.summary import tonight_summaries
 
 from .geojson import is_polygon
@@ -75,8 +76,16 @@ class LoteSerializer(serializers.ModelSerializer):
         summary = cache[cell]
         if summary is None:
             return None
+        headlines = self.context.setdefault("headlines", {})
+        if cell not in headlines:
+            forecast = forecasts({cell}).get(cell)
+            headlines[cell] = forecast.headline if forecast else None
         # Same local-time ISO format as created_at/updated_at.
-        return {**summary, "fetched_at": _datetime_field.to_representation(summary["fetched_at"])}
+        return {
+            **summary,
+            "fetched_at": _datetime_field.to_representation(summary["fetched_at"]),
+            "headline": headlines[cell],
+        }
 
 
 _datetime_field = serializers.DateTimeField()

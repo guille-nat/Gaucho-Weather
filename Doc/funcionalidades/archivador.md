@@ -17,8 +17,11 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
     Aero (87467), definidas en `stations.py`.
   - Por celda, un pedido por modelo: determinísticos `ecmwf_ifs025`,
     `gfs_seamless` e `icon_seamless`, y ensembles `ecmwf_ifs025` y `gfs025`.
-  - 7 días, variables horarias de `reglas-agronomicas.md` (sección 7). Se
-    listan en `openmeteo.py`.
+  - 7 días, variables horarias de `reglas-agronomicas.md` (sección 7), más
+    `weather_code` para el cielo del día. Se listan en `openmeteo.py`.
+  - Los determinísticos piden además `past_days=7` (la lluvia caída) y
+    `daily=sunrise,sunset`. Los ensembles no, porque solo dan la probabilidad
+    de lluvia.
   - Se guarda la respuesta cruda en JSONB, con modelo, tipo y `fetched_at`.
     Hay una fila única por celda, modelo, tipo y hora de descarga.
 - **Observaciones** (`Observation`):
@@ -49,11 +52,18 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   `OPEN_METEO_ENSEMBLE_URL` y `OPEN_METEO_API_KEY`, sin tocar código. El plan
   Standard no incluye ensembles.
 
+- **Decisión:** `past_days` y `daily` solo en los determinísticos.
+  **Por qué:** el [pronóstico](pronostico.md) toma la lluvia caída y el sol de
+  un determinístico. En un ensemble cada variable se multiplica por ~50
+  miembros, y no hacen falta.
+
 ## Cómo modificarlo
 - **Espacio en disco** (medido el 2026-11-03, ya comprimido por Postgres): un
   ensemble ECMWF ocupa ~265 kB, uno GFS ~132 kB y cada determinístico ~10 kB.
   Son ~425 kB por celda y corrida, ~1,7 MB por celda y día, y unos 6 GB por año
-  con 10 celdas. Revisarlo cuando crezcan los lotes.
+  con 10 celdas. Revisarlo cuando crezcan los lotes. Con `past_days=7` cada
+  determinístico pasa de 168 a 336 horas (~2 veces más), pero son una parte
+  chica del total.
 - Agregar una estación: sumarla a `STATIONS` con el nombre exacto del archivo
   del SMN.
 - Correr a mano: `docker compose exec backend python manage.py shell -c
@@ -64,3 +74,5 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
 
 ## Historial
 - 2026-11-03: versión inicial (Fase 1).
+- 2026-11-03: `past_days=7`, `daily=sunrise,sunset` y `weather_code` en los
+  determinísticos, para el pronóstico del lote (feature `clima-y-fileteado`).

@@ -18,3 +18,8 @@
   archivan los pronósticos y las observaciones del SMN para el backtesting.
 - [funcionalidades/frontend-pwa.md](funcionalidades/frontend-pwa.md): la PWA
   mobile first, el funcionamiento sin conexión y la limpieza de datos al salir.
+- [funcionalidades/motor-decisiones.md](funcionalidades/motor-decisiones.md):
+  motor de decisiones v0 (helada, pulverización y labores), sus reglas y
+  supuestos. Todavía no está validado con backtesting.
+- [funcionalidades/pronostico.md](funcionalidades/pronostico.md): endpoint de
+  pronóstico por lote, con lluvia, probabilidades, hora a hora y sol.

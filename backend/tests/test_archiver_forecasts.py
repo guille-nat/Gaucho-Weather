@@ -96,6 +96,36 @@ def test_request_parameters(open_meteo):
 
 
 @time_machine.travel(NOW, tick=False)
+def test_deterministic_requests_add_past_rain_sun_times_and_sky(open_meteo):
+    forecast, ensemble = open_meteo
+
+    fetch_forecasts()
+
+    params = forecast.calls[0].request.url.params
+    assert params["past_days"] == "7"
+    assert params["daily"] == "sunrise,sunset"
+    hourly = params["hourly"].split(",")
+    for variable in (
+        "precipitation",
+        "relative_humidity_2m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "cloud_cover",
+        "cloud_cover_low",
+        "weather_code",
+        "wet_bulb_temperature_2m",
+        "dew_point_2m",
+        "temperature_80m",
+    ):
+        assert variable in hourly
+    # Ensembles only feed rain probabilities: no past days, no daily block.
+    ens_params = ensemble.calls[0].request.url.params
+    assert "past_days" not in ens_params
+    assert "daily" not in ens_params
+    assert ens_params["forecast_days"] == "7"
+
+
+@time_machine.travel(NOW, tick=False)
 def test_api_key_and_base_url_from_settings(settings):
     settings.OPEN_METEO_FORECAST_URL = "https://customer-api.open-meteo.com/v1/forecast"
     settings.OPEN_METEO_ENSEMBLE_URL = "https://customer-ensemble-api.open-meteo.com/v1/ensemble"

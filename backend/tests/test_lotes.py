@@ -232,8 +232,13 @@ class TestSummary:
             "tonight_min_models": {"ecmwf_ifs025": 1.2, "gfs_seamless": 3.0, "icon_seamless": 0.5},
             "fetched_at": "2026-11-03T10:00:00-03:00",
         }
-        assert auth_client.get(f"{URL}{lote.id}/").json()["summary"] == expected
-        assert auth_client.get(URL).json()[0]["summary"] == expected
+        for summary in (
+            auth_client.get(f"{URL}{lote.id}/").json()["summary"],
+            auth_client.get(URL).json()[0]["summary"],
+        ):
+            # The Phase 1 fields are unchanged; S5 only adds the headline.
+            assert {k: v for k, v in summary.items() if k != "headline"} == expected
+            assert set(summary["headline"]) == {"level", "text"}
 
     @time_machine.travel(datetime(2026, 11, 4, 9, 0, tzinfo=UTC), tick=False)  # 06:00 local
     def test_before_eight_uses_the_night_in_progress(self, auth_client, user):

@@ -2,6 +2,8 @@
 
 Variable names follow Doc/reglas-agronomicas.md (section 7). A variable a model
 does not provide comes back as nulls, so one list per kind is enough.
+Deterministic requests also bring the past 7 days (rain that has fallen) and
+sunrise/sunset; ensembles only feed rain probabilities, so they do not.
 """
 
 import httpx
@@ -11,6 +13,8 @@ from .cells import Cell
 
 TIMEZONE = "America/Argentina/Buenos_Aires"
 FORECAST_DAYS = 7
+PAST_DAYS = 7
+DETERMINISTIC_DAILY = ("sunrise", "sunset")
 
 DETERMINISTIC_MODELS = ("ecmwf_ifs025", "gfs_seamless", "icon_seamless")
 ENSEMBLE_MODELS = ("ecmwf_ifs025", "gfs025")
@@ -29,6 +33,7 @@ DETERMINISTIC_HOURLY = (
     "wind_gusts_10m",
     "cloud_cover",
     "cloud_cover_low",
+    "weather_code",
     "soil_temperature_0cm",
     "soil_temperature_6cm",
     "soil_temperature_0_to_10cm",
@@ -83,6 +88,9 @@ def build_request(kind: str, model: str, cell: Cell) -> tuple[str, dict[str, str
         "timezone": TIMEZONE,
         "forecast_days": str(FORECAST_DAYS),
     }
+    if kind == DETERMINISTIC:
+        params["past_days"] = str(PAST_DAYS)
+        params["daily"] = ",".join(DETERMINISTIC_DAILY)
     if settings.OPEN_METEO_API_KEY:
         params["apikey"] = settings.OPEN_METEO_API_KEY
     return url, params
