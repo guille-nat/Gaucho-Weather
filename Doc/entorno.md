@@ -1,0 +1,57 @@
+# Entorno
+> Última actualización: 2026-11-03
+
+## Qué hace
+Todo corre en contenedores con Docker Compose: `docker-compose.yml` para
+desarrollo y `docker-compose.prod.yml` para producción.
+
+## Cómo funciona
+| Servicio | Dev | Puerto del host |
+|---|---|---|
+| `db` | Postgres 17 | no se publica |
+| `redis` | broker de Celery y caché de los límites de pedidos | no se publica |
+| `backend` | Django `runserver`, aplica migraciones al arrancar | `BACKEND_PORT` (8001) |
+| `worker` | `celery worker` | — |
+| `beat` | `celery beat` (agenda del archivador) | — |
+| `frontend` | Vite (`frontend/Dockerfile`, target `dev`), con proxy de `/api` a `http://backend:8000` | `FRONTEND_PORT` (5173) |
+
+- Levantar: `cp .env.example .env` y después `docker compose up -d --build`.
+- Backend: `backend/Dockerfile`, multi-stage (`dev` y `prod`), usuario no root
+  `app`. Las dependencias se manejan con `uv` (`pyproject.toml` y `uv.lock`), y el
+  virtualenv está en `/opt/venv` para que el bind mount no lo tape.
+- Settings por entorno en `backend/config/settings/`: `dev`, `prod` y `test`.
+  `DJANGO_SETTINGS_MODULE` lo define Compose.
+- Variables: todas están en `.env.example`, que es el contrato. En prod son
+  obligatorias `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DB_NAME`, `DB_USER`
+  y `DB_PASSWORD`.
+- Producción: `gunicorn`, sin bind mounts y con `restart: unless-stopped`. Solo
+  se publica el nginx del frontend, que hace de proxy de `/api` al backend.
+  `migrate` corre al arrancar el backend y `collectstatic` en el build.
+- Tests del backend:
+  - Dentro de Compose: `docker compose exec backend pytest -q`.
+  - En el host, con un Postgres propio: `cd backend && DB_PORT=<puerto> uv run pytest -q`
+    (usuario y contraseña `postgres` por defecto).
+- CI (`.github/workflows/ci.yml`):
+  - Backend: `ruff check`, `ruff format --check`, migraciones al día y `pytest`
+    contra un servicio de Postgres.
+  - Frontend: `pnpm install --frozen-lockfile`, `lint`, `typecheck`, `test` y `build`.
+
+## Decisiones y por qué
+- **Decisión:** la base y Redis no publican puertos en el host.
+  **Por qué:** en esta máquina corren otras apps con Postgres y Redis; además,
+  así queda igual que en producción.
+- **Decisión:** el admin y sus estáticos viven bajo `/api/` (`/api/admin/`,
+  `/api/static/`).
+  **Por qué:** una sola regla de proxy (`/api`) alcanza todo el backend, tanto en
+  Vite como en nginx.
+- **Decisión:** el TLS, la redirección a HTTPS y HSTS quedan en el proxy del VPS.
+  **Por qué:** Django está detrás de dos proxies (nginx global y nginx del
+  frontend). Confía en `X-Forwarded-Proto`, y `TRUSTED_PROXY_COUNT` fija cuántos
+  proxies hay para leer la IP real.
+- **Decisión:** Python 3.13 y Django 5.2 LTS.
+  **Por qué:** 5.2 es LTS, con soporte hasta abril de 2028. Python 3.13 se eligió
+  por prudencia con las dependencias; 3.14 queda por evaluar.
+
+## Historial
+- 2026-11-03: versión inicial (Fase 1). Puertos elegidos libres en la máquina
+  de desarrollo: 8001 (backend) y 5173 (frontend).

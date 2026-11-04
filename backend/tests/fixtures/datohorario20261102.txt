@@ -1,0 +1,14 @@
+FECHA     HORA  TEMP   HUM   PNM    DD    FF     NOMBRE                                             
+         [HOA]  [ºC]   [%]  [hPa]  [gr] [km/hr]                                                     
+02112026     0  20.1   88  1011.2   80   19     AEROPARQUE AERO                                     
+02112026     6    .4   78          140    7     BARILOCHE AERO                                      
+02112026     7  13.8   80  1013.5    0    0     ESCUELA DE AVIACION MILITA                          
+                                            R AERO                                                  
+                                                                                                    
+02112026     9  17.8   84  1013.7  270    7     MARCOS JUAREZ AERO                                  
+02112026    10  19.8   78  1013.5  230    2     MARCOS JUAREZ AERO                                  
+02112026     0  19.4   91  1010.4    0    0     ROSARIO AERO                                        
+02112026     5  15.6   87  1010.8  120    9     ROSARIO AERO                                        
+02112026    23  20.6   76  1012.9    0    0     ROSARIO AERO                                        
+02112026     6  13.3  100  1011.3  180    7     VENADO TUERTO AERO                                  
+02112026     7  13.9   99  1011.8  230    4     VENADO TUERTO AERO                                  

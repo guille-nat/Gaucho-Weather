@@ -1,0 +1,41 @@
+[project]
+name = "gaucho-weather-backend"
+version = "0.1.0"
+description = "Gaucho Weather API, background archiver and admin."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<6",
+    "djangorestframework>=3.16",
+    "psycopg[binary]>=3.2",
+    "celery[redis]>=5.5",
+    "httpx>=0.28",
+    "gunicorn>=23",
+    "whitenoise>=6.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-django>=4.11",
+    "respx>=0.22",
+    "ruff>=0.14",
+    "time-machine>=2.16",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "--reuse-db"
+filterwarnings = ["ignore:No directory at:UserWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "DJ", "SIM"]
