@@ -17,10 +17,17 @@ import {
 import { loteMeta } from '../lib/lote';
 import { useDeleteLote, useLote } from '../query/hooks';
 
+/** Phase 1 shows a plain forecast at 2 m: it must never read as "no frost, safe". */
+const DETAIL_CAVEAT =
+  'Temperatura a 2\u00a0m de altura. Todavía no calculamos la helada a nivel del suelo.';
+
 function Tonight({ summary }: { summary: LoteSummary | null }) {
   if (!summary) {
     return (
       <div className="tonight tonight--pending">
+        <h2 id="sec-tonight" className="sr-only">
+          Esta noche
+        </h2>
         <StatusChip tone="pending">Sin datos aún</StatusChip>
         <p className="tonight-wait">Estamos juntando el primer pronóstico de este lote</p>
         <p className="tonight-fine">
@@ -35,25 +42,30 @@ function Tonight({ summary }: { summary: LoteSummary | null }) {
   return (
     <div className="tonight">
       <StatusChip tone="none">Pronóstico</StatusChip>
-      <p className="tonight-figure">
-        <span className="tonight-label">Mínima esta noche a 2 m: </span>
-        <strong className="tonight-value">{formatTemp(summary.tonight_min_c_2m)}</strong>
-        <span className="sr-only"> · </span>
-        <span className="tonight-note">pronóstico, no es todavía un aviso de helada</span>
-      </p>
+      <h2 id="sec-tonight" className="tonight-label">
+        Mínima esta noche a 2{'\u00a0'}m
+      </h2>
+      <p className="tonight-value">{formatTemp(summary.tonight_min_c_2m)}</p>
+      <p className="tonight-caveat">{DETAIL_CAVEAT}</p>
       {models.length ? (
-        <ul className="models" aria-label="Mínima por modelo">
-          {models.map(([model, value]) => (
-            <li key={model}>
-              <span className="models-name">{MODEL_LABELS[model] ?? model}</span>
-              <span className="models-value">{formatTemp(value)}</span>
-            </li>
-          ))}
-        </ul>
+        <details className="models-more">
+          <summary>
+            <Icon name="chevronRight" size={20} strokeWidth={2.6} />
+            Ver modelos
+          </summary>
+          <ul className="models" aria-label="Mínima por modelo">
+            {models.map(([model, value]) => (
+              <li key={model}>
+                <span className="models-name">{MODEL_LABELS[model] ?? model}</span>
+                <span className="models-value">{formatTemp(value)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : null}
       <p className="tonight-fine">
-        Pronóstico descargado a las {formatTime(summary.fetched_at)}. Los avisos de helada a nivel
-        del suelo llegan en la próxima versión.
+        Pronóstico descargado a las {formatTime(summary.fetched_at)}. Los avisos de helada llegan en
+        la próxima versión.
       </p>
     </div>
   );
@@ -155,7 +167,7 @@ export function LoteDetail() {
             id={data.id}
             name={data.name}
             boundary={data.boundary}
-            areaHa={data.area_ha}
+            pending={!data.summary}
           />
           <div className="detail-titles">
             <h1 className="detail-name">{data.name}</h1>
@@ -166,9 +178,6 @@ export function LoteDetail() {
       </header>
 
       <section className="section" aria-labelledby="sec-tonight">
-        <h2 id="sec-tonight" className="survey-label">
-          Esta noche
-        </h2>
         <Tonight summary={data.summary} />
       </section>
 

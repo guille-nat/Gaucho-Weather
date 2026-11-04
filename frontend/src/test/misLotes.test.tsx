@@ -1,12 +1,12 @@
-import { onlineManager, QueryClient } from '@tanstack/react-query';
-import { persistQueryClientSave } from '@tanstack/react-query-persist-client';
+import { onlineManager } from '@tanstack/react-query';
 import { screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it, vi } from 'vitest';
 import { createMockDb } from '../mocks/handlers';
 import { demoLotes, demoUser } from '../mocks/fixtures';
-import { queryKeys } from '../query/keys';
-import { createIdbPersister, PERSIST_BUSTER } from '../query/persister';
+import { seedPersisted } from './localData';
 import { renderApp } from './renderApp';
+import { server } from './server';
 
 describe('Mis lotes', () => {
   it('lists every lote with its meta line, outline and tonight minimum', async () => {
@@ -21,14 +21,28 @@ describe('Mis lotes', () => {
     expect(within(lote4).getByText('Firmat · Soja · 120 ha')).toBeInTheDocument();
     expect(within(lote4).getByRole('img', { name: /Plano del lote 4/ })).toBeInTheDocument();
     expect(lote4.querySelector('.lote-card-say')).toHaveTextContent(
-      /^Mínima esta noche a 2 m: 3 °C$/,
+      /^Mín\. esta noche \(2 m\) 3 °C$/,
     );
+    // The caveat sits in ink next to the value: a 2 m minimum is not a frost verdict.
+    expect(within(lote4).getByText('Aún no calculamos la helada en el suelo.')).toBeInTheDocument();
     expect(within(lote4).getByRole('link')).toHaveAttribute('href', '/lotes/4');
 
     const lote7 = items[2]!;
     expect(
       within(lote7).getByText('Estamos juntando el primer pronóstico de este lote'),
     ).toBeInTheDocument();
+    expect(
+      within(lote7).getByRole('img', { name: 'Plano del lote 7, sin datos aún' }),
+    ).toBeVisible();
+  });
+
+  it('labels the top bar with the time of the forecast, not of the fetch', async () => {
+    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+
+    await screen.findByRole('list', { name: 'Lotes' });
+    // fetched_at 09:10 UTC is 06:10 in Argentina.
+    expect(screen.getByText('Pronóstico de las 06:10')).toBeInTheDocument();
+    expect(screen.queryByText(/Actualizado/)).not.toBeInTheDocument();
   });
 
   it('never shows a frost verdict in Phase 1', async () => {
@@ -49,14 +63,7 @@ describe('Mis lotes', () => {
   it('shows the last persisted lotes offline, saying how old they are', async () => {
     // 09:10 UTC is 06:10 in Argentina (UTC-3, no DST).
     const savedAt = Date.UTC(2026, 10, 3, 9, 10);
-    const seed = new QueryClient();
-    seed.setQueryData(queryKeys.me, demoUser, { updatedAt: savedAt });
-    seed.setQueryData(queryKeys.lotes, demoLotes(), { updatedAt: savedAt });
-    await persistQueryClientSave({
-      queryClient: seed,
-      persister: createIdbPersister(),
-      buster: PERSIST_BUSTER,
-    });
+    await seedPersisted({ user: demoUser, lotes: demoLotes(), savedAt });
     onlineManager.setOnline(false);
 
     // Had the app reached the network, this empty account would have replaced the list.
@@ -67,5 +74,24 @@ describe('Mis lotes', () => {
     const list = screen.getByRole('list', { name: 'Lotes' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
     expect(within(list).getByText('Lote 12 · El Ombú')).toBeInTheDocument();
+  });
+
+  it('shows a list answered by the service worker cache as offline data, with the server time', async () => {
+    // 15:00 UTC is 12:00 in Argentina: that "now" must not appear anywhere.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.UTC(2026, 10, 3, 15, 0));
+    // The server produced this answer last night, 23:45 UTC = 20:45 in Argentina.
+    const servedAt = new Date(Date.UTC(2026, 10, 2, 23, 45)).toUTCString();
+
+    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+    server.use(
+      http.get('*/api/lotes/', () =>
+        HttpResponse.json(demoLotes(), { headers: { 'X-From-SW-Cache': '1', Date: servedAt } }),
+      ),
+    );
+
+    expect(await screen.findByText('Sin conexión · datos de las 20:45')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Lotes' })).toBeInTheDocument();
+    expect(screen.queryByText(/12:00/)).not.toBeInTheDocument();
   });
 });

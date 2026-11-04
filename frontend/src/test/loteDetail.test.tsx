@@ -5,19 +5,21 @@ import { demoLotes, demoUser } from '../mocks/fixtures';
 import { renderApp } from './renderApp';
 
 describe('Lote detail', () => {
-  it('shows tonight minimum honestly, with the value of each model', async () => {
-    renderApp('/lotes/4', createMockDb({ user: demoUser, lotes: demoLotes() }));
+  it('shows tonight minimum honestly, with the value of each model behind a disclosure', async () => {
+    const { user } = renderApp('/lotes/4', createMockDb({ user: demoUser, lotes: demoLotes() }));
 
     expect(await screen.findByRole('heading', { name: 'Lote 4' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^Mínima esta noche a 2\sm$/ })).toBeInTheDocument();
+    expect(screen.getByText('3 °C')).toBeInTheDocument();
     expect(
       screen.getByText(
-        (_, el) =>
-          el?.tagName === 'P' &&
-          el.textContent ===
-            'Mínima esta noche a 2 m: 3 °C · pronóstico, no es todavía un aviso de helada',
+        'Temperatura a 2 m de altura. Todavía no calculamos la helada a nivel del suelo.',
       ),
     ).toBeInTheDocument();
+    // One label says "esta noche": no separate eyebrow above it.
+    expect(screen.getAllByText(/esta noche/i)).toHaveLength(1);
 
+    await user.click(screen.getByText('Ver modelos'));
     const models = screen.getByRole('list', { name: 'Mínima por modelo' });
     expect(within(models).getByText('ECMWF')).toBeInTheDocument();
     expect(within(models).getByText('2,6 °C')).toBeInTheDocument();

@@ -62,6 +62,7 @@ export function LocationField({ value, onChange, error }: LocationFieldProps) {
   }
 
   const message = gpsError ?? error;
+  const coordsDescribedBy = [`${id}-coords-hint`, error ? `${id}-error` : ''].join(' ').trim();
 
   return (
     <fieldset
@@ -95,6 +96,9 @@ export function LocationField({ value, onChange, error }: LocationFieldProps) {
           ? `Marcado en ${formatCoord(point.lat)}, ${formatCoord(point.lon)}`
           : 'Todavía no marcaste el lote.'}
       </p>
+      <p className="field-hint" id={`${id}-coords-hint`}>
+        Si tenés las coordenadas, escribilas con coma, por ejemplo −33,4592 y −61,4831.
+      </p>
       <div className="coords">
         <div className="field">
           <label className="field-label field-label--small" htmlFor={`${id}-lat`}>
@@ -105,9 +109,8 @@ export function LocationField({ value, onChange, error }: LocationFieldProps) {
             className="input"
             inputMode="decimal"
             aria-invalid={error ? true : undefined}
-            aria-describedby={error ? `${id}-error` : undefined}
+            aria-describedby={coordsDescribedBy}
             autoComplete="off"
-            placeholder="−33,4592"
             value={value.lat}
             onChange={(e) => onChange({ ...value, lat: e.target.value })}
           />
@@ -121,9 +124,8 @@ export function LocationField({ value, onChange, error }: LocationFieldProps) {
             className="input"
             inputMode="decimal"
             aria-invalid={error ? true : undefined}
-            aria-describedby={error ? `${id}-error` : undefined}
+            aria-describedby={coordsDescribedBy}
             autoComplete="off"
-            placeholder="−61,4831"
             value={value.lon}
             onChange={(e) => onChange({ ...value, lon: e.target.value })}
           />

@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createMockDb } from '../mocks/handlers';
 import { demoLotes, demoUser } from '../mocks/fixtures';
+import { readPersisted } from './localData';
 import { renderApp } from './renderApp';
 
 // MapLibre needs WebGL, which jsdom does not have; the coordinate inputs cover the same value.
@@ -94,5 +95,19 @@ describe('Editar lote', () => {
     expect(db.unsafeRequests).toEqual([
       { method: 'PATCH', path: '/api/lotes/4/', csrf: db.csrfToken },
     ]);
+  });
+
+  it('has the new lote on disk by the time its page opens, so a reload keeps it', async () => {
+    const db = createMockDb({ user: demoUser });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    await user.type(screen.getByLabelText('Establecimiento'), 'La Tranquera');
+    await user.type(screen.getByLabelText('Latitud'), '-33,4592');
+    await user.type(screen.getByLabelText('Longitud'), '-61,4831');
+    await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
+
+    expect(await screen.findByRole('heading', { name: 'Lote 3' })).toBeInTheDocument();
+    expect((await readPersisted()).text).toContain('La Tranquera');
   });
 });

@@ -9,8 +9,7 @@ const time = new Intl.DateTimeFormat('es-AR', {
   hourCycle: 'h23',
   timeZone: TIME_ZONE,
 });
-const longDate = new Intl.DateTimeFormat('es-AR', {
-  weekday: 'long',
+const dayMonth = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
   month: 'long',
   timeZone: TIME_ZONE,
@@ -33,10 +32,8 @@ const minus = (text: string) => text.replace('-', '−');
 
 export const formatTime = (value: number | string | Date) => time.format(new Date(value));
 
-export function formatLongDate(value: number | Date) {
-  const text = longDate.format(value).replace(',', '');
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
+/** `3 de noviembre`: short enough to share one line with the forecast time on a phone. */
+export const formatDayMonth = (value: number | Date) => dayMonth.format(value);
 
 /** `2026-06-14` → `14 de junio de 2026` (a calendar date, no time zone shift). */
 export const formatDate = (iso: string) => shortDate.format(new Date(`${iso}T12:00:00Z`));

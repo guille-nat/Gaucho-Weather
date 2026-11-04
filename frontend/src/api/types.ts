@@ -49,3 +49,12 @@ export interface LoteInput {
   sowing_date: string | null;
   area_ha: number | null;
 }
+
+/** The list of lotes as cached and persisted: with the time the server produced it. */
+export interface LotesSnapshot {
+  items: Lote[];
+  /** Epoch ms of the server answer (its `Date` header). */
+  servedAt: number;
+  /** The service worker answered from its cache, so the network was down. */
+  fromCache: boolean;
+}

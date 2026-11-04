@@ -1,12 +1,12 @@
 import { useId } from 'react';
 import type { GeoJsonPolygon } from '../api/types';
-import { formatHa } from '../lib/format';
 import { parcelLabel, projectBoundary, seededQuad, type Box } from '../lib/parcel';
 
 /**
  * The signature of the direction: each lote drawn as a surveyed parcel, hatched by severity.
  * Phase 1 has no decision engine, so every lote uses `none` ("sin veredicto"); Phase 2 only
- * has to pass a severity.
+ * has to pass a severity. A lote with no forecast yet (`pending`) has no hatch and a dashed
+ * boundary, like its dashed "Sin datos aún" chip.
  */
 export type Severity = 'critical' | 'caution' | 'ok' | 'none';
 
@@ -54,14 +54,15 @@ function Hatch({ id, severity }: { id: string; severity: Severity }) {
       );
     case 'none':
       return (
+        // Ink, thick enough to stay ink once scaled down (no washed grey: ≥3:1 on white).
         <pattern
           id={id}
-          width="7"
-          height="7"
+          width="8"
+          height="8"
           patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)"
         >
-          <path d="M0 0V7" stroke="#9a9a94" strokeWidth="1" />
+          <path d="M0 0V8" stroke={INK} strokeWidth="1.8" />
         </pattern>
       );
   }
@@ -71,8 +72,9 @@ interface ParcelOutlineProps {
   id: number;
   name: string;
   boundary: GeoJsonPolygon | null;
-  areaHa?: number | null;
   severity?: Severity;
+  /** No forecast yet: no hatch, dashed outline. */
+  pending?: boolean;
   className?: string;
 }
 
@@ -80,8 +82,8 @@ export function ParcelOutline({
   id,
   name,
   boundary,
-  areaHa = null,
   severity = 'none',
+  pending = false,
   className,
 }: ParcelOutlineProps) {
   const patternId = `hatch-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -89,24 +91,30 @@ export function ParcelOutline({
   const label = parcelLabel(name);
   const cx = BOX.x + BOX.w / 2;
   const cy = BOX.y + BOX.h / 2;
-  const tag = { w: label.length > 2 ? 50 : 40, h: areaHa ? 40 : 32 };
+  const long = label.length > 2;
+  const tag = { w: long ? 56 : 46, h: 42 };
+  const fontSize = long ? 26 : 34;
+  const state = pending ? 'sin datos aún' : SEVERITY_TEXT[severity];
 
   return (
     <svg
       className={className}
       viewBox="0 0 120 108"
       role="img"
-      aria-label={`Plano del lote ${label}, ${SEVERITY_TEXT[severity]}`}
+      aria-label={`Plano del lote ${label}, ${state}`}
     >
-      <defs>
-        <Hatch id={patternId} severity={severity} />
-      </defs>
+      {pending ? null : (
+        <defs>
+          <Hatch id={patternId} severity={severity} />
+        </defs>
+      )}
       <polygon
         points={points.map((p) => p.join(',')).join(' ')}
-        fill={`url(#${patternId})`}
+        fill={pending ? '#fff' : `url(#${patternId})`}
         stroke={INK}
         strokeWidth="2.6"
         strokeLinejoin="miter"
+        strokeDasharray={pending ? '7 5' : undefined}
       />
       <rect
         x={cx - tag.w / 2}
@@ -119,19 +127,14 @@ export function ParcelOutline({
       />
       <text
         x={cx}
-        y={areaHa ? cy + 6 : cy + 9}
-        fontSize={label.length > 2 ? 19 : 26}
+        y={cy + fontSize * 0.36}
+        fontSize={fontSize}
         fontWeight="700"
         textAnchor="middle"
         fill={INK}
       >
         {label}
       </text>
-      {areaHa ? (
-        <text x={cx} y={cy + 16} fontSize="10" fontWeight="600" textAnchor="middle" fill={INK}>
-          {formatHa(areaHa)}
-        </text>
-      ) : null}
       <g aria-hidden="true">
         <path d="M110 4l6 15-6-4-6 4z" fill={INK} />
         <text x="110" y="31" fontSize="11" fontWeight="700" textAnchor="middle" fill={INK}>

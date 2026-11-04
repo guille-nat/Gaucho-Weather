@@ -54,6 +54,24 @@ export default defineConfig({
               networkTimeoutSeconds: 6,
               expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
               cacheableResponse: { statuses: [200] },
+              plugins: [
+                {
+                  // Mark answers served from this cache (no network, or slower than the
+                  // timeout): the app shows them as offline data with the server's own `Date`,
+                  // never as fresh (src/api/client.ts, apiGetServed). Serialized into sw.js, so
+                  // it must stay self-contained.
+                  cachedResponseWillBeUsed: async ({ cachedResponse }) => {
+                    if (!cachedResponse) return cachedResponse;
+                    const headers = new Headers(cachedResponse.headers);
+                    headers.set('X-From-SW-Cache', '1');
+                    return new Response(cachedResponse.body, {
+                      status: cachedResponse.status,
+                      statusText: cachedResponse.statusText,
+                      headers,
+                    });
+                  },
+                },
+              ],
             },
           },
         ],

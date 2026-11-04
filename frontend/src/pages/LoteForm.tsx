@@ -206,7 +206,7 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
             name="area_ha"
             inputMode="decimal"
             autoComplete="off"
-            placeholder="120,5"
+            hint="Con coma, por ejemplo 120,5."
             value={form.areaHa}
             error={shown.areaHa}
             onChange={(e) => set('areaHa', e.target.value)}

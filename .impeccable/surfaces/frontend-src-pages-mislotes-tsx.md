@@ -32,3 +32,8 @@ SIGNATURE: the parcel outline (the field's real shape when known, a generic quad
 FORM: canon fused with the grounded "Plano catastral" (#2 on the round-2 list), user-pinned blend. Seed: seed:2b91f0427520ad03.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+## Decisions
+- 2026-11-03: the bottom navigation has 3 tabs in Phase 1 (Lotes, Alertas, Perfil), not the 4 the first viewport lists. Phase 1 has no forecast screen, and an empty tab would mislead. Pronóstico returns when that screen exists.
+- 2026-11-03 (finish review): the Phase 1 caveat sits in ink next to the 2 m minimum on the card and the detail, so nothing reads as "no frost, safe". The top bar labels the forecast time ("Pronóstico de las HH:MM"); the offline strip shows when the server produced the data, never the fetch time.
+- 2026-11-03 (finish review): the `none` hatch is ink; a lote with no forecast yet has no hatch and a dashed outline, like its dashed chip. The parcel stamp shows only the number, larger; the area stays in the meta line.

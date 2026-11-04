@@ -3,7 +3,8 @@ import { del, get, set } from 'idb-keyval';
 
 export const PERSIST_KEY = 'gaucho-weather-query-cache';
 /** Bump when a persisted shape changes, so old caches are discarded instead of misread. */
-export const PERSIST_BUSTER = 'v1';
+// v2: lotes are persisted as a `LotesSnapshot` (list plus the time the server produced it).
+export const PERSIST_BUSTER = 'v2';
 /** Last good data stays usable offline for a week. */
 export const PERSIST_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 

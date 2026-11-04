@@ -82,12 +82,27 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 
 /** Django answers a missing or stale token with 403 and a detail that names CSRF. */
-const isCsrfFailure = (error: ApiError) => error.status === 403 && /csrf/i.test(error.message);
+export const isCsrfFailure = (error: ApiError) =>
+  error.status === 403 && /csrf/i.test(error.message);
 
-export async function apiFetch<T>(
-  path: string,
-  { method = 'GET', body }: { method?: string; body?: unknown } = {},
-): Promise<T> {
+/** Set by the service worker on answers it serves from its cache (see vite.config.ts). */
+export const FROM_SW_CACHE_HEADER = 'X-From-SW-Cache';
+
+/** A GET answer with the time the server produced it, which is not always when we fetched it. */
+export interface Served<T> {
+  data: T;
+  /** Epoch ms from the server's `Date` header; the arrival time when it has none. */
+  servedAt: number;
+  /** True when the service worker answered from its cache: there was no network. */
+  fromCache: boolean;
+}
+
+interface RequestOptions {
+  method?: string;
+  body?: unknown;
+}
+
+async function request(path: string, { method = 'GET', body }: RequestOptions): Promise<Response> {
   const unsafe = UNSAFE.has(method);
   const send = async (refreshCsrf: boolean) => {
     const headers: Record<string, string> = { Accept: 'application/json' };
@@ -113,6 +128,22 @@ export async function apiFetch<T>(
     response = await send(true);
   }
   if (!response.ok) throw await toApiError(response);
+  return response;
+}
+
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await request(path, options);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** GET that also says when and where the answer comes from, for "datos de las HH:MM". */
+export async function apiGetServed<T>(path: string): Promise<Served<T>> {
+  const response = await request(path, {});
+  const date = Date.parse(response.headers.get('Date') ?? '');
+  return {
+    data: (await response.json()) as T,
+    servedAt: Number.isNaN(date) ? Date.now() : date,
+    fromCache: response.headers.get(FROM_SW_CACHE_HEADER) === '1',
+  };
 }

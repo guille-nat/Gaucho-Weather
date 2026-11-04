@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMe } from '../api/auth';
+import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
-import type { Lote, LoteInput, User } from '../api/types';
+import type { Lote, LoteInput, LotesSnapshot, User } from '../api/types';
 import { queryKeys } from './keys';
+import { useLocalData } from './localData';
 
 export const useMe = () => useQuery({ queryKey: queryKeys.me, queryFn: fetchMe });
 
@@ -15,22 +16,26 @@ export function useLote(id: number) {
     queryFn: () => getLote(id),
     enabled: Number.isFinite(id),
     // Open instantly (and offline) from the list we already have.
-    initialData: () => queryClient.getQueryData<Lote[]>(queryKeys.lotes)?.find((l) => l.id === id),
+    initialData: () =>
+      queryClient.getQueryData<LotesSnapshot>(queryKeys.lotes)?.items.find((l) => l.id === id),
     initialDataUpdatedAt: () => queryClient.getQueryState(queryKeys.lotes)?.dataUpdatedAt,
   });
 }
 
+const byName = (a: Lote, b: Lote) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
 function useStoreLote() {
   const queryClient = useQueryClient();
-  return (lote: Lote) => {
+  const localData = useLocalData();
+  return async (lote: Lote) => {
     queryClient.setQueryData(queryKeys.lote(lote.id), lote);
-    queryClient.setQueryData<Lote[]>(queryKeys.lotes, (list) =>
+    queryClient.setQueryData<LotesSnapshot>(queryKeys.lotes, (list) =>
       list
-        ? [...list.filter((l) => l.id !== lote.id), lote].sort((a, b) =>
-            a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-          )
+        ? { ...list, items: [...list.items.filter((l) => l.id !== lote.id), lote].sort(byName) }
         : list,
     );
+    // Persist before the screen changes: a reload right after saving must keep the lote.
+    await localData.flush();
     void queryClient.invalidateQueries({ queryKey: queryKeys.lotes, exact: true });
   };
 }
@@ -50,20 +55,40 @@ export function useUpdateLote(id: number) {
 
 export function useDeleteLote(id: number) {
   const queryClient = useQueryClient();
+  const localData = useLocalData();
   return useMutation({
     mutationFn: () => deleteLote(id),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.removeQueries({ queryKey: queryKeys.lote(id), exact: true });
-      queryClient.setQueryData<Lote[]>(queryKeys.lotes, (list) => list?.filter((l) => l.id !== id));
+      queryClient.setQueryData<LotesSnapshot>(queryKeys.lotes, (list) =>
+        list ? { ...list, items: list.items.filter((l) => l.id !== id) } : list,
+      );
+      await localData.flush();
     },
   });
 }
 
-/** After a login, cached data of whoever used the phone before must not leak. */
+/** A new session starts clean: cached data of whoever used the phone before must not leak. */
 export function useStartSession() {
   const queryClient = useQueryClient();
-  return (user: User) => {
-    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== queryKeys.me[0] });
+  const localData = useLocalData();
+  return async (user: User) => {
+    await localData.clear();
+    clearPendingLogout();
     queryClient.setQueryData(queryKeys.me, user);
+  };
+}
+
+/**
+ * Ends the session on this phone. `localOnly` when the server could not be told (no signal):
+ * the logout is then retried at the next session check.
+ */
+export function useEndSession() {
+  const queryClient = useQueryClient();
+  const localData = useLocalData();
+  return async ({ localOnly }: { localOnly: boolean }) => {
+    if (localOnly) markPendingLogout();
+    queryClient.setQueryData(queryKeys.me, null);
+    await localData.clear();
   };
 }

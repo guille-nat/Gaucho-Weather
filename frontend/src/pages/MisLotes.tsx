@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { ParcelOutline } from '../components/ParcelOutline';
 import { StatusChip } from '../components/StatusChip';
 import { useOnline } from '../hooks/useOnline';
-import { formatLongDate, formatTemp, formatTime } from '../lib/format';
+import { formatDayMonth, formatTemp, formatTime } from '../lib/format';
 import { loteMeta, loteTitle } from '../lib/lote';
 import { useLotes } from '../query/hooks';
 
@@ -19,36 +19,42 @@ function LoteCard({ lote }: { lote: Lote }) {
         id={lote.id}
         name={lote.name}
         boundary={lote.boundary}
-        areaHa={lote.area_ha}
+        pending={!lote.summary}
       />
-      <span className="lote-card-body">
+      <span className="lote-card-head">
         <span className="lote-card-name">{loteTitle(lote)}</span>
         {meta ? <span className="survey-meta">{meta}</span> : null}
         {lote.summary ? (
-          <>
-            <StatusChip tone="none">Pronóstico</StatusChip>
-            <span className="lote-card-say">
-              {/* No-break spaces keep "a 2 m" together on a narrow phone. */}
-              <span className="lote-card-say-label">
-                {'Mínima esta noche a\u00a02\u00a0m:'}
-              </span>{' '}
-              <span className="lote-card-say-value">
-                {formatTemp(lote.summary.tonight_min_c_2m)}
-              </span>
-            </span>
-          </>
+          <StatusChip tone="none">Pronóstico</StatusChip>
         ) : (
-          <>
-            <StatusChip tone="pending">Sin datos aún</StatusChip>
-            <span className="lote-card-wait">
-              Estamos juntando el primer pronóstico de este lote
-            </span>
-          </>
+          <StatusChip tone="pending">Sin datos aún</StatusChip>
         )}
       </span>
+      {lote.summary ? (
+        <span className="lote-card-read">
+          <span className="lote-card-say">
+            <span className="lote-card-say-label">Mín. esta noche (2{'\u00a0'}m)</span>{' '}
+            <span className="lote-card-say-value">{formatTemp(lote.summary.tonight_min_c_2m)}</span>
+          </span>
+          <span className="lote-card-caveat">{CARD_CAVEAT}</span>
+        </span>
+      ) : (
+        <span className="lote-card-read lote-card-wait">
+          Estamos juntando el primer pronóstico de este lote
+        </span>
+      )}
       <Icon className="lote-card-go" name="chevronRight" size={20} strokeWidth={2.8} />
     </Link>
   );
+}
+
+/** Phase 1 shows a plain forecast at 2 m: it must never read as "no frost, safe". */
+const CARD_CAVEAT = 'Aún no calculamos la helada en el suelo.';
+
+/** The newest forecast behind the list: the time the data on screen comes from. */
+function latestForecast(lotes: Lote[]): string | null {
+  const times = lotes.flatMap((l) => (l.summary ? [l.summary.fetched_at] : []));
+  return times.length ? times.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b)) : null;
 }
 
 function SkeletonList() {
@@ -57,7 +63,7 @@ function SkeletonList() {
       {[0, 1, 2].map((i) => (
         <li key={i} className="lote-card lote-card--ghost">
           <span className="ghost ghost--plan" />
-          <span className="lote-card-body">
+          <span className="lote-card-head">
             <span className="ghost ghost--line" />
             <span className="ghost ghost--line ghost--short" />
             <span className="ghost ghost--chip" />
@@ -91,10 +97,13 @@ export function MisLotes() {
   const lotes = useLotes();
   const [today] = useState(() => Date.now());
   const online = useOnline();
-  const updatedAt = lotes.dataUpdatedAt ? formatTime(lotes.dataUpdatedAt) : null;
-  const stale = lotes.data !== undefined && (!online || lotes.isError);
-  const list = lotes.data ?? [];
+  const snapshot = lotes.data;
+  // Offline when the browser says so, when the refresh failed, or when the service worker had to
+  // answer from its cache. The time shown is when the server produced the data, never "now".
+  const stale = snapshot !== undefined && (!online || lotes.isError || snapshot.fromCache);
+  const list = snapshot?.items ?? [];
   const count = list.length;
+  const forecastAt = latestForecast(list);
 
   return (
     <div className="page page-lotes">
@@ -117,26 +126,26 @@ export function MisLotes() {
           </button>
         </div>
         <p className="page-head-meta">
-          {formatLongDate(today)}
-          {updatedAt && !stale ? (
+          {formatDayMonth(today)}
+          {forecastAt ? (
             <>
               {' · '}
-              <span className="nowrap">Actualizado {updatedAt}</span>
+              <span className="nowrap">Pronóstico de las {formatTime(forecastAt)}</span>
             </>
           ) : null}
         </p>
       </header>
 
-      {stale && updatedAt ? (
+      {snapshot && stale ? (
         <p className="offline-strip" role="status">
           <Icon name="cloudOff" />
-          <span>Sin conexión · datos de las {updatedAt}</span>
+          <span>Sin conexión · datos de las {formatTime(snapshot.servedAt)}</span>
         </p>
       ) : null}
 
       {lotes.isPending ? (
         <SkeletonList />
-      ) : lotes.isError && lotes.data === undefined ? (
+      ) : lotes.isError && snapshot === undefined ? (
         <div className="notice">
           <p>{lotes.error.message}</p>
           <button type="button" className="btn btn--secondary" onClick={() => void lotes.refetch()}>
@@ -154,8 +163,7 @@ export function MisLotes() {
               <strong>
                 {count} {count === 1 ? 'lote' : 'lotes'}.
               </strong>{' '}
-              Por ahora te mostramos la mínima pronosticada; los avisos de helada llegan en la
-              próxima versión.
+              Todavía no avisamos heladas.
             </span>
           </p>
           <ul className="lote-list" aria-label="Lotes">

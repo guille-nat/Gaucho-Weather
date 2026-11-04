@@ -1,26 +1,32 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { logout } from '../api/auth';
+import { ApiError } from '../api/client';
 import { FormAlert } from '../components/Field';
 import { Icon } from '../components/Icon';
-import { queryKeys } from '../query/keys';
-import { useMe } from '../query/hooks';
+import { useEndSession, useMe } from '../query/hooks';
 
-/** Workbox runtime cache of /api/lotes/ (see vite.config.ts): private data, drop it on logout. */
-const API_CACHE = 'api-lotes';
+/** What the login screen tells someone who just left (see Login). */
+export interface SignedOutState {
+  signedOut?: 'server' | 'local';
+}
 
 export function Perfil() {
   const me = useMe();
-  const queryClient = useQueryClient();
+  const endSession = useEndSession();
   const navigate = useNavigate();
+
+  async function leave(localOnly: boolean) {
+    await endSession({ localOnly });
+    const state: SignedOutState = { signedOut: localOnly ? 'local' : 'server' };
+    navigate('/ingresar', { replace: true, state });
+  }
+
   const exit = useMutation({
     mutationFn: logout,
-    onSuccess: async () => {
-      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== queryKeys.me[0] });
-      queryClient.setQueryData(queryKeys.me, null);
-      if ('caches' in window) await window.caches.delete(API_CACHE).catch(() => false);
-      navigate('/ingresar', { replace: true });
-    },
+    onSuccess: () => leave(false),
+    // No signal: the farmer still wants this phone clean, so sign out here and tell them.
+    onError: (error) => (error instanceof ApiError && error.isNetwork ? leave(true) : undefined),
   });
 
   return (

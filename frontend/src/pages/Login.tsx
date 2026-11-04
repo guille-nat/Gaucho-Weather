@@ -1,15 +1,18 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { login } from '../api/auth';
 import { ApiError } from '../api/client';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
+import { Icon } from '../components/Icon';
 import { useStartSession } from '../query/hooks';
 import { AuthLayout } from './AuthLayout';
+import type { SignedOutState } from './Perfil';
 
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const signedOut = (useLocation().state as SignedOutState | null)?.signedOut;
   const startSession = useStartSession();
   const mutation = useMutation({ mutationFn: login, onSuccess: startSession });
 
@@ -22,6 +25,15 @@ export function Login() {
 
   return (
     <AuthLayout title="Ingresar">
+      {signedOut === 'local' ? (
+        <p className="form-notice" role="status">
+          <Icon name="cloudOff" />
+          <span>
+            Saliste en este teléfono y borramos sus datos guardados. Como no había señal, cerramos
+            la sesión en el servidor la próxima vez que abras la app con conexión.
+          </span>
+        </p>
+      ) : null}
       <form className="form" onSubmit={submit} noValidate>
         <FormAlert message={error?.message} />
         <TextField

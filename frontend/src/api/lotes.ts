@@ -1,7 +1,11 @@
-import { apiFetch } from './client';
-import type { Lote, LoteInput } from './types';
+import { apiFetch, apiGetServed } from './client';
+import type { Lote, LoteInput, LotesSnapshot } from './types';
 
-export const listLotes = () => apiFetch<Lote[]>('/api/lotes/');
+export async function listLotes(): Promise<LotesSnapshot> {
+  const { data, servedAt, fromCache } = await apiGetServed<Lote[]>('/api/lotes/');
+  return { items: data, servedAt, fromCache };
+}
+
 export const getLote = (id: number) => apiFetch<Lote>(`/api/lotes/${id}/`);
 export const createLote = (input: LoteInput) =>
   apiFetch<Lote>('/api/lotes/', { method: 'POST', body: input });
