@@ -1,0 +1,3 @@
+allowBuilds:
+  # msw's postinstall only copies a service worker; the mock mode answers in-page instead.
+  msw: false
