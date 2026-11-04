@@ -1,0 +1,217 @@
+{
+ "title": "Gaucho Weather con vida y color",
+ "question": "Rumbo fijado por vos: cultura gaucha, el agro argentino, con vida y color. La pantalla de referencia ahora es \"Hoy en tu lote\", con pronóstico, lluvia, horarios y ventanas de trabajo (datos sintéticos). Elegí, mezclá o volvé a tirar.",
+ "options": [
+  {
+   "id": "assigned-g",
+   "kind": "assigned",
+   "label": "Fileteado criollo",
+   "kicker": "THE ROLL",
+   "lineage": "El fileteado de los carros y los camiones del campo: cintas con letras, colores vivos, sombras y volutas",
+   "thesis": "Cada sección es una cinta fileteada con su título. El color del filete marca el estado y los datos van limpios adentro.",
+   "palette": [
+    "#c8102e",
+    "#0b6e4f",
+    "#f2b705",
+    "#1d3fb8",
+    "#fffaf0"
+   ],
+   "materials": [
+    "esmalte brillante",
+    "cintas con letras",
+    "volutas solo en los marcos"
+   ],
+   "viewport": "Cabecera roja con el nombre del lote en letra fileteada. Debajo, la decisión de hoy en una cinta. Después vienen el bloque Ahora/Hoy/Sol, los 7 días con las lluvias en barras a la misma escala y la hora a hora. Las volutas aparecen solo en las esquinas de los marcos.",
+   "risk": "Si las volutas invaden, se vuelve souvenir porteño e ilegible. El ornamento va solo en marcos y cintas, nunca sobre un número.",
+   "raised": [
+    {
+     "from": "challenger-botanical",
+     "raise": "Las lluvias de los 7 días se dibujan a la misma escala, para comparar de un vistazo."
+    },
+    {
+     "from": "challenger-terminal-yellow",
+     "raise": "Lo próximo que importa va primero y en grande."
+    },
+    {
+     "from": "challenger-bitmap",
+     "raise": "La cifra clave se compone a escala de afiche, con orgullo."
+    },
+    {
+     "from": "challenger-doujin",
+     "raise": "Con muchos lotes, la lista pasa a una grilla compacta de fichas con su código."
+    },
+    {
+     "from": "challenger-gate-board",
+     "raise": "Lo que cambió desde la última vez queda marcado hasta que se ve."
+    },
+    {
+     "from": "challenger-split-flap",
+     "raise": "Los valores se actualizan en su lugar, sin saltar."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned-g.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "model-pick-g",
+   "kind": "pick",
+   "label": "Almanaque ilustrado de campo",
+   "kicker": "IMPECCABLE’S PICK",
+   "lineage": "Los almanaques ilustrados de campo de los años 40: cielo pampeano enorme, gauchos dibujados con humor, colores vivos",
+   "thesis": "La cabecera es el cielo de tu lote, con el gaucho que te cuenta el día. Debajo va el pronóstico en tarjetas claras.",
+   "palette": [
+    "#3a8fd9",
+    "#f2c230",
+    "#c8102e",
+    "#2f6b2f",
+    "#ffffff"
+   ],
+   "materials": [
+    "ilustración plana",
+    "cielo pampeano",
+    "papel blanco para los datos"
+   ],
+   "viewport": "Cabecera ilustrada con cielo, horizonte de llanura y la figura del gaucho a un costado. El cielo cambia según el pronóstico (sol, nubes, lluvia). Arriba va la frase del día ('Esta noche no hiela. El jueves llueve: guardá la sembradora'). Debajo, tarjetas blancas: Ahora, 7 días con lluvia, hora a hora y sol.",
+   "risk": "Encabezó mi lista y es la más 'gaucha'. Depende de una ilustración original de calidad: si la ilustración es pobre, todo se ve barato. No puede copiar a Molina Campos (con derechos de autor vigentes).",
+   "html": ".impeccable/mocks/decision/model-pick-g.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "grounded-poncho",
+   "kind": "grounded",
+   "label": "Poncho y guarda pampa",
+   "lineage": "Ponchos criollos y la guarda pampa: rojo punzó, negro, crudo y guardas escalonadas",
+   "thesis": "La guarda pampa es la estructura: bandas tejidas que separan las secciones. El rojo punzó lleva la marca.",
+   "palette": [
+    "#b3121f",
+    "#1a1a1a",
+    "#f4efe6",
+    "#d9a21b"
+   ],
+   "materials": [
+    "textil plano",
+    "guardas geométricas",
+    "rojo punzó"
+   ],
+   "viewport": "Cabecera rojo punzó con una guarda pampa en el borde inferior. Debajo, la decisión del día en grande sobre fondo claro. Las secciones (Ahora, 7 días, hora a hora, sol) se separan con guardas finas y los datos van en tipografía clara.",
+   "risk": "El fondo crudo puede leerse como pergamino. Las guardas tienen que ser finas, o pesan más que el dato.",
+   "html": ".impeccable/mocks/decision/grounded-poncho.html",
+   "htmlFrame": "390x844"
+  },
+  {
+   "id": "challenger-botanical",
+   "kind": "challenger",
+   "catalogId": "editorial-sequence-montage-botanical-folio-season",
+   "label": "Folio botánico",
+   "verdict": "declined",
+   "lineage": "Folio botánico",
+   "palette": [
+    "#f3efe4",
+    "#2f4f2f"
+   ],
+   "materials": [],
+   "case": "Pierde en identificación: no es gaucho.",
+   "kept": "La misma escala en todos los días."
+  },
+  {
+   "id": "challenger-terminal-yellow",
+   "kind": "challenger",
+   "catalogId": "wayfinding-cartography-signage-terminal-yellow-wayfinding",
+   "label": "Banda amarilla",
+   "verdict": "declined",
+   "lineage": "Banda amarilla",
+   "palette": [
+    "#ffd200",
+    "#111111"
+   ],
+   "materials": [],
+   "case": "Ya se mostró y se descartó; además no es gaucho.",
+   "kept": "Lo próximo que importa, primero."
+  },
+  {
+   "id": "challenger-bitmap",
+   "kind": "challenger",
+   "catalogId": "emigre-bitmap-specimen",
+   "label": "Bitmap Emigre",
+   "verdict": "declined",
+   "lineage": "Bitmap Emigre",
+   "palette": [
+    "#ffffff",
+    "#000000"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes.",
+   "kept": "La cifra clave a escala de afiche."
+  },
+  {
+   "id": "challenger-doujin",
+   "kind": "challenger",
+   "catalogId": "pop-culture-shelf-doujin-event-catalog",
+   "label": "Catálogo doujin",
+   "verdict": "declined",
+   "lineage": "Catálogo doujin",
+   "palette": [
+    "#f5f0e6",
+    "#111111"
+   ],
+   "materials": [],
+   "case": "Pierde en los dos ejes.",
+   "kept": "Una grilla compacta de fichas para muchos lotes."
+  },
+  {
+   "id": "challenger-gate-board",
+   "kind": "challenger",
+   "catalogId": "vernacular-ephemera-boarding-pass-and-gate-board",
+   "label": "Tarjeta de embarque",
+   "verdict": "declined",
+   "lineage": "Tarjeta de embarque",
+   "palette": [
+    "#ffffff",
+    "#ff3b30"
+   ],
+   "materials": [],
+   "case": "Pierde en identificación.",
+   "kept": "Lo que cambió queda marcado."
+  },
+  {
+   "id": "challenger-split-flap",
+   "kind": "challenger",
+   "catalogId": "signals-instruments-split-flap-concourse",
+   "label": "Tablero de estación",
+   "verdict": "declined",
+   "lineage": "Tablero de estación",
+   "palette": [
+    "#111111",
+    "#f2a900"
+   ],
+   "materials": [],
+   "case": "Pierde en identificación.",
+   "kept": "Los valores se actualizan en su lugar."
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "Lo que tenemos hoy (plano catastral + estándar)",
+  "thesis": "La versión actual, sobria y técnica.",
+  "palette": [
+   "#ffffff",
+   "#0f172a",
+   "#16a34a"
+  ],
+  "materials": [
+   "grilla limpia",
+   "íconos de clima"
+  ],
+  "viewport": "Encabezado con el lote, una tarjeta por decisión con ícono, semáforo y una línea de explicación, y navegación inferior.",
+  "risk": "Es lo que hace toda la categoría: se confunde con cualquier app de clima.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "390x844"
+ }
+}
