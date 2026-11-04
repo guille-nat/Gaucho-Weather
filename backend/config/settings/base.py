@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.lotes",
     "apps.archiver",
+    "apps.weather",
+    "apps.places",
 ]
 
 MIDDLEWARE = [
@@ -108,7 +110,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = False  # the SPA reads it and sends it back as X-CSRFToken
 CSRF_COOKIE_SAMESITE = "Lax"
 
-# --- Cache (DRF throttling counters) ---
+# --- Cache (DRF throttling counters, place lookups, on-demand fetch locks) ---
 REDIS_URL = env("REDIS_URL", "redis://redis:6379")
 CACHES = {
     "default": {
@@ -126,6 +128,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": env("THROTTLE_LOGIN_RATE", "10/min"),
         "register": env("THROTTLE_REGISTER_RATE", "10/hour"),
+        # Public endpoints (S10). A forecast miss costs ~7 Open-Meteo calls.
+        "public_forecast": env("THROTTLE_PUBLIC_FORECAST_RATE", "60/hour"),
+        "places": env("THROTTLE_PLACES_RATE", "300/hour"),
     },
     # Number of reverse proxies in front of Django; DRF reads the client IP for
     # throttling from X-Forwarded-For using this count. 0 = use REMOTE_ADDR.
@@ -160,6 +165,10 @@ SMN_DATOHORARIO_URL = env(
     "https://ssl.smn.gob.ar/dpd/descarga_opendata.php?file=observaciones/datohorario{date}.txt",
 )
 SMN_LOOKBACK_DAYS = env_int("SMN_LOOKBACK_DAYS", 3)
+
+# --- Places (S10): Georef AR, CC BY 4.0, commercial use allowed ---
+GEOREF_API_URL = env("GEOREF_API_URL", "https://apis.datos.gob.ar/georef/api")
+PLACES_CACHE_SECONDS = env_int("PLACES_CACHE_SECONDS", 60 * 60 * 24)
 
 LOGGING = {
     "version": 1,

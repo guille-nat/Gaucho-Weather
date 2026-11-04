@@ -21,5 +21,8 @@
 - [funcionalidades/motor-decisiones.md](funcionalidades/motor-decisiones.md):
   motor de decisiones v0 (helada, pulverización y labores), sus reglas y
   supuestos. Todavía no está validado con backtesting.
-- [funcionalidades/pronostico.md](funcionalidades/pronostico.md): endpoint de
-  pronóstico por lote, con lluvia, probabilidades, hora a hora y sol.
+- [funcionalidades/pronostico.md](funcionalidades/pronostico.md): pronóstico
+  por lote y pronóstico público de cualquier punto de Argentina, con lluvia,
+  probabilidades, hora a hora y sol, y la descarga a demanda.
+- [funcionalidades/lugares.md](funcionalidades/lugares.md): búsqueda de
+  lugares y ubicación inversa con Georef AR, sus términos y la caché.

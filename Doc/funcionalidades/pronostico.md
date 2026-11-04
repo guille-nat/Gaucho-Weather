@@ -1,4 +1,4 @@
-# Pronóstico del lote
+# Pronóstico (del lote y público)
 > Última actualización: 2026-11-03
 
 ## Qué hace
@@ -6,6 +6,11 @@
 decidir en su lote: ahora, hoy, lluvia caída en 7 días, 7 días, 48 horas y las
 decisiones del [motor v0](motor-decisiones.md). Solo lee el archivo: nunca
 llama a Open-Meteo al responder.
+
+También existe el **pronóstico público** `GET /api/pronostico/?lat=&lon=`
+(S10): el mismo cuerpo para cualquier punto de Argentina, sin cuenta, más
+`place`. Ese sí puede llamar a Open-Meteo cuando el archivo está viejo (ver más
+abajo).
 
 ## Cómo funciona
 - Vista: acción `pronostico` de `LoteViewSet` (`backend/apps/lotes/views.py`).
@@ -38,7 +43,57 @@ llama a Open-Meteo al responder.
    decisions: {frost_tonight, spray_today, field_work, engine_version, validated}}
   ```
 
+### Pronóstico público (S8, S10)
+- Vista: `PublicForecastView` en `backend/apps/weather/views.py`; la lógica, en
+  `backend/apps/weather/ondemand.py`.
+- Público (`AllowAny`, sin sesión, así que no pide CSRF) y con throttle por IP
+  (`IPScopedRateThrottle`, scope `public_forecast`, `THROTTLE_PUBLIC_FORECAST_RATE`,
+  60/hora por defecto).
+- Errores:
+  - `lat`/`lon` faltantes o no numéricos: 400
+    `{"detail": "Indicá lat y lon como números."}`.
+  - Fuera de los límites de Argentina de la Fase 1 (latitud −56 a −21,
+    longitud −74 a −53, en `apps/archiver/cells.py`): 400
+    `{"detail": "Por ahora solo cubrimos Argentina."}`.
+  - Sin archivo y sin red: 503
+    `{"detail": "No pudimos obtener el pronóstico. Probá en un rato."}`.
+- Flujo:
+  1. Se calcula la celda de 0,1° (`grid_cell`).
+  2. Si el último determinístico archivado de la celda tiene menos de 3 h, se
+     arma la respuesta desde el archivo.
+  3. Si no, se piden ya los tres determinísticos a Open-Meteo y se guardan con
+     `archive_cell` (`apps/archiver/tasks.py`), el mismo camino idempotente que
+     la tarea programada. Así cada búsqueda también suma al backtesting.
+  4. Si Open-Meteo falla, se sirve el último snapshot más viejo que haya; si no
+     hay ninguno, 503.
+  5. El cuerpo es el de S5 (`build_forecast`) más
+     `place: {name, region}|null`, del [reverso de lugares](lugares.md). Si
+     Georef falla, `place` es null y el pronóstico igual responde.
+- **Concurrencia:** un lock en la caché (`cache.add`, `SET NX` en Redis) por
+  celda, de 60 s. Si otro pedido ya está descargando esa celda, se espera hasta
+  20 s a que termine y se lee el archivo, sin volver a pedir.
+
 ## Decisiones y por qué
+- **Decisión:** el pronóstico público pide solo los determinísticos; los
+  ensembles quedan para la tarea programada.
+  **Por qué:** un ensemble es ~50 veces más grande y más lento (los miembros),
+  lo que haría lenta la respuesta, y en Open-Meteo los ensembles requieren el
+  plan Professional para uso comercial (<https://open-meteo.com/en/pricing>).
+  Una celda nueva tiene `rain_probability_pct` null hasta que se archive un
+  ensemble (hoy solo pasa en celdas de lotes y estaciones).
+  **Alternativas descartadas:** pedir ensembles también; se puede sumar si el
+  plan contratado los incluye.
+- **Decisión:** las celdas pedidas por el público no se suman a la tarea
+  programada.
+  **Por qué:** cualquier búsqueda crearía una celda más para descargar cada 6 h,
+  sin límite. Solo se archiva lo que alguien pidió.
+- **Decisión:** 3 h de frescura y timeouts de 8 s por pedido (4 s de conexión).
+  **Por qué:** la tarea corre cada 6 h; 3 h es lo que pide S10. Los tres
+  pedidos entran en los 30 s de timeout del worker de gunicorn.
+- **Decisión:** 60 pedidos por hora por IP.
+  **Por qué:** cada celda vieja cuesta ~7 llamadas de Open-Meteo (24 variables y
+  14 días cuentan como 2,4 llamadas por pedido, según su página de precios), y
+  el plan gratuito permite 10.000 por día.
 - **Decisión:** mediana entre modelos para los valores.
   **Por qué:** resiste a un modelo que se dispara; con tres modelos es el del medio.
 - **Decisión:** `models` lista solo los determinísticos usados para los valores.
@@ -56,7 +111,13 @@ llama a Open-Meteo al responder.
 - Los snapshots archivados antes del 2026-11-03 no tienen `past_days` ni
   `daily`: `rain_past_7d_mm`, `sunrise` y `sunset` salen null hasta la próxima
   descarga, y la pulverización dice que faltan datos.
-- Tests: `backend/tests/test_pronostico.py`.
+- Tests: `backend/tests/test_pronostico.py` (lote) y
+  `backend/tests/test_public_forecast.py` (público, con Open-Meteo y Georef
+  simulados con respx).
+- El lock y los tiempos de espera son constantes de `ondemand.py`
+  (`FRESH_FOR`, `LOCK_TTL_SECONDS`, `LOCK_WAIT_SECONDS`, `HTTP_TIMEOUT`).
 
 ## Historial
 - 2026-11-03: versión inicial (feature `clima-y-fileteado`).
+- 2026-11-03: pronóstico público `GET /api/pronostico/?lat=&lon=` con descarga
+  a demanda y `place` (S8, S10, T5). El del lote no cambia.

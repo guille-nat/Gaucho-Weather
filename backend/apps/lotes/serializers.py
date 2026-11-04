@@ -2,7 +2,13 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from rest_framework import serializers
 
-from apps.archiver.cells import grid_cell
+from apps.archiver.cells import (
+    LATITUDE_MAX,
+    LATITUDE_MIN,
+    LONGITUDE_MAX,
+    LONGITUDE_MIN,
+    grid_cell,
+)
 from apps.archiver.forecast import forecasts
 from apps.archiver.summary import tonight_summaries
 
@@ -29,10 +35,10 @@ class RoundedDecimalField(serializers.DecimalField):
 
 class LoteSerializer(serializers.ModelSerializer):
     latitude = RoundedDecimalField(
-        max_digits=9, decimal_places=6, min_value=Decimal("-56"), max_value=Decimal("-21")
+        max_digits=9, decimal_places=6, min_value=LATITUDE_MIN, max_value=LATITUDE_MAX
     )
     longitude = RoundedDecimalField(
-        max_digits=9, decimal_places=6, min_value=Decimal("-74"), max_value=Decimal("-53")
+        max_digits=9, decimal_places=6, min_value=LONGITUDE_MIN, max_value=LONGITUDE_MAX
     )
     area_ha = RoundedDecimalField(
         max_digits=10, decimal_places=2, min_value=Decimal("0"), allow_null=True, required=False

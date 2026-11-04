@@ -55,3 +55,12 @@ desarrollo y `docker-compose.prod.yml` para producción.
 ## Historial
 - 2026-11-03: versión inicial (Fase 1). Puertos elegidos libres en la máquina
   de desarrollo: 8001 (backend) y 5173 (frontend).
+
+## Variables del pronóstico público y de lugares (2026-11-03)
+- `THROTTLE_PUBLIC_FORECAST_RATE`: límite por IP de `GET /api/pronostico/`.
+  Viene en 60/hora porque una celda vencida cuesta unas 7 llamadas a Open-Meteo.
+- `THROTTLE_PLACES_RATE`: límite por IP de `/api/lugares/` y `/reverso/`, que
+  comparten el mismo contador.
+- `GEOREF_API_URL`: URL de Georef AR, que es CC BY 4.0 y permite uso comercial.
+- `PLACES_CACHE_SECONDS`: cuánto se cachean las búsquedas y la ubicación
+  inversa. Viene en 1 día.

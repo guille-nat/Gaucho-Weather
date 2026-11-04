@@ -69,9 +69,11 @@ ENSEMBLE_HOURLY = (
 DETERMINISTIC = "deterministic"
 ENSEMBLE = "ensemble"
 
-JOBS: tuple[tuple[str, str], ...] = tuple(
-    [(DETERMINISTIC, model) for model in DETERMINISTIC_MODELS]
-    + [(ENSEMBLE, model) for model in ENSEMBLE_MODELS]
+DETERMINISTIC_JOBS: tuple[tuple[str, str], ...] = tuple(
+    (DETERMINISTIC, model) for model in DETERMINISTIC_MODELS
+)
+JOBS: tuple[tuple[str, str], ...] = DETERMINISTIC_JOBS + tuple(
+    (ENSEMBLE, model) for model in ENSEMBLE_MODELS
 )
 
 

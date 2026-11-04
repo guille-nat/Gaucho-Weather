@@ -31,6 +31,11 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
     Hay una fila única por estación y hora.
   - El parser (`smn.py`) lee columnas de ancho fijo en Latin-1. Las columnas
     vacías quedan en null y se saltean los nombres largos partidos en dos líneas.
+- **A demanda:** el [pronóstico público](pronostico.md) también guarda. Cuando
+  una celda no tiene un determinístico de menos de 3 h, pide los tres
+  determinísticos y los guarda con `archive_cell(client, cell, jobs, now)`, la
+  misma función que usa la tarea por cada celda. La fila única por hora la
+  mantiene idempotente; los ensembles quedan solo para la tarea.
 - **Fallas:** un error de red, HTTP o JSON se registra en el log y se sigue con
   el resto. La tarea no lanza excepciones, y como es idempotente, la próxima
   corrida completa lo que faltó.
@@ -57,6 +62,11 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   un determinístico. En un ensemble cada variable se multiplica por ~50
   miembros, y no hacen falta.
 
+- **Decisión:** la descarga de una celda vive en `archive_cell` y la usan la
+  tarea y el pronóstico público.
+  **Por qué:** un solo camino idempotente; si cambian las variables o la regla
+  de una fila por hora, cambia para los dos.
+
 ## Cómo modificarlo
 - **Espacio en disco** (medido el 2026-11-03, ya comprimido por Postgres): un
   ensemble ECMWF ocupa ~265 kB, uno GFS ~132 kB y cada determinístico ~10 kB.
@@ -76,3 +86,5 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
 - 2026-11-03: versión inicial (Fase 1).
 - 2026-11-03: `past_days=7`, `daily=sunrise,sunset` y `weather_code` en los
   determinísticos, para el pronóstico del lote (feature `clima-y-fileteado`).
+- 2026-11-03: `archive_cell` extraída de la tarea para reusarla en la descarga
+  a demanda del pronóstico público (T5).

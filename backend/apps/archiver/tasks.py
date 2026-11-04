@@ -29,34 +29,52 @@ def forecast_cells() -> list[Cell]:
     return sorted(cells)
 
 
+def archive_cell(
+    client: httpx.Client,
+    cell: Cell,
+    jobs=openmeteo.JOBS,
+    now=None,
+    stats: dict[str, int] | None = None,
+) -> dict[str, int]:
+    """Fetch and store each (kind, model) job of one cell, at most once per hour.
+
+    The single idempotent archive path: the scheduled run and the public
+    on-demand forecast both store through it.
+    """
+    now = now or timezone.now()
+    fetch_hour = now.replace(minute=0, second=0, microsecond=0)
+    stats = stats if stats is not None else {"stored": 0, "skipped": 0, "failed": 0}
+    for kind, model in jobs:
+        key = {
+            "cell_lat": cell[0],
+            "cell_lon": cell[1],
+            "model": model,
+            "kind": kind,
+            "fetch_hour": fetch_hour,
+        }
+        if ForecastSnapshot.objects.filter(**key).exists():
+            stats["skipped"] += 1
+            continue
+        try:
+            payload = openmeteo.fetch(client, kind, model, cell)
+        except (httpx.HTTPError, ValueError) as exc:
+            stats["failed"] += 1
+            logger.warning("Open-Meteo %s %s %s failed: %s", kind, model, cell, exc)
+            continue
+        _, created = ForecastSnapshot.objects.get_or_create(
+            **key, defaults={"payload": payload, "fetched_at": now}
+        )
+        stats["stored" if created else "skipped"] += 1
+    return stats
+
+
 @shared_task(name="archiver.fetch_forecasts")
 def fetch_forecasts() -> dict[str, int]:
     now = timezone.now()
-    fetch_hour = now.replace(minute=0, second=0, microsecond=0)
     stats = {"stored": 0, "skipped": 0, "failed": 0}
     with httpx.Client(timeout=HTTP_TIMEOUT) as client:
         for cell in forecast_cells():
-            for kind, model in openmeteo.JOBS:
-                key = {
-                    "cell_lat": cell[0],
-                    "cell_lon": cell[1],
-                    "model": model,
-                    "kind": kind,
-                    "fetch_hour": fetch_hour,
-                }
-                if ForecastSnapshot.objects.filter(**key).exists():
-                    stats["skipped"] += 1
-                    continue
-                try:
-                    payload = openmeteo.fetch(client, kind, model, cell)
-                except (httpx.HTTPError, ValueError) as exc:
-                    stats["failed"] += 1
-                    logger.warning("Open-Meteo %s %s %s failed: %s", kind, model, cell, exc)
-                    continue
-                _, created = ForecastSnapshot.objects.get_or_create(
-                    **key, defaults={"payload": payload, "fetched_at": now}
-                )
-                stats["stored" if created else "skipped"] += 1
+            archive_cell(client, cell, openmeteo.JOBS, now, stats)
     logger.info("Forecast archive run: %s", stats)
     return stats
 
