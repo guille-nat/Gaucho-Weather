@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
-import { getForecast, getLoteForecast, reversePlace, searchPlaces } from '../api/pronostico';
+import {
+  getForecast,
+  asForecastSnapshot,
+  getLoteForecast,
+  reversePlace,
+  searchPlaces,
+} from '../api/pronostico';
 import type { Lote, LoteInput, LotesSnapshot, User } from '../api/types';
 import { queryKeys } from './keys';
 import { useLocalData } from './localData';
@@ -39,6 +45,7 @@ export const useLoteForecast = (id: number) =>
   useQuery({
     queryKey: queryKeys.loteForecast(id),
     queryFn: () => getLoteForecast(id),
+    select: asForecastSnapshot,
     enabled: Number.isFinite(id),
   });
 

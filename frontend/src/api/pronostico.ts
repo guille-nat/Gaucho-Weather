@@ -10,6 +10,17 @@ export async function getForecast(lat: number, lon: number) {
   return { forecast: data, servedAt, fromCache } satisfies ForecastSnapshot<PublicForecast>;
 }
 
+/**
+ * Accepts only the current snapshot shape. A persisted entry written by an
+ * older build under the same query key is treated as missing, never rendered.
+ */
+export function asForecastSnapshot(value: unknown): ForecastSnapshot | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const forecast = (value as { forecast?: unknown }).forecast;
+  if (typeof forecast !== 'object' || forecast === null) return undefined;
+  return value as ForecastSnapshot;
+}
+
 export async function getLoteForecast(id: number) {
   const { data, servedAt, fromCache } = await apiGetServed<Forecast>(
     `/api/lotes/${id}/pronostico/`,
