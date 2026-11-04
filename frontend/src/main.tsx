@@ -1,8 +1,8 @@
 import '@fontsource/atkinson-hyperlegible-next/latin-400.css';
 import '@fontsource/atkinson-hyperlegible-next/latin-700.css';
-import '@fontsource/barlow-semi-condensed/latin-500.css';
-import '@fontsource/barlow-semi-condensed/latin-600.css';
-import '@fontsource/barlow-semi-condensed/latin-700.css';
+import '@fontsource/onest/latin-300.css';
+import '@fontsource/onest/latin-500.css';
+import '@fontsource/onest/latin-600.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/app.css';
@@ -13,6 +13,7 @@ import { AppRoutes } from './App';
 import { AppProviders } from './AppProviders';
 import { createQueryClient } from './query/client';
 import { createIdbPersister } from './query/persister';
+import { restoreSky } from './lib/sky';
 
 async function start() {
   if (import.meta.env.MODE === 'mock') {
@@ -24,6 +25,8 @@ async function start() {
     registerSW({ immediate: true });
   }
 
+  // Open on the last sky seen here, not on a default colour that then fades away.
+  restoreSky();
   const root = document.getElementById('root');
   if (!root) throw new Error('Missing #root');
   createRoot(root).render(

@@ -7,25 +7,37 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* Keep focused fields clear of the fixed tab bar and dock (WCAG 2.4.11). */
-  scroll-padding-bottom: calc(var(--tabbar-h) + var(--dock-h) + var(--safe-bottom) + 16px);
-  scrollbar-color: var(--rule-strong) var(--paper);
+  -webkit-tap-highlight-color: transparent;
+  background: var(--sky-b);
+  scrollbar-color: color-mix(in srgb, #fff 45%, transparent) transparent;
 }
 
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--paper);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.45;
   color: var(--ink);
-  font: 400 var(--text-body) / 1.45 var(--font-body);
+  background: var(--sky-b);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  caret-color: var(--survey-blue);
+}
+
+/* The sky field: full-bleed, behind everything, with the light of the sun where it stands. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 60% at 85% -10%, var(--glow), transparent 60%),
+    linear-gradient(180deg, var(--sky-a) 0%, var(--sky-a) 28%, var(--sky-b) 100%);
 }
 
 ::selection {
-  background: var(--survey-blue);
-  color: #fff;
+  background: var(--gold);
+  color: var(--gold-ink);
 }
 
 h1,
@@ -42,6 +54,9 @@ fieldset {
 h1,
 h2,
 h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
   text-wrap: balance;
 }
 
@@ -50,24 +65,22 @@ p {
 }
 
 ul {
-  list-style: none;
   margin: 0;
   padding: 0;
+  list-style: none;
 }
 
 img,
 svg {
   display: block;
+  flex-shrink: 0;
 }
 
 a {
-  color: var(--survey-blue);
+  color: inherit;
+  text-decoration-color: var(--gold);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
-}
-
-a:hover {
-  color: var(--survey-blue-ink);
 }
 
 button,
@@ -84,7 +97,7 @@ button {
 
 :focus-visible {
   outline: var(--focus);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 [tabindex='-1']:focus {
@@ -92,7 +105,7 @@ button {
 }
 
 svg text {
-  font-family: var(--font-survey);
+  font-family: var(--font-display);
 }
 
 .sr-only {

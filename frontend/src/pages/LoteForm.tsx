@@ -150,7 +150,7 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
           <Icon name="chevronLeft" strokeWidth={2.6} />
           Cancelar
         </Link>
-        <h1 className="survey-title">{title}</h1>
+        <h1 className="page-title">{title}</h1>
       </header>
       <form ref={formRef} className="form" onSubmit={submit} noValidate>
         <FormAlert message={alert} />
@@ -237,7 +237,7 @@ export function NuevoLote() {
       initial={EMPTY}
       pending={create.isPending}
       submitError={create.error}
-      cancelTo="/"
+      cancelTo="/lotes"
       onSubmit={(input) =>
         create.mutate(input, {
           onSuccess: (lote) => navigate(`/lotes/${lote.id}`, { replace: true }),

@@ -1,9 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { Persister } from '@tanstack/react-query-persist-client';
-import { queryKeys } from './keys';
+import { PUBLIC_ROOTS, queryKeys } from './keys';
 
 /** Workbox runtime cache of /api/lotes/ (vite.config.ts): private data of whoever is logged in. */
 export const API_CACHE = 'api-lotes';
+/** Workbox runtime cache of the public forecast and places: nobody's data, so it is kept. */
+export const PUBLIC_API_CACHE = 'api-publico';
 
 async function deleteApiCache(): Promise<void> {
   if (typeof caches === 'undefined') return;
@@ -12,12 +14,17 @@ async function deleteApiCache(): Promise<void> {
 
 /**
  * Removes every trace of the current user from this phone: the in-memory queries, the copy
- * persisted in IndexedDB and the service worker's cache of the API. Only `me` survives, so the
- * caller decides who is logged in next. The phone may be shared, so this runs whenever a session
- * ends or a new one starts.
+ * persisted in IndexedDB and the service worker's cache of the API, lote forecasts included. Only
+ * `me` and the public forecast and places survive, so the caller decides who is logged in next.
+ * The phone may be shared, so this runs whenever a session ends or a new one starts.
  */
 export async function clearLocalData(queryClient: QueryClient, persister: Persister) {
-  queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== queryKeys.me[0] });
+  queryClient.removeQueries({
+    predicate: (q) => {
+      const root = String(q.queryKey[0]);
+      return root !== queryKeys.me[0] && !PUBLIC_ROOTS.has(root);
+    },
+  });
   await Promise.allSettled([persister.removeClient(), deleteApiCache()]);
 }
 

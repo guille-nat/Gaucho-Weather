@@ -1,73 +1,60 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { Lote, LoteSummary } from '../api/types';
+import { ApiError } from '../api/client';
+import type { Lote } from '../api/types';
 import { FormAlert } from '../components/Field';
+import { ForecastSkeleton, ForecastView } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
-import { ParcelOutline } from '../components/ParcelOutline';
+import { OfflineStrip } from '../components/OfflineStrip';
 import { StatusChip } from '../components/StatusChip';
-import {
-  CROP_LABELS,
-  formatCoord,
-  formatDate,
-  formatHa,
-  formatTemp,
-  formatTime,
-  MODEL_LABELS,
-} from '../lib/format';
+import { useOnline } from '../hooks/useOnline';
+import { CROP_LABELS, formatCoord, formatDate, formatHa } from '../lib/format';
 import { loteMeta } from '../lib/lote';
-import { useDeleteLote, useLote } from '../query/hooks';
+import { applySky, skyTheme } from '../lib/sky';
+import { useDeleteLote, useLote, useLoteForecast } from '../query/hooks';
 
-/** Phase 1 shows a plain forecast at 2 m: it must never read as "no frost, safe". */
-const DETAIL_CAVEAT =
-  'Temperatura a 2\u00a0m de altura. Todavía no calculamos la helada a nivel del suelo.';
+/** The forecast part of the lote: the Inicio layout plus its decisions (S5). */
+function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
+  const forecast = useLoteForecast(lote.id);
+  const online = useOnline();
+  const snapshot = forecast.data;
 
-function Tonight({ summary }: { summary: LoteSummary | null }) {
-  if (!summary) {
-    return (
-      <div className="tonight tonight--pending">
-        <h2 id="sec-tonight" className="sr-only">
-          Esta noche
-        </h2>
-        <StatusChip tone="pending">Sin datos aún</StatusChip>
-        <p className="tonight-wait">Estamos juntando el primer pronóstico de este lote</p>
-        <p className="tonight-fine">
-          Descargamos el pronóstico cada 6 horas. Volvé a mirar más tarde.
-        </p>
-      </div>
-    );
-  }
-  const models = Object.entries(summary.tonight_min_models).filter(
+  useEffect(() => {
+    if (snapshot) applySky(skyTheme(snapshot.forecast));
+  }, [snapshot]);
+
+  const stale = snapshot !== undefined && (!online || forecast.isError || snapshot.fromCache);
+  const models = Object.entries(lote.summary?.tonight_min_models ?? {}).filter(
     (entry): entry is [string, number] => typeof entry[1] === 'number',
   );
-  return (
-    <div className="tonight">
-      <StatusChip tone="none">Pronóstico</StatusChip>
-      <h2 id="sec-tonight" className="tonight-label">
-        Mínima esta noche a 2{'\u00a0'}m
-      </h2>
-      <p className="tonight-value">{formatTemp(summary.tonight_min_c_2m)}</p>
-      <p className="tonight-caveat">{DETAIL_CAVEAT}</p>
-      {models.length ? (
-        <details className="models-more">
-          <summary>
-            <Icon name="chevronRight" size={20} strokeWidth={2.6} />
-            Ver modelos
-          </summary>
-          <ul className="models" aria-label="Mínima por modelo">
-            {models.map(([model, value]) => (
-              <li key={model}>
-                <span className="models-name">{MODEL_LABELS[model] ?? model}</span>
-                <span className="models-value">{formatTemp(value)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-      <p className="tonight-fine">
-        Pronóstico descargado a las {formatTime(summary.fetched_at)}. Los avisos de helada llegan en
-        la próxima versión.
-      </p>
+  const noForecast = forecast.error instanceof ApiError && forecast.error.status === 404;
+  const fallback = forecast.isPending ? (
+    <ForecastSkeleton label="Cargando el pronóstico del lote…" />
+  ) : noForecast || !lote.summary ? (
+    <div className="panel pending">
+      <StatusChip tone="pending">Sin datos aún</StatusChip>
+      <p className="pending-title">Estamos juntando el primer pronóstico de este lote</p>
+      <p className="fine">Descargamos el pronóstico cada 6 horas. Volvé a mirar más tarde.</p>
     </div>
+  ) : (
+    <div className="notice notice--error" role="alert">
+      <Icon name="alertCircle" />
+      <p>{forecast.error?.message}</p>
+      <button type="button" className="btn btn--light" onClick={() => void forecast.refetch()}>
+        <Icon name="refresh" />
+        Reintentar
+      </button>
+    </div>
+  );
+  return (
+    <ForecastView
+      forecast={snapshot?.forecast ?? null}
+      fallback={fallback}
+      header={header}
+      decisions="block"
+      frostModels={models}
+      notice={stale ? <OfflineStrip servedAt={snapshot.servedAt} /> : null}
+    />
   );
 }
 
@@ -81,7 +68,7 @@ function Facts({ lote }: { lote: Lote }) {
     ['Ubicación', `${formatCoord(lote.latitude)}, ${formatCoord(lote.longitude)}`],
   ];
   return (
-    <dl className="facts">
+    <dl className="facts panel">
       {rows.map(([term, value]) => (
         <div key={term} className="facts-row">
           <dt>{term}</dt>
@@ -117,7 +104,7 @@ function DeleteLote({ lote }: { lote: Lote }) {
           className="btn btn--danger-solid"
           disabled={remove.isPending}
           onClick={() =>
-            remove.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })
+            remove.mutate(undefined, { onSuccess: () => navigate('/lotes', { replace: true }) })
           }
         >
           {remove.isPending ? 'Borrando…' : 'Sí, borrar'}
@@ -137,7 +124,7 @@ export function LoteDetail() {
   if (!lote.data) {
     return (
       <div className="page">
-        <Link className="back-link" to="/">
+        <Link className="back-link" to="/lotes">
           <Icon name="chevronLeft" strokeWidth={2.6} />
           Mis lotes
         </Link>
@@ -154,47 +141,42 @@ export function LoteDetail() {
 
   const data = lote.data;
   const meta = loteMeta(data);
-  return (
-    <div className="page page-detail">
-      <header className="detail-head">
-        <Link className="back-link" to="/">
+  const header = (
+    <header className="place-bar place-bar--lote">
+      <div className="place-names">
+        <Link className="back-link" to="/lotes">
           <Icon name="chevronLeft" strokeWidth={2.6} />
           Mis lotes
         </Link>
-        <div className="detail-hero">
-          <ParcelOutline
-            className="detail-plan"
-            id={data.id}
-            name={data.name}
-            boundary={data.boundary}
-            pending={!data.summary}
-          />
-          <div className="detail-titles">
-            <h1 className="detail-name">{data.name}</h1>
-            {data.establishment ? <p className="detail-est">{data.establishment}</p> : null}
-            {meta ? <p className="survey-meta">{meta}</p> : null}
-          </div>
-        </div>
-      </header>
+        <h1 className="place-name">{data.name}</h1>
+        <p className="place-region">{[data.establishment, meta].filter(Boolean).join(' · ')}</p>
+      </div>
+      <Link
+        className="icon-btn icon-btn--solid"
+        to={`/lotes/${data.id}/editar`}
+        aria-label="Editar lote"
+      >
+        <Icon name="pencil" size={22} strokeWidth={2.4} />
+      </Link>
+    </header>
+  );
+  return (
+    <div className="page page-detail">
+      <LoteForecast lote={data} header={header} />
 
-      <section className="section" aria-labelledby="sec-tonight">
-        <Tonight summary={data.summary} />
-      </section>
-
-      <section className="section" aria-labelledby="sec-facts">
-        <h2 id="sec-facts" className="survey-label">
+      <section className="section lote-facts" aria-labelledby="sec-facts">
+        <h2 id="sec-facts" className="panel-title">
           Datos del lote
         </h2>
         <Facts lote={data} />
+        <div className="detail-actions">
+          <Link className="btn btn--light btn--block" to={`/lotes/${data.id}/editar`}>
+            <Icon name="pencil" />
+            Editar lote
+          </Link>
+          <DeleteLote lote={data} />
+        </div>
       </section>
-
-      <div className="detail-actions">
-        <Link className="btn btn--secondary btn--block" to={`/lotes/${data.id}/editar`}>
-          <Icon name="pencil" />
-          Editar lote
-        </Link>
-        <DeleteLote lote={data} />
-      </div>
     </div>
   );
 }

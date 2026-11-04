@@ -18,11 +18,11 @@ interface MapPickerProps {
 }
 
 function stakeElement() {
-  // A survey stake ("mojón"): ink pin with the brand's pink head.
+  // A survey stake ("mojón"): ink pin with the brand gold head.
   const el = document.createElement('div');
   el.className = 'map-stake';
   el.innerHTML =
-    '<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true"><path d="M17 43S3 27.5 3 16a14 14 0 0 1 28 0c0 11.5-14 27-14 27Z" fill="#141414"/><circle cx="17" cy="16" r="6" fill="#d6336c" stroke="#fff" stroke-width="2"/></svg>';
+    '<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true"><path d="M17 43S3 27.5 3 16a14 14 0 0 1 28 0c0 11.5-14 27-14 27Z" fill="#141414"/><circle cx="17" cy="16" r="6" fill="#f2b705" stroke="#fff" stroke-width="2"/></svg>';
   return el;
 }
 

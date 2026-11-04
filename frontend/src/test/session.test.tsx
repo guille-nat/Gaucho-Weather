@@ -21,7 +21,7 @@ describe('session end clears this phone', () => {
     const cachesDelete = stubCaches();
     await seedPersisted({ user: demoUser, lotes: demoLotes() });
 
-    renderApp('/', createMockDb({ user: null }));
+    renderApp('/lotes', createMockDb({ user: null }));
 
     expect(await screen.findByRole('heading', { name: 'Ingresar' })).toBeInTheDocument();
     await waitFor(async () => expect((await readPersisted()).roots).not.toContain('lotes'));
@@ -37,6 +37,9 @@ describe('session end clears this phone', () => {
     });
     const { user } = renderApp('/ingresar', db);
 
+    // The restored session briefly opens Mis lotes before /me says it ended: type only after the
+    // phone was cleared, or the form remounts under the typing (a race of the test, not the app).
+    await waitFor(async () => expect((await readPersisted()).roots).not.toContain('lotes'));
     await user.type(await screen.findByLabelText('Email'), otherUser.email);
     await user.type(screen.getByLabelText('Contraseña'), 'molino-2026');
     await user.click(screen.getByRole('button', { name: 'Ingresar' }));
@@ -69,6 +72,26 @@ describe('session end clears this phone', () => {
     expect(cachesDelete).toHaveBeenCalledWith('api-lotes');
   });
 
+  it('drops the cached lote forecasts on logout but keeps the public forecast', async () => {
+    const cachesDelete = stubCaches();
+    const db = createMockDb({ user: demoUser, lotes: demoLotes() });
+    const { user } = renderApp('/lotes/4', db);
+
+    await screen.findByRole('region', { name: 'Decisiones para este lote' });
+    await waitFor(async () =>
+      expect((await readPersisted()).text).toContain('Noche despejada y calma'),
+    );
+    await user.click(screen.getByRole('link', { name: 'Perfil' }));
+    await user.click(await screen.findByRole('button', { name: 'Salir' }));
+
+    expect(await screen.findByRole('heading', { name: 'Ingresar' })).toBeInTheDocument();
+    await waitFor(async () =>
+      expect((await readPersisted()).text).not.toContain('Noche despejada y calma'),
+    );
+    expect(cachesDelete).toHaveBeenCalledWith('api-lotes');
+    expect(cachesDelete).not.toHaveBeenCalledWith('api-publico');
+  });
+
   it('signs out locally when logout fails with no signal, and says so', async () => {
     const cachesDelete = stubCaches();
     await seedPersisted({ user: demoUser, lotes: demoLotes() });
@@ -79,7 +102,8 @@ describe('session end clears this phone', () => {
     await user.click(await screen.findByRole('button', { name: 'Salir' }));
 
     expect(await screen.findByRole('heading', { name: 'Ingresar' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
+    // The guard may show Ingresar a moment before Perfil's own redirect brings the message.
+    expect(await screen.findByRole('status')).toHaveTextContent(
       'Saliste en este teléfono y borramos sus datos guardados. Como no había señal, ' +
         'cerramos la sesión en el servidor la próxima vez que abras la app con conexión.',
     );
@@ -92,7 +116,7 @@ describe('session end clears this phone', () => {
     localStorage.setItem(PENDING_LOGOUT, '1');
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
 
-    renderApp('/', db);
+    renderApp('/lotes', db);
 
     expect(await screen.findByRole('heading', { name: 'Ingresar' })).toBeInTheDocument();
     expect(db.user).toBeNull();

@@ -9,8 +9,8 @@ import { renderApp } from './renderApp';
 import { server } from './server';
 
 describe('Mis lotes', () => {
-  it('lists every lote with its meta line, outline and tonight minimum', async () => {
-    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+  it('lists every lote with its meta line, outline, headline and tonight minimum', async () => {
+    renderApp('/lotes', createMockDb({ user: demoUser, lotes: demoLotes() }));
 
     const list = await screen.findByRole('list', { name: 'Lotes' });
     const items = within(list).getAllByRole('listitem');
@@ -23,8 +23,11 @@ describe('Mis lotes', () => {
     expect(lote4.querySelector('.lote-card-say')).toHaveTextContent(
       /^Mín\. esta noche \(2 m\) 3 °C$/,
     );
-    // The caveat sits in ink next to the value: a 2 m minimum is not a frost verdict.
-    expect(within(lote4).getByText('Aún no calculamos la helada en el suelo.')).toBeInTheDocument();
+    // The most urgent decision of the lote, with its level in words, not only in colour.
+    expect(
+      within(lote4).getByText('Ojo con la helada: en el suelo puede bajar a −0,6 °C.'),
+    ).toBeInTheDocument();
+    expect(within(lote4).getByText('Ojo')).toBeInTheDocument();
     expect(within(lote4).getByRole('link')).toHaveAttribute('href', '/lotes/4');
 
     const lote7 = items[2]!;
@@ -37,7 +40,7 @@ describe('Mis lotes', () => {
   });
 
   it('labels the top bar with the time of the forecast, not of the fetch', async () => {
-    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+    renderApp('/lotes', createMockDb({ user: demoUser, lotes: demoLotes() }));
 
     await screen.findByRole('list', { name: 'Lotes' });
     // fetched_at 09:10 UTC is 06:10 in Argentina.
@@ -45,15 +48,8 @@ describe('Mis lotes', () => {
     expect(screen.queryByText(/Actualizado/)).not.toBeInTheDocument();
   });
 
-  it('never shows a frost verdict in Phase 1', async () => {
-    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
-
-    await screen.findByRole('list', { name: 'Lotes' });
-    expect(screen.queryByText(/hiela|crítico|riesgo alto/i)).not.toBeInTheDocument();
-  });
-
   it('invites a new user to add the first lote', async () => {
-    renderApp('/', createMockDb({ user: demoUser, lotes: [] }));
+    renderApp('/lotes', createMockDb({ user: demoUser, lotes: [] }));
 
     const cta = await screen.findByRole('link', { name: 'Agregá tu primer lote' });
     expect(cta).toHaveAttribute('href', '/lotes/nuevo');
@@ -68,7 +64,7 @@ describe('Mis lotes', () => {
 
     // Had the app reached the network, this empty account would have replaced the list.
     const db = createMockDb({ user: demoUser, lotes: [] });
-    renderApp('/', db);
+    renderApp('/lotes', db);
 
     expect(await screen.findByText('Sin conexión · datos de las 06:10')).toBeInTheDocument();
     const list = screen.getByRole('list', { name: 'Lotes' });
@@ -83,7 +79,7 @@ describe('Mis lotes', () => {
     // The server produced this answer last night, 23:45 UTC = 20:45 in Argentina.
     const servedAt = new Date(Date.UTC(2026, 10, 2, 23, 45)).toUTCString();
 
-    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+    renderApp('/lotes', createMockDb({ user: demoUser, lotes: demoLotes() }));
     server.use(
       http.get('*/api/lotes/', () =>
         HttpResponse.json(demoLotes(), { headers: { 'X-From-SW-Cache': '1', Date: servedAt } }),

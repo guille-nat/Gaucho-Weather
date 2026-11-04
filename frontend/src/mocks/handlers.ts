@@ -1,5 +1,6 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
-import type { Lote, LoteInput, User } from '../api/types';
+import type { Forecast, Lote, LoteInput, PublicForecast, User } from '../api/types';
+import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
 
 /**
  * In-memory implementation of the S8 API contract (odd/tasks/phase-1-foundation.md).
@@ -13,6 +14,56 @@ export interface MockDb {
   csrfToken: string;
   /** Every unsafe request the mock received, with the CSRF header it carried. */
   unsafeRequests: { method: string; path: string; csrf: string | null }[];
+  /** The public forecast for some coordinates (S10); the default names the nearest town. */
+  publicForecast: (lat: number, lon: number) => PublicForecast;
+  /** Coordinates of every public forecast asked for, in order. */
+  forecastRequests: { lat: number; lon: number }[];
+  /** Per-lote forecasts (S5); a lote missing here has none archived yet (404). */
+  loteForecasts: Record<number, Forecast>;
+}
+
+export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
+export const NO_LOTE_FORECAST = 'Todavía no hay pronóstico para este lote.';
+
+const fold = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+/** The demo town closest to a point, within ~30 km. */
+function nearestPlace(lat: number, lon: number) {
+  let best: (typeof demoPlaces)[number] | null = null;
+  let bestDistance = 0.3;
+  for (const place of demoPlaces) {
+    const distance = Math.hypot(place.lat - lat, place.lon - lon);
+    if (distance < bestDistance) [best, bestDistance] = [place, distance];
+  }
+  return best ? { name: best.name, region: best.region } : null;
+}
+
+const insideArgentina = (lat: number, lon: number) =>
+  lat >= -56 && lat <= -21 && lon >= -74 && lon <= -53;
+
+/** A lote's forecast as the backend would give it; Lote 4 has a cold, calm night ahead. */
+export function demoLoteForecasts(lotes: Lote[]): Record<number, Forecast> {
+  const result: Record<number, Forecast> = {};
+  for (const lote of lotes) {
+    if (!lote.summary) continue;
+    const forecast = demoForecast('sol');
+    if (lote.id === 4) {
+      forecast.decisions.frost_tonight = {
+        level: 'caution',
+        min_2m_c: 3,
+        ground_estimate_c: -0.6,
+        models_agreeing: '1 de 3 modelos',
+        reason:
+          'Noche despejada y calma: en el suelo puede bajar a −0,6 °C. 1 de 3 modelos da helada.',
+      };
+    }
+    result[lote.id] = forecast;
+  }
+  return result;
 }
 
 export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
@@ -23,6 +74,9 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     nextId: 100,
     csrfToken: 'mock-csrf-token',
     unsafeRequests: [],
+    publicForecast: (lat, lon) => demoPublicForecast('sol', nearestPlace(lat, lon)),
+    forecastRequests: [],
+    loteForecasts: demoLoteForecasts(partial.lotes ?? []),
     ...partial,
   };
 }
@@ -176,6 +230,56 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       const lote = toLote(db.nextId++, body);
       db.lotes.push(lote);
       return HttpResponse.json(lote, { status: 201 });
+    }),
+
+    http.get('*/api/pronostico/', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      const lat = Number(params.get('lat'));
+      const lon = Number(params.get('lon'));
+      db.forecastRequests.push({ lat, lon });
+      if (!insideArgentina(lat, lon)) {
+        return HttpResponse.json({ detail: OUTSIDE_ARGENTINA }, { status: 400 });
+      }
+      return HttpResponse.json(db.publicForecast(lat, lon));
+    }),
+
+    http.get('*/api/lugares/reverso/', ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      return HttpResponse.json(nearestPlace(Number(params.get('lat')), Number(params.get('lon'))));
+    }),
+
+    http.get('*/api/lugares/', ({ request }) => {
+      const query = fold(new URL(request.url).searchParams.get('q') ?? '').trim();
+      if (query.length < 2) {
+        return HttpResponse.json(
+          { detail: 'Escribí al menos 2 letras para buscar.' },
+          { status: 400 },
+        );
+      }
+      // Like Georef: whole words with a little fuzz ("rosar" finds Rosario, "rosa" does not).
+      const found = demoPlaces.filter((p) =>
+        fold(p.name)
+          .split(/\s+/)
+          .some(
+            (word) =>
+              word.startsWith(query) &&
+              query.length >= Math.min(word.length, 3) &&
+              word.length - query.length <= 2,
+          ),
+      );
+      return HttpResponse.json(found.slice(0, 8));
+    }),
+
+    http.get('*/api/lotes/:id/pronostico/', ({ params }) => {
+      if (!db.user) return forbidden();
+      const id = Number(params.id);
+      if (!db.lotes.some((l) => l.id === id)) {
+        return HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
+      }
+      const forecast = db.loteForecasts[id];
+      return forecast
+        ? HttpResponse.json(forecast)
+        : HttpResponse.json({ detail: NO_LOTE_FORECAST }, { status: 404 });
     }),
 
     http.get('*/api/lotes/:id/', ({ params }) => {

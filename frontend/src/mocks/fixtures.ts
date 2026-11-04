@@ -22,6 +22,7 @@ export function demoLotes(): Lote[] {
         tonight_min_c_2m: 6.4,
         tonight_min_models: { ecmwf_ifs025: 6.1, gfs_seamless: 7.0, icon_seamless: 6.2 },
         fetched_at: fetchedAt,
+        headline: { level: 'ok', text: 'Ventana para pulverizar de 10 a 13 h.' },
       },
       created_at: '2026-10-01T12:00:00Z',
       updated_at: '2026-10-01T12:00:00Z',
@@ -52,6 +53,10 @@ export function demoLotes(): Lote[] {
         tonight_min_c_2m: 3,
         tonight_min_models: { ecmwf_ifs025: 2.6, gfs_seamless: 3.8, icon_seamless: 3.1 },
         fetched_at: fetchedAt,
+        headline: {
+          level: 'caution',
+          text: 'Ojo con la helada: en el suelo puede bajar a −0,6 °C.',
+        },
       },
       created_at: '2026-10-01T12:00:00Z',
       updated_at: '2026-10-01T12:00:00Z',

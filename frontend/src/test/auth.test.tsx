@@ -8,14 +8,14 @@ const account = { email: demoUser.email, password: 'tranquera-2026', user: demoU
 
 describe('auth guard', () => {
   it('sends an anonymous visitor to the login screen', async () => {
-    renderApp('/', createMockDb({ user: null }));
+    renderApp('/lotes', createMockDb({ user: null }));
 
     expect(await screen.findByRole('heading', { name: 'Ingresar' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Mis lotes' })).not.toBeInTheDocument();
   });
 
   it('lets a logged-in user straight into Mis lotes', async () => {
-    renderApp('/', createMockDb({ user: demoUser, lotes: demoLotes() }));
+    renderApp('/lotes', createMockDb({ user: demoUser, lotes: demoLotes() }));
 
     expect(await screen.findByRole('heading', { name: 'Mis lotes' })).toBeInTheDocument();
   });
@@ -25,7 +25,7 @@ describe('login', () => {
   it('logs in and opens Mis lotes, sending the CSRF header', async () => {
     const db = createMockDb({ accounts: [account], lotes: demoLotes() });
     const issued = db.csrfToken;
-    const { user } = renderApp('/', db);
+    const { user } = renderApp('/lotes', db);
 
     await user.type(await screen.findByLabelText('Email'), demoUser.email);
     await user.type(screen.getByLabelText('Contraseña'), account.password);

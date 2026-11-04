@@ -2,20 +2,38 @@
 > Última actualización: 2026-11-03
 
 ## Qué hace
-App web instalable (PWA), mobile first, para el productor: ingresar o crear cuenta,
-ver sus lotes con la mínima pronosticada para esta noche, agregar, editar y borrar
-lotes con ubicación en el mapa o por GPS, y seguir viendo los últimos datos sin señal.
-Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
+App web instalable (PWA), mobile first. Primero es una app del clima (S8): al abrirla
+muestra, sin cuenta, el pronóstico de donde está el teléfono o del lugar que se busque,
+con un veredicto "Para el campo". Con cuenta suma las herramientas: lotes con su
+pronóstico y sus decisiones (helada, pulverización, labores), alertas y perfil. Sin
+señal se siguen viendo los últimos datos.
 
 ## Cómo funciona
 - **Stack:** Vite + React + TypeScript estricto, React Router, TanStack Query, pnpm.
   Código en `frontend/`.
 - **Pantallas** (`frontend/src/pages/`):
-  - `/ingresar` y `/crear-cuenta`.
-  - `/` Mis lotes, con estado vacío para usuarios nuevos.
-  - `/lotes/nuevo`, `/lotes/:id` y `/lotes/:id/editar`.
-  - `/alertas`: aviso de que llegan en una próxima versión.
-  - `/perfil`, con el botón Salir.
+  - `/` Inicio (`Inicio.tsx`), pública: lugar, temperatura grande, condición, máx/mín,
+    el veredicto dorado "Para el campo", 48 h, 7 días, lluvia caída y esperada, viento,
+    humedad y sol. Datos de `GET /api/pronostico/?lat&lon` (S10).
+  - `/buscar` (`Buscar.tsx`), pública: búsqueda con debounce de 300 ms en
+    `/api/lugares/?q=`, lugares recientes y "Usar mi ubicación".
+  - `/ingresar` y `/crear-cuenta`. Sin destino previo, al entrar se va a `/lotes`.
+  - Con cuenta (`RequireAuth`): `/lotes` Mis lotes, `/lotes/nuevo`, `/lotes/:id`,
+    `/lotes/:id/editar`, `/alertas` y `/perfil`. Anónimo, estas pestañas llevan a
+    `/ingresar` y vuelven después.
+  - El detalle del lote reusa el layout de Inicio (`components/ForecastView.tsx`) con
+    `GET /api/lotes/{id}/pronostico/` (S5) y el bloque completo de decisiones.
+- **Ubicación y lugares:** al abrir Inicio se pide la ubicación del navegador, salvo que
+  el usuario haya elegido un lugar. Si la niega, se muestra el último lugar o Rosario y
+  una invitación a buscar. El nombre del punto GPS sale de `/api/lugares/reverso/`; si
+  no hay nombre (por ejemplo, fuera de la Argentina) se muestran las coordenadas.
+  El lugar actual y los 6 recientes se guardan en localStorage (`src/lib/places.ts`).
+- **Errores del pronóstico:** se muestra el `detail` del servidor tal cual (400 "Por
+  ahora solo cubrimos Argentina." con botón de búsqueda; 503 con "Reintentar").
+- **Probabilidad de lluvia:** un lugar nuevo no tiene ensamble y llega `null`; se
+  muestran solo los mm y se omite la probabilidad, nunca "0 %".
+- **Créditos:** Open-Meteo y Georef AR son CC BY 4.0; la línea de créditos va al pie
+  del pronóstico, en la búsqueda y en Perfil.
 - **API** (`src/api/client.ts`): `fetch` same-origin con la cookie de sesión de Django.
   - Pide `GET /api/auth/csrf/` una vez y manda `X-CSRFToken` en POST, PATCH y DELETE.
   - Lee la cookie en cada pedido, porque Django la rota al ingresar.
@@ -33,14 +51,22 @@ Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
   - La barra superior dice "Pronóstico de las HH:MM": el `fetched_at` más nuevo de los
     resúmenes, igual que el "Pronóstico descargado a las …" del detalle.
   - El service worker (vite-plugin-pwa / Workbox) precachea el app shell y las fuentes.
-  - Usa network-first para `/api/lotes/` y nunca cachea `/api/auth/`.
+  - Usa network-first para `/api/lotes/` (caché `api-lotes`, privado) y para
+    `/api/pronostico/` y `/api/lugares/` (caché `api-publico`, por URL). Nunca cachea
+    `/api/auth/`.
+  - El pronóstico público también se persiste en IndexedDB (raíz `pronostico`), así
+    Inicio abre sin señal con el último lugar.
   - Cuando responde desde su caché agrega el header `X-From-SW-Cache: 1` (plugin
     `cachedResponseWillBeUsed` en `vite.config.ts`); la app lo trata como "sin conexión".
   - Después de crear, editar o borrar un lote, el caché se escribe en IndexedDB antes de
     cambiar de pantalla (`flush`), para que una recarga inmediata no lo pierda.
 - **Fin de sesión** (`src/query/session.ts`, `AppProviders.tsx`):
   - Cada vez que `me` pasa a `null` (403 en `/me`, otro 401/403, salir) se borran las
-    consultas, la copia en IndexedDB y el caché `api-lotes` del service worker.
+    consultas, la copia en IndexedDB y el caché `api-lotes` del service worker, con el
+    pronóstico de cada lote incluido. El pronóstico público y los lugares quedan
+    (`PUBLIC_ROOTS` en `src/query/keys.ts`, caché `api-publico`).
+  - `AppShell` consulta `me` en todas las pantallas, también en Inicio, para que el
+    borrado y el logout pendiente ocurran aunque no se abra una pantalla privada.
   - Al ingresar o crear cuenta se borra lo mismo antes de guardar el usuario nuevo.
   - Si al salir no hay señal, se sale igual en el teléfono y el login lo avisa. Queda la
     marca `gw-pending-logout` en localStorage y el próximo chequeo de sesión con señal
@@ -49,15 +75,19 @@ Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
   - Se carga en un chunk aparte (`src/components/MapPicker.tsx`) solo al agregar o
     editar un lote.
   - Hay botón "Usar mi ubicación" y campos de latitud y longitud.
-- **Diseño:** mezcla de "canon" (app de campo familiar) y "plano catastral", elegida por
-  el usuario.
-  - El contrato está en `.impeccable/surfaces/frontend-src-pages-mislotes-tsx.md`.
-  - La firma es `ParcelOutline`: el contorno del lote, con su número y el norte.
-  - Usa `boundary` si existe; si no, un cuadrilátero fijo por id.
-  - El rayado (`severity`) tiene las variantes `critical`, `caution`, `ok` y `none`.
-    En Fase 1 todo usa `none`, en tinta.
-  - Un lote sin pronóstico todavía (`pending`) va sin rayado y con borde punteado, igual
-    que su chip "Sin datos aún". La superficie ya no se dibuja dentro del plano.
+- **Diseño "Cielo vivo"** (S9, contrato `.impeccable/surfaces/frontend-src-pages-inicio-tsx.md`):
+  - Toda la app toma el color del cielo del lugar en pantalla: `src/lib/sky.ts` elige
+    el tema por el cielo del día, la hora y la salida y puesta del sol (día, parcial,
+    nublado, lluvia, tormenta, alba, noche y sus variantes nocturnas).
+  - Los colores están en `src/styles/tokens.css`. `--sky-a` y `--sky-b` son `@property`
+    registradas, así el cambio de cielo es un fundido de 1,6 s; con movimiento reducido
+    es instantáneo. Paneles sólidos mezclados del mismo cielo, sin blur.
+  - Texto blanco; contraste AA verificado en los 9 cielos (blanco ≥ 5,4:1 y el texto
+    secundario ≥ 4,6:1 sobre el color más claro).
+  - Acento dorado `#f2b705` solo para el veredicto del campo, el nivel "Ojo" y la marca.
+  - Fuentes: Onest (números y títulos) y Atkinson Hyperlegible Next (texto).
+  - El nivel de cada decisión va con ícono y palabra (Bien, Ojo, Alerta), nunca solo
+    con color. `ParcelOutline` tiñe el lote según el nivel de su `summary.headline`.
 - **Docker:** `frontend/Dockerfile` tiene dos targets, `dev` (Vite en 5173) y `prod`
   (nginx).
   - `prod` sirve `dist` con fallback SPA y hace proxy de `/api/` a `backend:8000`
@@ -87,27 +117,43 @@ Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
   **Alternativas descartadas:** forzar `onlineManager` a offline; con señal mala el
   navegador no avisa cuando vuelve la red y la app quedaba trabada.
 - **Decisión:** fuentes self-hosted con @fontsource (Atkinson Hyperlegible Next y Barlow
-  Semi Condensed), solo el subset latin.
+  Semi Condensed), solo el subset latin. (Barlow reemplazada el 2026-11-03 por Onest:
+  grotesca moderna con cifras grandes para "Cielo vivo".)
   **Por qué:** tienen que funcionar sin conexión, y el subset latin alcanza para el
   castellano.
 - **Decisión:** las horas se muestran en `America/Argentina/Buenos_Aires`, sin importar
   la zona del dispositivo.
   **Por qué:** el producto es de la zona núcleo, y así los tests son deterministas.
-- **Decisión:** la mínima se muestra como "pronóstico, no es todavía un aviso de helada",
-  con el valor de cada modelo.
+- **Decisión:** (reemplazada el 2026-11-03 por las decisiones del motor v0, S3/S5, con
+  la aclaración "Estimación con reglas publicadas; todavía sin validar en tu zona") la
+  mínima se muestra como "pronóstico, no es todavía un aviso de helada", con el valor de
+  cada modelo.
   **Por qué:** en Fase 1 no hay motor de decisiones y no se inventan veredictos.
   (reemplazada el 2026-11-03: la aclaración va en tinta junto al valor, "Temperatura a
   2 m de altura. Todavía no calculamos la helada a nivel del suelo." en el detalle y
   "Aún no calculamos la helada en el suelo." en la tarjeta; los modelos quedan detrás de
   "Ver modelos". Por qué: la revisión de diseño marcó que en gris debajo del número se
   leía como "no hiela".)
-- **Decisión:** la barra inferior tiene Lotes, Alertas y Perfil, sin Pronóstico.
+- **Decisión:** (reemplazada el 2026-11-03 por la barra Clima · Lotes · Alertas · Perfil,
+  porque el clima pasó a ser la pantalla principal, S8) la barra inferior tiene Lotes,
+  Alertas y Perfil, sin Pronóstico.
   **Por qué:** en Fase 1 no hay pantalla de pronóstico, y una pestaña vacía confunde.
   Pronóstico vuelve cuando exista esa pantalla. Registrado en la sección Decisions del
   brief de diseño. (sin confirmar con el usuario)
+- **Decisión:** la búsqueda es una ruta (`/buscar`) con forma de hoja, no un modal.
+  **Por qué:** el botón Atrás del teléfono la cierra, se enfoca sola y no hace falta
+  atrapar el foco.
+- **Decisión:** el veredicto "Para el campo" usa la regla del titular del backend: gana
+  el peor nivel; en empate, helada, labores y pulverización; la pulverización no cuenta
+  después de la puesta del sol (`src/lib/decisions.ts`).
+  **Por qué:** después del atardecer "ya no quedan horas de luz" no dice nada del día.
+- **Decisión:** las barras de lluvia de los 7 días usan una sola escala: el día más
+  lluvioso, con un piso de 5 mm.
+  **Por qué:** comparar días es el uso; el piso evita que 0,1 mm parezca una barra llena.
 - **Decisión:** el modo mock (`pnpm dev:mock`) responde `/api/` dentro de la página con
   los mismos handlers MSW de los tests, sin service worker.
   **Por qué:** permite ver la app y sacar capturas sin backend, también en Chrome headless.
+  `?cielo=sol|lluvia|noche` elige el pronóstico público de prueba.
 
 ## Cómo modificarlo
 - **Contrato de la API:** los tipos están en `src/api/types.ts` y el mock en
@@ -115,10 +161,14 @@ Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
   - Si cambia el contrato S8, actualizá los dos.
   - Si cambia la forma de lo que se persiste, subí `PERSIST_BUSTER` en
     `src/query/persister.ts` (va por `v2` desde `LotesSnapshot`).
-- **Fase 2 (veredictos):** pasá `severity` a `ParcelOutline` y usá `StatusChip` con su
-  tono. Los dos componentes ya están listos.
+- **Un cielo nuevo:** agregalo a `SkyTheme` y `THEME_COLOR` (`src/lib/sky.ts`) y a
+  `tokens.css`, y verificá el contraste del blanco.
+- **Contrato del pronóstico:** tipos en `src/api/types.ts`, datos de prueba en
+  `src/mocks/forecast.ts`.
 - **Tests** (`src/test/`, Vitest + Testing Library + MSW): login, registro, guard,
   CSRF, lista, estado vacío, datos offline, validación del formulario y resumen.
+  `inicio.test.tsx` cubre Inicio y la búsqueda (ubicación, ubicación negada, búsqueda,
+  400/503, escala de lluvia, veredicto, sin ensamble, pestaña Lotes anónima).
   `session.test.tsx` cubre el borrado de datos al terminar o empezar una sesión;
   `src/test/localData.ts` siembra IndexedDB y simula `caches`.
   Ejecutalos con `pnpm test`.
@@ -131,3 +181,7 @@ Fase 1 no tiene motor de decisiones: no muestra veredictos de helada.
   real de los datos sin conexión, flush tras guardar) y de la revisión de diseño
   (aclaración en tinta, hora del pronóstico, rayado en tinta, tarjetas más compactas,
   modelos detrás de "Ver modelos", sin ejemplos como placeholder).
+- 2026-11-03: el clima primero (T6, S1, S8, S9, S10): Inicio público con búsqueda,
+  rediseño "Cielo vivo" de toda la app, detalle del lote con pronóstico y decisiones,
+  caché público del service worker y créditos CC BY 4.0. Salir navega en el mismo tick
+  que termina la sesión, porque antes el guard redirigía primero y se perdía el aviso.

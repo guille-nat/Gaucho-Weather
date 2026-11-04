@@ -1,14 +1,19 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { useMe } from '../query/hooks';
 import { Icon, type IconName } from './Icon';
 
 const NAV: { to: string; label: string; icon: IconName; match: (path: string) => boolean }[] = [
-  { to: '/', label: 'Lotes', icon: 'parcel', match: (p) => p === '/' || p.startsWith('/lotes') },
+  { to: '/', label: 'Clima', icon: 'cloudSun', match: (p) => p === '/' },
+  { to: '/lotes', label: 'Lotes', icon: 'parcel', match: (p) => p.startsWith('/lotes') },
   { to: '/alertas', label: 'Alertas', icon: 'bell', match: (p) => p.startsWith('/alertas') },
   { to: '/perfil', label: 'Perfil', icon: 'user', match: (p) => p.startsWith('/perfil') },
 ];
 
 export function AppShell() {
   const { pathname } = useLocation();
+  // The session check runs on every screen, Inicio included: a session that ended elsewhere
+  // still clears this phone (AppProviders), and a pending offline logout still finishes.
+  useMe();
   return (
     <div className="shell">
       <a className="skip-link" href="#contenido">
@@ -30,7 +35,7 @@ export function AppShell() {
                   aria-current={active ? 'page' : undefined}
                 >
                   <span className="tab-icon">
-                    <Icon name={item.icon} size={24} />
+                    <Icon name={item.icon} size={24} strokeWidth={active ? 2.4 : 2} />
                   </span>
                   {item.label}
                 </NavLink>
@@ -46,12 +51,12 @@ export function AppShell() {
   );
 }
 
-/** The brand's small survey mark: a boundary stake in catastro pink. */
-export function BrandMark({ size = 18 }: { size?: number }) {
+/** The brand mark: the pampa sun on the horizon, in gold. */
+export function BrandMark({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <path d="M10 1.5 18.5 10 10 18.5 1.5 10Z" fill="#d6336c" />
-      <path d="M10 6.5v7M6.5 10h7" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3.5 13a6.5 6.5 0 0 1 13 0Z" fill="#f2b705" />
+      <path d="M1 15.5h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

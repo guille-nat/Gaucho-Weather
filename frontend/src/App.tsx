@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router';
 import { AppShell } from './components/AppShell';
 import { PublicOnly, RequireAuth } from './components/Guards';
 import { Alertas } from './pages/Alertas';
+import { Buscar } from './pages/Buscar';
+import { Inicio } from './pages/Inicio';
 import { LoteDetail } from './pages/LoteDetail';
 import { EditarLote, NuevoLote } from './pages/LoteForm';
 import { Login } from './pages/Login';
@@ -9,6 +11,7 @@ import { MisLotes } from './pages/MisLotes';
 import { Perfil } from './pages/Perfil';
 import { Register } from './pages/Register';
 
+/** S8: the weather is public; lotes, alerts and the profile need an account. */
 export function AppRoutes() {
   return (
     <Routes>
@@ -16,9 +19,11 @@ export function AppRoutes() {
         <Route path="/ingresar" element={<Login />} />
         <Route path="/crear-cuenta" element={<Register />} />
       </Route>
-      <Route element={<RequireAuth />}>
-        <Route element={<AppShell />}>
-          <Route index element={<MisLotes />} />
+      <Route path="/buscar" element={<Buscar />} />
+      <Route element={<AppShell />}>
+        <Route index element={<Inicio />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/lotes" element={<MisLotes />} />
           <Route path="/lotes/nuevo" element={<NuevoLote />} />
           <Route path="/lotes/:id" element={<LoteDetail />} />
           <Route path="/lotes/:id/editar" element={<EditarLote />} />

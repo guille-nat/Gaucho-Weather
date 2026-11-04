@@ -1,54 +1,146 @@
 /*
- * Direction: canon farm app × cadastral plan (.impeccable/surfaces/frontend-src-pages-mislotes-tsx.md).
- * Light only, chosen from the use scene: outdoors, full sun, brightness up.
+ * Direction: "Cielo vivo" (.impeccable/surfaces/frontend-src-pages-inicio-tsx.md).
+ * The whole app takes the colour of the sky of the place on screen (src/lib/sky.ts): a
+ * full-bleed field, white type, solid tinted panels and one warm accent, pampa gold.
+ * Every sky pair was checked for AA: white on `--sky-a` ≥ 5.4:1 and `--ink-2` ≥ 4.6:1; the
+ * panels are darker, so both only gain there.
  */
+
+/* Registered so the sky cross-fades: the gradient and every colour mixed from it follow. */
+@property --sky-a {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #1d68c4;
+}
+
+@property --sky-b {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #124f9e;
+}
+
+@property --glow {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255 214 102 / 0.2);
+}
+
 :root {
-  /* Ground and ink */
-  --paper: #ffffff;
-  --paper-sunk: #f5f5f2;
-  --ink: #141414;
-  --ink-2: #3b3b38; /* secondary text, 11:1 on white */
-  --rule: #8f8f89; /* card rule */
-  --rule-strong: #6b6b66; /* input borders, 5.3:1 */
+  --sky-a: #1d68c4;
+  --sky-b: #124f9e;
+  --glow: rgb(255 214 102 / 0.2);
 
-  /* Interactive and brand */
-  --survey-blue: #2b6cb0;
-  --survey-blue-ink: #1f5592;
-  --survey-blue-wash: #eaf1f9;
-  --catastro-pink: #d6336c;
+  /* Derived from the sky, so they cross-fade with it */
+  --panel: color-mix(in srgb, var(--sky-a) 70%, #04102a);
+  --panel-deep: color-mix(in srgb, var(--sky-a) 48%, #04102a);
+  --panel-hover: color-mix(in srgb, var(--sky-a) 80%, #04102a);
+  --line: color-mix(in srgb, #fff 22%, var(--panel));
+  --track: color-mix(in srgb, #fff 16%, var(--panel));
+  --ink: #fff;
+  --ink-2: color-mix(in srgb, #fff 88%, var(--sky-a));
 
-  /* States: text tones pass AA on white; hatch tones are for the parcel fill only */
-  --crit: #a3001b;
-  --crit-wash: #fdecee;
-  --caut: #6e3f00;
-  --ok: #145a2a;
-  --wait: #3b3b38;
-  --offline-wash: #fff3cf;
+  /* Accent and fixed tones (text tones pass AA on their own fills) */
+  --gold: #f2b705;
+  --gold-ink: #1d1600; /* 9.9:1 on gold */
+  --rain: #9ad8ff;
+  --ink-deep: #0b1533; /* text on white controls */
+  --ok-fill: #c9f2d6;
+  --ok-ink: #0b4220;
+  --crit-fill: #ffd9cf;
+  --crit-ink: #741002;
+  --offline-fill: #fff1c2;
+  --offline-ink: #3a2a00;
 
   /* Type */
   --font-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
-  --font-survey: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif;
+  --font-display: 'Onest', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
   --text-body: 1.0625rem; /* 17px */
-  --text-small: 1rem;
+  --text-small: 1rem; /* the floor, tab labels included */
 
   /* Shape */
-  --radius-card: 12px;
-  --radius-control: 8px;
-  --radius-chip: 6px;
+  --radius-panel: 20px;
+  --radius-control: 14px;
+  --radius-input: 12px;
 
   /* Layout */
   --gutter: 16px;
   --tabbar-h: 68px;
-  --dock-h: 80px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+  --dur-sky: 1600ms;
 
-  --focus: 3px solid var(--survey-blue);
-  color-scheme: light;
+  --focus: 3px solid var(--gold);
+  color-scheme: dark;
+
+  transition:
+    --sky-a var(--dur-sky) var(--ease-out),
+    --sky-b var(--dur-sky) var(--ease-out),
+    --glow var(--dur-sky) var(--ease-out);
+}
+
+/* The skies (keep the top colours in sync with THEME_COLOR in src/lib/sky.ts) */
+:root[data-sky='dia'] {
+  --sky-a: #1d68c4;
+  --sky-b: #124f9e;
+  --glow: rgb(255 214 102 / 0.22);
+}
+
+:root[data-sky='parcial'] {
+  --sky-a: #2f68aa;
+  --sky-b: #1f4b82;
+  --glow: rgb(255 214 102 / 0.12);
+}
+
+:root[data-sky='nublado'] {
+  --sky-a: #506283;
+  --sky-b: #374663;
+  --glow: rgb(255 255 255 / 0.06);
+}
+
+:root[data-sky='lluvia'] {
+  --sky-a: #1d5a73;
+  --sky-b: #143b58;
+  --glow: rgb(154 216 255 / 0.1);
+}
+
+:root[data-sky='tormenta'] {
+  --sky-a: #4a3a8f;
+  --sky-b: #2c2263;
+  --glow: rgb(196 170 255 / 0.12);
+}
+
+:root[data-sky='alba'] {
+  --sky-a: #b04530;
+  --sky-b: #73345a;
+  --glow: rgb(255 196 92 / 0.24);
+}
+
+:root[data-sky='noche'] {
+  --sky-a: #1a2b5c;
+  --sky-b: #0b1533;
+  --glow: rgb(170 190 255 / 0.08);
+}
+
+:root[data-sky='noche-nublada'] {
+  --sky-a: #2d3a57;
+  --sky-b: #161e33;
+  --glow: rgb(255 255 255 / 0.04);
+}
+
+:root[data-sky='noche-lluvia'] {
+  --sky-a: #163f57;
+  --sky-b: #0a2235;
+  --glow: rgb(154 216 255 / 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    transition: none;
+  }
 }
 
 @media (min-width: 600px) {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { FormAlert } from '../components/Field';
+import { CREDITS } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
 import { useEndSession, useMe } from '../query/hooks';
 
@@ -17,9 +18,12 @@ export function Perfil() {
   const navigate = useNavigate();
 
   async function leave(localOnly: boolean) {
-    await endSession({ localOnly });
+    // Ends the session at once (me = null), then moves in the same tick: had we waited for the
+    // cleanup, the guard would redirect first and this screen, unmounted, could not say why.
+    const ending = endSession({ localOnly });
     const state: SignedOutState = { signedOut: localOnly ? 'local' : 'server' };
     navigate('/ingresar', { replace: true, state });
+    await ending;
   }
 
   const exit = useMutation({
@@ -33,11 +37,11 @@ export function Perfil() {
     <div className="page page-profile">
       <header className="page-head">
         <div className="page-head-row">
-          <h1 className="survey-title">Perfil</h1>
+          <h1 className="page-title">Perfil</h1>
         </div>
       </header>
       {me.data ? (
-        <dl className="facts">
+        <dl className="facts panel">
           <div className="facts-row">
             <dt>Nombre</dt>
             <dd>{me.data.name || '—'}</dd>
@@ -59,8 +63,10 @@ export function Perfil() {
         {exit.isPending ? 'Saliendo…' : 'Salir'}
       </button>
       <p className="fine">
-        Al salir borramos de este teléfono los datos guardados para usar sin conexión.
+        Al salir borramos de este teléfono los datos de tu cuenta guardados para usar sin conexión.
+        El pronóstico de los lugares que buscaste queda.
       </p>
+      <p className="credits">{CREDITS}</p>
     </div>
   );
 }

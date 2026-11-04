@@ -100,9 +100,14 @@ export interface Served<T> {
 interface RequestOptions {
   method?: string;
   body?: unknown;
+  /** Lets TanStack Query cancel a search the user already typed past. */
+  signal?: AbortSignal;
 }
 
-async function request(path: string, { method = 'GET', body }: RequestOptions): Promise<Response> {
+async function request(
+  path: string,
+  { method = 'GET', body, signal }: RequestOptions,
+): Promise<Response> {
   const unsafe = UNSAFE.has(method);
   const send = async (refreshCsrf: boolean) => {
     const headers: Record<string, string> = { Accept: 'application/json' };
@@ -117,6 +122,7 @@ async function request(path: string, { method = 'GET', body }: RequestOptions): 
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
   };
 

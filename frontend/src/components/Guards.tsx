@@ -28,7 +28,8 @@ export function PublicOnly() {
   const location = useLocation();
   if (me.data) {
     const from = (location.state as FromState | null)?.from;
-    return <Navigate to={from && from !== '/ingresar' ? from : '/'} replace />;
+    // With nowhere to return to, an account is for the lotes (S8).
+    return <Navigate to={from && from !== '/ingresar' ? from : '/lotes'} replace />;
   }
   // Wait for the session check (and the IndexedDB restore) so the form never mounts twice.
   if (me.data === undefined && !me.isError && me.fetchStatus !== 'paused') return <Splash />;

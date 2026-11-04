@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
+import { ApiError } from '../api/client';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
+import { getForecast, getLoteForecast, reversePlace, searchPlaces } from '../api/pronostico';
 import type { Lote, LoteInput, LotesSnapshot, User } from '../api/types';
 import { queryKeys } from './keys';
 import { useLocalData } from './localData';
@@ -21,6 +23,49 @@ export function useLote(id: number) {
     initialDataUpdatedAt: () => queryClient.getQueryState(queryKeys.lotes)?.dataUpdatedAt,
   });
 }
+
+/** The public forecast of a point (S10). `null` coordinates wait for the location. */
+export function useForecast(point: { lat: number; lon: number } | null) {
+  return useQuery({
+    queryKey: point ? queryKeys.forecast(point.lat, point.lon) : ['pronostico', 'none'],
+    queryFn: () => getForecast(point!.lat, point!.lon),
+    enabled: point !== null,
+    // A cold cell takes over a second; keep the previous sky on screen while the next one loads.
+    placeholderData: (previous) => previous,
+  });
+}
+
+export const useLoteForecast = (id: number) =>
+  useQuery({
+    queryKey: queryKeys.loteForecast(id),
+    queryFn: () => getLoteForecast(id),
+    enabled: Number.isFinite(id),
+  });
+
+/** Places matching a search (S10); the backend wants at least 2 letters. */
+export const usePlaceSearch = (query: string) =>
+  useQuery({
+    queryKey: queryKeys.places(query),
+    queryFn: ({ signal }) => searchPlaces(query, signal),
+    enabled: query.length >= 2,
+    staleTime: 60 * 60_000,
+  });
+
+/** The name of where the phone is; `null` when unknown (outside Argentina answers 400). */
+export const usePlaceName = (point: { lat: number; lon: number } | null) =>
+  useQuery({
+    queryKey: point ? queryKeys.placeName(point.lat, point.lon) : ['lugares', 'reverso', 'none'],
+    queryFn: async () => {
+      try {
+        return await reversePlace(point!.lat, point!.lon);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 400) return null;
+        throw error;
+      }
+    },
+    enabled: point !== null,
+    staleTime: 24 * 60 * 60_000,
+  });
 
 const byName = (a: Lote, b: Lote) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 

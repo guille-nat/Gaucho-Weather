@@ -1,13 +1,13 @@
 /**
  * The gaucho appears here, and only here in Phase 1: the welcome to an empty plan.
- * Drawn in the same survey line as the parcels, beside the first (still unsurveyed) lote.
+ * Drawn in the same white line as the parcels, beside the first (still unmarked) lote.
  */
 export function GauchoEmpty() {
   return (
     <svg className="gaucho-empty" viewBox="0 0 220 150" aria-hidden="true" focusable="false">
       <g
         fill="none"
-        stroke="#141414"
+        stroke="currentColor"
         strokeWidth="2.6"
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -20,16 +20,16 @@ export function GauchoEmpty() {
         <path d="M37 58c0 10 5 16 11 16s11-6 11-16" />
         <path d="M41 67c2-3 5-3 7-1 2-2 5-2 7 1" />
         {/* Poncho */}
-        <path d="M48 80 88 134H8Z" fill="#fff" />
+        <path d="M48 80 88 134H8Z" />
         <path d="M17 124h62M13 129h70" />
         {/* Unsurveyed parcel, dashed */}
         <path d="M116 44 196 32l12 86-84 14Z" strokeDasharray="7 6" strokeWidth="2.2" />
-        <path d="M136 4l5 13-5-3.5-5 3.5z" fill="#141414" strokeWidth="1" />
+        <path d="M136 4l5 13-5-3.5-5 3.5z" fill="currentColor" strokeWidth="1" />
       </g>
-      {/* Neckerchief and boundary stake: the only pink, the brand marks */}
-      <path d="M40 76h16l-8 10Z" fill="#d6336c" />
-      <path d="M196 24l8 8-8 8-8-8Z" fill="#d6336c" />
-      <text x="136" y="30" fontSize="11" fontWeight="700" textAnchor="middle" fill="#141414">
+      {/* Neckerchief and boundary stake in pampa gold, the brand accent */}
+      <path d="M40 76h16l-8 10Z" fill="#f2b705" />
+      <path d="M196 24l8 8-8 8-8-8Z" fill="#f2b705" />
+      <text x="136" y="30" fontSize="11" fontWeight="700" textAnchor="middle" fill="currentColor">
         N
       </text>
     </svg>
