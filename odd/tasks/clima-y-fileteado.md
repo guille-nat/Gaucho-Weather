@@ -99,3 +99,14 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
 - L7 (2026-11-03, user, verbatim): "minimalista con colores y diseño moderno, con vida, no con minimalista vacio"
   - S2 (fileteado) is superseded by S8 and S9.
   - T3 is cancelled and replaced by T5 and T6. T4 (the map) is still pending.
+- L8 (2026-11-03): units A2 (0a29da1) and B2 (da95378) returned.
+  - Backend: 212 tests pass. The public forecast uses on-demand Open-Meteo plus the archive; places use Georef AR (CC BY 4.0).
+  - Frontend: 46 tests pass; lint, typecheck and build are green.
+  - The dev stack was reinstalled and serves the new UI.
+  - Pending:
+    - user review of "Cielo vivo" before the polish work;
+    - T4 (map drawing);
+    - finish review and DESIGN.md rewrite;
+    - feature-end verifier (risk items 2, 3 and 5);
+    - icons that still carry the old pink mark;
+    - saved places (recent places only so far).
