@@ -16,6 +16,10 @@ CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", "5173"]
 
 # ---- build ----
 FROM base AS build
+# Optional satellite provider for the lote map; empty keeps EOxCloudless 2016 (see .env.example).
+ARG VITE_SATELLITE_TILES_URL=
+ARG VITE_SATELLITE_ATTRIBUTION=
+ARG VITE_SATELLITE_MAX_ZOOM=
 COPY . .
 RUN pnpm build
 

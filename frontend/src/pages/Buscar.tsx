@@ -1,23 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { Place } from '../api/types';
 import { CREDITS } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
+import { useDebounced } from '../hooks/useDebounced';
 import { locate } from '../lib/geo';
-import { choosePlace, setCurrentPlace, usePlaces } from '../lib/places';
+import { choosePlace, letters, setCurrentPlace, usePlaces } from '../lib/places';
 import { usePlaceSearch } from '../query/hooks';
-
-/** Georef matches whole words, a little fuzzy: wait for the typing to settle before asking. */
-function useDebounced(value: string, ms = 300) {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
-}
-
-const letters = (text: string) => text.replace(/[^\p{L}]/gu, '').length;
 
 function PlaceButton({
   place,

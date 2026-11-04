@@ -1,14 +1,38 @@
-import { screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { MapPickerProps } from '../components/MapPicker';
+import { formatHa } from '../lib/format';
+import { areaHa, centroid, roundHa, type LngLat } from '../lib/outline';
 import { createMockDb } from '../mocks/handlers';
 import { demoLotes, demoUser } from '../mocks/fixtures';
 import { readPersisted } from './localData';
 import { renderApp } from './renderApp';
 
-// MapLibre needs WebGL, which jsdom does not have; the coordinate inputs cover the same value.
+// MapLibre needs WebGL, which jsdom does not have. The stand-in keeps the latest props so a
+// test can tap the map, drag a corner, or read where the map was asked to fly.
+const map = vi.hoisted(() => ({ props: null as MapPickerProps | null }));
 vi.mock('../components/MapPicker', () => ({
-  default: () => <div data-testid="map-picker" />,
+  default: (props: MapPickerProps) => {
+    map.props = props;
+    return <div data-testid="map-picker" />;
+  },
 }));
+
+const mapProps = () => {
+  if (!map.props) throw new Error('The map did not render.');
+  return map.props;
+};
+const tap = ([lon, lat]: LngLat) => act(() => mapProps().onTap({ lat, lon }));
+
+// About 1 km × 1 km near Firmat.
+const dLat = (1000 / 6378137) * (180 / Math.PI);
+const dLon = dLat / Math.cos((-33.46 * Math.PI) / 180);
+const SQUARE: [LngLat, LngLat, LngLat, LngLat] = [
+  [-61.48, -33.46],
+  [-61.48 + dLon, -33.46],
+  [-61.48 + dLon, -33.46 + dLat],
+  [-61.48, -33.46 + dLat],
+];
 
 describe('Agregar lote', () => {
   it('requires a name', async () => {
@@ -80,7 +104,147 @@ describe('Agregar lote', () => {
   });
 });
 
+describe('Mapa del lote (S7)', () => {
+  it('draws the outline corner by corner, shows the hectares live and saves them', async () => {
+    const db = createMockDb({ user: demoUser });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    expect(screen.getByRole('button', { name: 'Dibujar contorno' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    for (const corner of SQUARE) await tap(corner);
+    const expected = roundHa(areaHa(SQUARE));
+    expect(screen.getByText(formatHa(expected))).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cerrar contorno' }));
+    expect(mapProps().outline.closed).toBe(true);
+    expect(screen.getByLabelText('Hectáreas')).toHaveValue(String(expected).replace('.', ','));
+    await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
+
+    expect(await screen.findByRole('heading', { name: 'Lote 3' })).toBeInTheDocument();
+    const saved = db.lotes[0]!;
+    const [lon, lat] = centroid(SQUARE)!;
+    expect(saved.area_ha).toBe(expected);
+    expect(Math.abs(expected - 100)).toBeLessThan(1);
+    expect(saved.latitude).toBeCloseTo(lat, 6);
+    expect(saved.longitude).toBeCloseTo(lon, 6);
+    expect(saved.boundary?.type).toBe('Polygon');
+    const ring = saved.boundary!.coordinates[0]!;
+    expect(ring).toHaveLength(5);
+    expect(ring[0]).toEqual(ring[4]);
+    // The lote's page shows the saved area.
+    expect(screen.getAllByText(formatHa(expected)).length).toBeGreaterThan(0);
+  });
+
+  it('keeps a placed pin as the location and still saves the outline', async () => {
+    const db = createMockDb({ user: demoUser });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    await user.click(screen.getByRole('button', { name: 'Marcar punto' }));
+    await act(() => mapProps().onTap({ lat: -33.455, lon: -61.475 }));
+    await user.click(screen.getByRole('button', { name: 'Dibujar contorno' }));
+    for (const corner of SQUARE.slice(0, 3)) await tap(corner);
+    // Tapping the first corner again closes the outline.
+    await act(() => mapProps().onVertexTap(0));
+    await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
+
+    expect(await screen.findByRole('heading', { name: 'Lote 3' })).toBeInTheDocument();
+    expect(db.lotes[0]).toMatchObject({ latitude: -33.455, longitude: -61.475 });
+    expect(db.lotes[0]?.boundary?.coordinates[0]).toHaveLength(4);
+  });
+
+  it('undoes the last corner and clears the outline', async () => {
+    renderApp('/lotes/nuevo', createMockDb({ user: demoUser }));
+    const undo = await screen.findByRole('button', { name: 'Deshacer' });
+    for (const corner of SQUARE.slice(0, 2)) await tap(corner);
+    expect(mapProps().outline.points).toHaveLength(2);
+
+    await act(() => undo.click());
+    expect(mapProps().outline.points).toEqual([SQUARE[0]]);
+    await act(() => screen.getByRole('button', { name: 'Borrar contorno' }).click());
+    expect(mapProps().outline.points).toEqual([]);
+  });
+
+  it('moves and removes corners of a closed outline', async () => {
+    const { user } = renderApp('/lotes/nuevo', createMockDb({ user: demoUser }));
+    await screen.findByRole('button', { name: 'Deshacer' });
+    for (const corner of SQUARE) await tap(corner);
+    await user.click(screen.getByRole('button', { name: 'Cerrar contorno' }));
+
+    await act(() => mapProps().onVertexMove(1, { lat: -33.47, lon: -61.47 }));
+    expect(mapProps().outline.points[1]).toEqual([-61.47, -33.47]);
+    await act(() => mapProps().onMidpoint(1, { lat: -33.465, lon: -61.475 }));
+    expect(mapProps().outline.points).toHaveLength(5);
+
+    await act(() => mapProps().onVertexTap(2));
+    expect(mapProps().selected).toBe(2);
+    await user.click(screen.getByRole('button', { name: 'Quitar esquina' }));
+    expect(mapProps().outline.points).toHaveLength(4);
+  });
+
+  it('does not save an outline that was left open', async () => {
+    const db = createMockDb({ user: demoUser });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    for (const corner of SQUARE.slice(0, 3)) await tap(corner);
+    await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
+
+    expect(
+      await screen.findByText('Cerrá el contorno: tocá la primera esquina o «Cerrar contorno».'),
+    ).toBeInTheDocument();
+    expect(db.unsafeRequests).toHaveLength(0);
+  });
+
+  it('finds a town and flies the map there', async () => {
+    const { user } = renderApp('/lotes/nuevo', createMockDb({ user: demoUser }));
+
+    await user.type(await screen.findByLabelText('Buscar localidad o paraje'), 'Firmat');
+    const results = await screen.findByRole('list', { name: 'Lugares encontrados' });
+    await user.click(within(results).getByRole('button', { name: /Firmat/ }));
+
+    expect(mapProps().focus).toMatchObject({ lat: -33.4592, lon: -61.4831 });
+    expect(screen.queryByRole('list', { name: 'Lugares encontrados' })).not.toBeInTheDocument();
+  });
+
+  it('does not submit the lote when Enter is pressed in the place search', async () => {
+    const db = createMockDb({ user: demoUser });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    await user.type(screen.getByLabelText('Buscar localidad o paraje'), 'Firmat{Enter}');
+
+    expect(screen.queryByText('Marcá el lote en el mapa o usá tu ubicación.')).toBeNull();
+    expect(db.unsafeRequests).toHaveLength(0);
+  });
+
+  it('starts on the satellite and switches to the street map', async () => {
+    const { user } = renderApp('/lotes/nuevo', createMockDb({ user: demoUser }));
+
+    await screen.findByTestId('map-picker');
+    expect(mapProps().basemap).toBe('satellite');
+    await user.click(screen.getByRole('button', { name: 'Calles' }));
+    expect(mapProps().basemap).toBe('street');
+    expect(screen.getByRole('button', { name: 'Calles' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
 describe('Editar lote', () => {
+  it('loads the saved outline into the map', async () => {
+    const [first, ...rest] = demoLotes();
+    const lote = {
+      ...first!,
+      boundary: { type: 'Polygon' as const, coordinates: [[...SQUARE, SQUARE[0]]] },
+    };
+    renderApp(`/lotes/${lote.id}/editar`, createMockDb({ user: demoUser, lotes: [lote, ...rest] }));
+
+    await screen.findByLabelText(/Nombre del lote/);
+    expect(mapProps().outline).toEqual({ points: SQUARE, closed: true });
+  });
+
   it('prefills the form and saves the changes with PATCH', async () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
     const { user } = renderApp('/lotes/4/editar', db);

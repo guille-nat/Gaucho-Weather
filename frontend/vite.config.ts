@@ -53,8 +53,8 @@ export default defineConfig({
       workbox: {
         // App shell: JS, CSS, HTML, icons and the self-hosted fonts.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // The map chunk is large and only needed when picking a location.
-        globIgnores: ['**/MapPicker-*'],
+        // The map chunk and its worker are large and only needed when placing a lote.
+        globIgnores: ['**/MapPicker-*', '**/maplibre-gl-worker-*'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],

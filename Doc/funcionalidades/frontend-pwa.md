@@ -1,5 +1,5 @@
 # Frontend PWA
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-04
 
 ## Qué hace
 App web instalable (PWA), mobile first. Primero es una app del clima (S8): al abrirla
@@ -71,10 +71,31 @@ señal se siguen viendo los últimos datos.
   - Si al salir no hay señal, se sale igual en el teléfono y el login lo avisa. Queda la
     marca `gw-pending-logout` en localStorage y el próximo chequeo de sesión con señal
     cierra la sesión en el servidor antes que nada.
-- **Mapa:** MapLibre GL con teselas de OpenFreeMap, sin API key.
-  - Se carga en un chunk aparte (`src/components/MapPicker.tsx`) solo al agregar o
-    editar un lote.
-  - Hay botón "Usar mi ubicación" y campos de latitud y longitud.
+- **Mapa del lote (S7):** MapLibre GL en `src/components/MapPicker.tsx`, un chunk aparte
+  que se carga solo al agregar o editar un lote. La lógica vive en
+  `src/components/LocationField.tsx` y `src/lib/outline.ts`; el mapa solo dibuja y avisa
+  toques.
+  - **Búsqueda:** "Buscar localidad o paraje" usa `/api/lugares/?q=` (Georef) con el
+    mismo debounce de Buscar (`src/hooks/useDebounced.ts`). Elegir un lugar vuela el
+    mapa a zoom 13 en satélite (Sentinel-2 se ve mejor dos niveles debajo de su límite)
+    y 14 en calles; Enter elige el primero y nunca envía el formulario.
+  - **Capas:** abre en satélite y el botón "Calles" cambia a OpenFreeMap. El cambio de
+    estilo borra las capas propias, así que `style.load` vuelve a poner el contorno.
+  - **Contorno:** con "Dibujar contorno" cada toque suma una esquina. Se cierra tocando
+    la primera esquina (crece con un anillo desde la tercera) o con "Cerrar contorno".
+    Las esquinas se arrastran; los puntos chicos entre esquinas suman una (toque o
+    arrastre); tocar una esquina la marca para "Quitar esquina". Hay "Deshacer"
+    (saca la última esquina, o reabre si lo último fue cerrar), "Borrar contorno" y
+    "Esquina en la mira", que suma la esquina en la cruz del centro: sirve para teclado
+    y para precisión con el dedo. Los objetivos táctiles miden 44 px.
+  - **Hectáreas:** área geodésica en vivo (fórmula de Chamberlain y Duquette sobre la
+    esfera WGS84, la misma de `@turf/area`). Al cerrar, llena "Hectáreas" con 2
+    decimales; si el productor la corrige a mano, se respeta hasta que mueva el contorno.
+  - **Guardado:** `boundary` es un `Polygon` GeoJSON con el anillo cerrado y 6 decimales.
+    Sin punto marcado, la latitud y longitud son el centroide del contorno. Un contorno
+    abierto no se guarda: pide cerrarlo.
+  - Siguen el botón "Usar mi ubicación", "Marcar punto" y los campos de latitud y
+    longitud.
 - **Diseño "Cielo vivo"** (S9, contrato `.impeccable/surfaces/frontend-src-pages-inicio-tsx.md`):
   - Toda la app toma el color del cielo del lugar en pantalla: `src/lib/sky.ts` elige
     el tema por el cielo del día, la hora y la salida y puesta del sol (día, parcial,
@@ -155,6 +176,41 @@ señal se siguen viendo los últimos datos.
   **Por qué:** permite ver la app y sacar capturas sin backend, también en Chrome headless.
   `?cielo=sol|lluvia|noche` elige el pronóstico público de prueba.
 
+- **Decisión:** satélite por defecto EOxCloudless 2016 (Sentinel-2, 10 m), sin API key.
+  **Por qué:** es la única capa satelital sin key que permite uso comercial y cubre la
+  Argentina. Licencia por capa en el `WMTSCapabilities.xml` de EOX
+  (https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml): 2016 y 2017 son
+  CC BY 4.0, 2018 en adelante CC BY-NC-SA 4.0 (comercial solo con licencia de EOX,
+  https://cloudless.eox.at/documentation/license). La de 2017 no tiene datos fuera de
+  Europa: en la Argentina devuelve teselas vacías y el mapa queda en blanco.
+  Atribución obligatoria: "EOxCloudless 2016 by EOX IT Services GmbH (Contains modified
+  Copernicus Sentinel data 2016), CC BY 4.0", en el botón (i) del mapa.
+  **Límite:** 10 m por píxel; desde zoom 15 la imagen se estira. Alcanza para ver
+  alambrados y caminos de lotes grandes, no para detalles chicos, y es de 2016.
+  **Alternativas descartadas:** Esri World Imagery (más nítida, pero el servicio
+  público pide cuenta ArcGIS y sus términos no permiten uso comercial sin plan;
+  https://goto.arcgis.com/maps/World_Imagery y
+  https://community.esri.com/t5/arcgis-location-platform-developers-ques/inquiry-about-world-imagery/m-p/1569266)
+  y MapTiler Satellite (pide key). Se pueden enchufar sin tocar código con
+  `VITE_SATELLITE_TILES_URL` (plantilla XYZ `{z}/{x}/{y}`), `VITE_SATELLITE_ATTRIBUTION`
+  y `VITE_SATELLITE_MAX_ZOOM` en el build (`frontend/Dockerfile` los recibe como
+  `ARG`), siempre con su licencia y su atribución.
+- **Decisión:** calles con OpenFreeMap "liberty" (datos OpenStreetMap, ODbL).
+  **Por qué:** sin key y de uso libre, también comercial, con atribución
+  (https://openfreemap.org/).
+- **Decisión:** el worker de MapLibre se arma con Vite (`?worker&url`) y se registra con
+  `setWorkerUrl`.
+  **Por qué:** MapLibre 6 busca `maplibre-gl-worker.mjs` al lado de su propio módulo.
+  Vite lo pre-empaqueta en `.vite/deps` (dev) y en un chunk con hash (build), donde ese
+  archivo no existe: el worker no cargaba y el mapa no mostraba ninguna tesela ("el mapa
+  no funciona ni se visualiza", 2026-11-04). Además nginx 1.29 sirve `.mjs` como
+  `application/octet-stream`, y un worker módulo así no arranca; Vite lo emite como
+  `.js`. El worker queda fuera del precache, igual que el chunk del mapa.
+- **Decisión:** la regla de tamaño del mapa es `.map-frame > .map-canvas`.
+  **Por qué:** `maplibre-gl.css` llega con el chunk del mapa, después de `app.css`, y su
+  `.maplibregl-map { position: relative }` le ganaba a `.map-canvas` por orden: el mapa
+  quedaba con 0 px de alto. Con dos clases la regla propia pesa más.
+
 ## Cómo modificarlo
 - **Contrato de la API:** los tipos están en `src/api/types.ts` y el mock en
   `src/mocks/handlers.ts`.
@@ -172,6 +228,12 @@ señal se siguen viendo los últimos datos.
   `session.test.tsx` cubre el borrado de datos al terminar o empezar una sesión;
   `src/test/localData.ts` siembra IndexedDB y simula `caches`.
   Ejecutalos con `pnpm test`.
+- **Mapa:** `src/lib/outline.ts` (área, centroide, GeoJSON y estados del dibujo) tiene
+  sus tests en `outline.test.ts`. `src/test/loteForm.test.tsx` reemplaza el mapa por un
+  doble que guarda sus props para tocar el mapa, mover esquinas y leer adónde vuela.
+  `src/components/MapPicker.test.tsx` vigila los dos errores del mapa en blanco (worker
+  y peso de la regla CSS); jsdom no aplica especificidad, así que la prueba real es un
+  Chrome con WebGL (`--use-angle=swiftshader --enable-unsafe-swiftshader`).
 - **Proxy de desarrollo:** `VITE_API_PROXY_TARGET`. Por defecto es
   `http://localhost:8001`; en compose es `http://backend:8000`.
 
@@ -185,3 +247,7 @@ señal se siguen viendo los últimos datos.
   rediseño "Cielo vivo" de toda la app, detalle del lote con pronóstico y decisiones,
   caché público del service worker y créditos CC BY 4.0. Salir navega en el mismo tick
   que termina la sesión, porque antes el guard redirigía primero y se perdía el aviso.
+- 2026-11-04: mapa interactivo del lote (T4, S7): búsqueda de localidad o paraje,
+  satélite EOxCloudless 2016 con cambio a calles, dibujo del contorno con hectáreas
+  automáticas y centroide como ubicación. Arreglo del mapa en blanco: worker de MapLibre
+  sin URL válida y contenedor de 0 px por el orden del CSS.

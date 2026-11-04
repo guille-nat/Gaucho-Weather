@@ -53,6 +53,8 @@ export interface LoteInput {
   crop: Crop | null;
   sowing_date: string | null;
   area_ha: number | null;
+  /** The drawn outline (S7), or null to clear it. */
+  boundary: GeoJsonPolygon | null;
 }
 
 /** The list of lotes as cached and persisted: with the time the server produced it. */

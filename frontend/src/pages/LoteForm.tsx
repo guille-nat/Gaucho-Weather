@@ -6,6 +6,17 @@ import { FormAlert, SelectField, TextField } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { LocationField, type LocationText } from '../components/LocationField';
 import { CROP_LABELS, parseDecimal } from '../lib/format';
+import {
+  EMPTY_OUTLINE,
+  areaHa,
+  centroid,
+  outlineFromPolygon,
+  outlineReducer,
+  roundHa,
+  toPolygon,
+  type Outline,
+  type OutlineAction,
+} from '../lib/outline';
 import { useCreateLote, useLote, useUpdateLote } from '../query/hooks';
 
 interface FormState {
@@ -13,6 +24,10 @@ interface FormState {
   establishment: string;
   locality: string;
   location: LocationText;
+  /** The drawn outline (S7); when closed it fills the hectares and, without a pin, the location. */
+  outline: Outline;
+  /** The hectares field holds the drawn outline's area, not a typed number. */
+  areaFromOutline: boolean;
   crop: Crop | '';
   sowingDate: string;
   areaHa: string;
@@ -30,6 +45,8 @@ const EMPTY: FormState = {
   establishment: '',
   locality: '',
   location: { lat: '', lon: '' },
+  outline: EMPTY_OUTLINE,
+  areaFromOutline: false,
   crop: '',
   sowingDate: '',
   areaHa: '',
@@ -41,10 +58,30 @@ function fromLote(lote: Lote): FormState {
     establishment: lote.establishment,
     locality: lote.locality,
     location: { lat: String(lote.latitude), lon: String(lote.longitude) },
+    outline: outlineFromPolygon(lote.boundary),
+    areaFromOutline: false,
     crop: lote.crop ?? '',
     sowingDate: lote.sowing_date ?? '',
     areaHa: lote.area_ha === null ? '' : String(lote.area_ha).replace('.', ','),
   };
+}
+
+/** `120.5` → `120,5`: the hectares field takes the decimal comma. */
+const haText = (value: number) => String(value).replace('.', ',');
+
+/** Applies a drawing step; a closed outline writes its area into the hectares field. */
+function withOutline(form: FormState, action: OutlineAction): FormState {
+  const outline = outlineReducer(form.outline, action);
+  if (outline === form.outline) return form;
+  if (outline.closed) {
+    return {
+      ...form,
+      outline,
+      areaHa: haText(roundHa(areaHa(outline.points))),
+      areaFromOutline: true,
+    };
+  }
+  return { ...form, outline, areaHa: form.areaFromOutline ? '' : form.areaHa };
 }
 
 /** Client-side checks mirror the S8 rules so the farmer gets the answer without a round trip. */
@@ -56,9 +93,15 @@ function validate(form: FormState): { errors: Errors; input?: LoteInput } {
 
   const latText = form.location.lat.trim();
   const lonText = form.location.lon.trim();
-  const lat = parseDecimal(latText);
-  const lon = parseDecimal(lonText);
-  if (!latText && !lonText) errors.location = 'Marcá el lote en el mapa o usá tu ubicación.';
+  const boundary = toPolygon(form.outline);
+  // Without a pin, the lote sits at the centre of its outline (S7).
+  const middle = !latText && !lonText && boundary ? centroid(form.outline.points) : null;
+  const lat = middle ? middle[1] : parseDecimal(latText);
+  const lon = middle ? middle[0] : parseDecimal(lonText);
+  if (form.outline.points.length && !form.outline.closed)
+    errors.location = 'Cerrá el contorno: tocá la primera esquina o «Cerrar contorno».';
+  else if (!latText && !lonText && !middle)
+    errors.location = 'Marcá el lote en el mapa o usá tu ubicación.';
   else if (lat === null || lon === null)
     errors.location = 'Revisá las coordenadas: escribilas con números, por ejemplo −33,4592.';
   else if (lat < -56 || lat > -21 || lon < -74 || lon > -53)
@@ -80,6 +123,7 @@ function validate(form: FormState): { errors: Errors; input?: LoteInput } {
       crop: form.crop || null,
       sowing_date: form.sowingDate || null,
       area_ha: area === null ? null : Number(area.toFixed(2)),
+      boundary,
     },
   };
 }
@@ -93,6 +137,7 @@ const SERVER_FIELDS: Record<string, keyof Errors> = {
   crop: 'crop',
   sowing_date: 'sowingDate',
   area_ha: 'areaHa',
+  boundary: 'location',
 };
 
 function serverErrors(error: unknown): Errors {
@@ -184,6 +229,8 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
         <LocationField
           value={form.location}
           error={shown.location}
+          outline={form.outline}
+          onOutline={(action) => setForm((f) => withOutline(f, action))}
           onChange={(location) => set('location', location)}
         />
         <div className="form-row">
@@ -206,10 +253,16 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
             name="area_ha"
             inputMode="decimal"
             autoComplete="off"
-            hint="Con coma, por ejemplo 120,5."
+            hint={
+              form.areaFromOutline
+                ? 'Calculadas del contorno. Podés corregirlas.'
+                : 'Con coma, por ejemplo 120,5.'
+            }
             value={form.areaHa}
             error={shown.areaHa}
-            onChange={(e) => set('areaHa', e.target.value)}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, areaHa: e.target.value, areaFromOutline: false }))
+            }
           />
         </div>
         <TextField

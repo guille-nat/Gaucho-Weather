@@ -146,7 +146,7 @@ function toLote(id: number, body: LoteInput, previous?: Lote): Lote {
     sowing_date: body.sowing_date ?? null,
     area_ha:
       body.area_ha === null || body.area_ha === undefined ? null : Number(body.area_ha.toFixed(2)),
-    boundary: previous?.boundary ?? null,
+    boundary: body.boundary === undefined ? (previous?.boundary ?? null) : body.boundary,
     summary: previous?.summary ?? null,
     created_at: previous?.created_at ?? now,
     updated_at: now,
@@ -309,6 +309,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
         crop: body.crop === undefined ? previous.crop : body.crop,
         sowing_date: body.sowing_date === undefined ? previous.sowing_date : body.sowing_date,
         area_ha: body.area_ha === undefined ? previous.area_ha : body.area_ha,
+        boundary: body.boundary === undefined ? previous.boundary : body.boundary,
       };
       const lote = toLote(previous.id, merged, previous);
       db.lotes[index] = lote;

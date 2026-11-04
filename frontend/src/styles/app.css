@@ -1539,17 +1539,211 @@ input[type='date'].input {
   margin-bottom: 6px;
 }
 
+/* The map's frame. Drawing corners needs room: tall, but the toolbar stays in one thumb's reach. */
 .map-frame {
   position: relative;
-  height: 280px;
+  height: min(62vh, 420px);
+  min-height: 300px;
   overflow: hidden;
   border-radius: 16px;
   background: var(--panel-deep);
 }
 
-.map-canvas {
+/*
+ * Two classes on purpose: maplibre-gl.css comes in the lazy map chunk, after this file, and its
+ * `.maplibregl-map { position: relative }` would win a tie and collapse the map to 0 px high.
+ */
+.map-frame > .map-canvas {
   position: absolute;
   inset: 0;
+}
+
+/* Search above the map: the place sheet's search, one size down. */
+.map-search {
+  display: grid;
+  gap: 8px;
+}
+
+.search--compact {
+  box-shadow: none;
+}
+
+.search--compact .search-input {
+  min-height: 52px;
+  font-size: var(--text-body);
+}
+
+.map-search-results {
+  max-height: 264px;
+  overflow-y: auto;
+  background: var(--panel-deep);
+}
+
+.map-search-status {
+  padding: 0 2px;
+}
+
+/* Two-way switch: the tool, and on the map the base layer. */
+.segmented {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-control);
+  background: var(--panel-deep);
+}
+
+.segmented-option {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--text-small);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.segmented-option:hover {
+  background: var(--panel-hover);
+}
+
+.segmented-option[aria-pressed='true'] {
+  background: #fff;
+  color: var(--ink-deep);
+}
+
+.segmented--map {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  background: var(--ink-deep);
+  box-shadow: 0 4px 14px rgb(2 8 24 / 0.35);
+}
+
+/* Centre crosshair for "Esquina en la mira": precise corners without a finger in the way. */
+.map-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.map-reticle::before,
+.map-reticle::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(4 16 42 / 0.7);
+}
+
+.map-reticle::before {
+  top: 14px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+}
+
+.map-reticle::after {
+  top: 0;
+  left: 14px;
+  width: 2px;
+  height: 30px;
+}
+
+/* Outline handles: a 44 px target around a small visible dot. */
+.map-vertex,
+.map-mid {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.map-vertex > span {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 1px 4px rgb(2 8 24 / 0.6);
+  transition:
+    scale var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+/* The first corner closes the outline: it grows a ring once three corners exist. */
+.map-vertex.is-closer > span {
+  scale: 1.25;
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.map-vertex.is-selected > span {
+  scale: 1.25;
+  background: #e2482b;
+}
+
+.map-mid > span {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 1px 3px rgb(2 8 24 / 0.5);
+}
+
+/* Drawing toolbar under the map */
+.draw {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--panel-deep);
+}
+
+.draw-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.draw-count {
+  color: var(--ink-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.draw-area {
+  flex: none;
+  color: var(--gold);
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.draw-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.draw-actions .btn {
+  min-height: 48px;
+  padding: 0 12px;
+  font-size: var(--text-small);
 }
 
 .map-loading {

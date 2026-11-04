@@ -104,3 +104,6 @@ export const getPlaces = read;
 export function usePlaces(): PlacesState {
   return useSyncExternalStore(subscribe, read, () => EMPTY);
 }
+
+/** Letters typed, ignoring spaces and punctuation: Georef needs a few to match a word. */
+export const letters = (text: string) => text.replace(/[^\p{L}]/gu, '').length;
