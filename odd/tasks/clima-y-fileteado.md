@@ -110,3 +110,14 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
     - feature-end verifier (risk items 2, 3 and 5);
     - icons that still carry the old pink mark;
     - saved places (recent places only so far).
+- L9 (2026-11-04): T4 done. Map bug root cause: the MapLibre worker never loaded under Vite, and a lazy CSS ordering issue left the container 0 px high.
+  - Added search, satellite (EOX 2016, CC BY 4.0) and street toggle, corner drawing and automatic hectares. 73 frontend tests pass.
+  - Pending:
+    - the user's review of the new UI;
+    - finish review and DESIGN.md rewrite;
+    - feature-end verifier;
+    - icons still carry the old pink mark;
+    - saved places;
+    - compose build args `VITE_SATELLITE_*`;
+    - four test lotes on the demo account (ids 5–8).
+- L10 (2026-11-04, user, verbatim): "no mejor subi todo a main total estamos construyendo luego si apaga la PC". Option chosen: replace main with a backup (`v1-legacy` branch and `v1-final` tag).
