@@ -65,11 +65,11 @@ Branch: `feat/phase-1-foundation` · Delivery: ask-on-risk (forecast > 400 lines
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2, S3, S7 | inline | done | Direction contract written to the surface brief; DESIGN.md is written at finish |
-| T2 | S1 | delegated (unit A: parallel writer) | in progress | Docker Compose, CI, backend scaffold |
-| T3 | S1, S4, S6, S8 | delegated (unit A) | in progress | Backend: auth and lotes API |
-| T4 | S5, S9 | delegated (unit A) | in progress | Backend: archiver |
-| T5 | S1, S2, S3, S4, S6, S7, S8 | delegated (unit B: parallel writer) | in progress | Frontend PWA |
-| T6 | S1 | pending | pending | Doc/ updated per feature |
+| T2 | S1 | delegated (unit A: parallel writer) | done (5c12117) | Docker Compose, CI, backend scaffold |
+| T3 | S1, S4, S6, S8 | delegated (unit A) | done (5c12117) | Backend: auth and lotes API |
+| T4 | S5, S9 | delegated (unit A) | done (5c12117) | Backend: archiver |
+| T5 | S1, S2, S3, S4, S6, S7, S8 | delegated (unit B: parallel writer) | done (a64d44a, aefe95d) | Frontend PWA |
+| T6 | S1 | inline | done | Doc/ updated per feature |
 
 ## Log
 - L1 (2026-11-03, user, verbatim): "si arranca y usa todas las skills que tenes a disposicion de diseño en la config global, recorda que es movile first"
@@ -111,3 +111,13 @@ Branch: `feat/phase-1-foundation` · Delivery: ask-on-risk (forecast > 400 lines
   - Deviation: the bottom nav has 3 tabs (Lotes, Alertas, Perfil), because Phase 1 has no forecast screen.
   - Commits: 5c12117 (backend, T2–T4) and a64d44a (frontend, T5).
   - Launched in parallel: the Impeccable finish review, and a frontend verifier for risk items 1 (IndexedDB) and 2 (CSRF client).
+- L8 (2026-11-03): frontend verifier found two blockers.
+  - **B1:** cross-user leak after a session ended without "Salir".
+  - **B2:** on an offline cold start the "Sin conexión" banner did not show and the update time was false.
+  - Impeccable finish review disposition: fix, with 8 items. The seed was verified as known.
+  - One correction batch fixed B1, B2 and the 7 design items, with RED/GREEN regression tests (33 tests): aefe95d.
+  - The blocker-only recheck passed B1, B2 and the CSRF regression check against the real backend with the service worker active.
+  - DESIGN.md and `.impeccable/design.json` written by the documenter; tab labels raised to 16 px: d63e405.
+  - Docs index: separate commit.
+  - Dev stack is up for the user (frontend 5173, backend 8001) with demo user `prueba@gaucho.ar`.
+  - Next: the user wants design changes ("hay modificaciones de diseño que no me gustan").
