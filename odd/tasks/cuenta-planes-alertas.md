@@ -37,7 +37,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 |---|---|---|---|---|---|---|
 | T1 | S1 S2 S3 | Plans + founders + trial backend: models, migrations, backfill, signup, `/me`, `/api/planes/`, `expire_trials` | inline | item 1, 4 | done (verified) | see L9 |
 | T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | done | see L10 |
-| T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | pending | |
+| T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verifier pending, with T4) | see L11 |
 | T4 | S5 | Email settings + password reset | inline | item 2 | pending | |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
@@ -74,3 +74,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - GREEN: pytest 229, Vitest 86, tsc, eslint and prettier all clean.
   - `/api/planes/` smoke-tested through the Vite proxy.
   - The 402 body is `{detail, code: "plan_limit"}`. `ApiError.code` and `isPlanLimit()` are on the client, and creating a lote invalidates `me` (usage).
+- **L11** (2026-11-16): T3 done test-first (RED: 16 failing). Endpoints:
+  - PATCH `/me` (name, email with `current_password`, `notify_*`; plan fields are read-only);
+  - POST `/password/change/` (204, keeps this session, signs out the others);
+  - DELETE `/me` (password, cascades lotes, logs out, founder slot not freed).
+  - Password-checking methods share the login throttle bucket (10/min/IP); GET is never throttled. The throttle test caught a real bug: ScopedRateThrottle reads `view.throttle_scope`, not the class attribute.
+  - pytest 248 passed. The independent verifier will run over T3 and T4 together (both item 2).

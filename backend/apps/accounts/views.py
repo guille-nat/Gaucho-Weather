@@ -1,4 +1,5 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.db import transaction
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -7,7 +8,15 @@ from rest_framework.views import APIView
 
 from .authentication import enforce_csrf
 from .models import FounderProgram, Plan
-from .serializers import LoginSerializer, PlanSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    AccountUpdateSerializer,
+    DeleteAccountSerializer,
+    LoginSerializer,
+    PasswordChangeSerializer,
+    PlanSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 from .throttling import IPScopedRateThrottle
 
 BAD_CREDENTIALS_MESSAGE = "Email o contraseña incorrectos."
@@ -68,9 +77,54 @@ class LogoutView(CsrfProtectedView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class PasswordCheckThrottle(IPScopedRateThrottle):
+    """Throttles only the unsafe methods; reading the account stays free.
+
+    The scope comes from the view's `throttle_scope`: views that check the password use the
+    login bucket (10/min per IP).
+    """
+
+    def allow_request(self, request, view):
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return True
+        return super().allow_request(request, view)
+
+
 class MeView(APIView):
+    throttle_classes = [PasswordCheckThrottle]
+    throttle_scope = "login"
+
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = AccountUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data)
+
+    def delete(self, request):
+        """Deletes the account and everything it owns. A founder slot is not handed out again."""
+        serializer = DeleteAccountSerializer(data=request.data, context={"user": request.user})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            request.user.delete()
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordChangeView(APIView):
+    throttle_classes = [PasswordCheckThrottle]
+    throttle_scope = "login"
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={"user": request.user})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save(update_fields=["password"])
+        # Keeps this session; every other session of the account is signed out.
+        update_session_auth_hash(request, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PlansView(APIView):
