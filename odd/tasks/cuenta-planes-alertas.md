@@ -47,7 +47,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
   - The lote page shows "Estamos buscando el pronóstico de este lote…" and retries on its own instead of a dead end.
 - **S13 — Founder badge** (L29 verbatim: "una insignea de cuando sos founder y explicarlo para que se sientan Importantes").
   - A visible badge "Founder n.º N" (Perfil header, subscription page, the account tab) with an explanation that only states what is true: one of the first 100, Productor free forever, the number is theirs for good, and thanks for helping build the app. No benefit is invented.
-- **S14 — My subscription** (L29 verbatim: "falta el apartado de manejo de subsicripciones"; L30: the user chose «Mi suscripción (plan)»). An account section showing:
+- **S14 — My subscription** (L29 verbatim: "falta el apartasdo de manejo de subsicripciones"; L30: the user chose «Mi suscripción (plan)»). An account section showing:
   - the current plan;
   - its status (founder / trial with days left / active);
   - what the plan includes and its usage;
