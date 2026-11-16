@@ -52,7 +52,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | done | see L16 |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | delegated (context backstop) | none | done | see L19 |
 | T8 | S7 | Delivery push/email + inbox and push APIs | delegated (parallel with T9, T13) | item 5 (pywebpush dependency) | done (verified) | see L21 |
-| T9 | S7 | Service worker → injectManifest + push handlers | delegated (parallel with T8, T13) | item 5, 6 | done (verifier pending) | see L22 |
+| T9 | S7 | Service worker → injectManifest + push handlers | delegated (parallel with T8, T13) | item 5, 6 | done (verified) | see L22 |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
@@ -167,3 +167,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Fixed test-first (RED: 5 failing): broken subscriptions (no status, 400, 413) are dropped without retrying the other devices; 401/403 (VAPID rejected) mark push `failed` and log an error, without a retry or a delete.
   - Open advisories: a channel left in `sending` after a crash is never recovered (accepted, documented); a shared-phone endpoint can move between accounts (by design).
   - The dev worker and beat were restarted to load the alerts tasks. pytest 395 passed.
+- **L25** (2026-11-16): The independent verifier passed T9 with no blockers.
+  - It built the baseline and the change from clean exports: the precache lists are byte-identical, the routes, plugins and update behaviour are the same, and the only addition is `/api/alertas/` NetworkOnly plus `/api/planes/` in `api-publico`.
+  - In headless Chrome the offline results were identical except for `/api/planes/`.
+  - The notificationclick guard kept all 12 hostile URLs on the app's origin.
+  - Advisory: no automated SW test (manual check documented).
