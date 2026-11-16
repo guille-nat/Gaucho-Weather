@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ApiError } from '../api/client';
 import type { Lote } from '../api/types';
 import { FormAlert } from '../components/Field';
 import { ForecastSkeleton, ForecastView } from '../components/ForecastView';
@@ -11,11 +10,19 @@ import { useOnline } from '../hooks/useOnline';
 import { CROP_LABELS, formatCoord, formatDate, formatHa } from '../lib/format';
 import { loteMeta } from '../lib/lote';
 import { applySky, skyTheme } from '../lib/sky';
-import { useDeleteLote, useLote, useLoteForecast } from '../query/hooks';
+import {
+  FORECAST_WAIT,
+  isForecastPending,
+  useDeleteLote,
+  useLote,
+  useLoteForecast,
+  useRetryLoteForecast,
+} from '../query/hooks';
 
 /** The forecast part of the lote: the Inicio layout plus its decisions (S5). */
 function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
   const forecast = useLoteForecast(lote.id);
+  const retry = useRetryLoteForecast(lote.id);
   const online = useOnline();
   const snapshot = forecast.data;
 
@@ -27,10 +34,30 @@ function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
   const models = Object.entries(lote.summary?.tonight_min_models ?? {}).filter(
     (entry): entry is [string, number] => typeof entry[1] === 'number',
   );
-  const noForecast = forecast.error instanceof ApiError && forecast.error.status === 404;
+  // A new or moved lote gets its forecast within seconds (S12): wait for it instead of a dead end.
+  const noForecast = isForecastPending(forecast.error);
+  const gaveUp = noForecast && forecast.errorUpdateCount >= FORECAST_WAIT.tries;
   const fallback = forecast.isPending ? (
     <ForecastSkeleton label="Cargando el pronóstico del lote…" />
-  ) : noForecast || !lote.summary ? (
+  ) : noForecast && !gaveUp ? (
+    <div className="panel pending" role="status" aria-label="Buscando el pronóstico">
+      <span className="forecast-search" aria-hidden="true" />
+      <p className="pending-title">
+        Estamos buscando el pronóstico de este lote. Tarda unos segundos.
+      </p>
+      <p className="fine">Aparece acá solo, apenas llega.</p>
+    </div>
+  ) : noForecast ? (
+    <div className="panel pending">
+      <StatusChip tone="pending">Sin datos aún</StatusChip>
+      <p className="pending-title">Todavía no llegó el pronóstico de este lote.</p>
+      <p className="fine">A veces tarda un poco más. Probá de nuevo en un rato.</p>
+      <button type="button" className="btn btn--light" onClick={() => void retry()}>
+        <Icon name="refresh" />
+        Volver a intentar
+      </button>
+    </div>
+  ) : !lote.summary ? (
     <div className="panel pending">
       <StatusChip tone="pending">Sin datos aún</StatusChip>
       <p className="pending-title">Estamos juntando el primer pronóstico de este lote</p>

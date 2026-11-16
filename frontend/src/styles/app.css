@@ -2786,3 +2786,370 @@ button.alert-event-tap:focus-visible {
   flex-shrink: 0;
   color: var(--gold);
 }
+
+/* ───────── Founder (cuenta-planes-alertas S13) ───────── */
+
+/* A gold seal: sun + number on pampa gold, the same accent as the founder banner. */
+.founder-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 32px;
+  padding: 4px 12px 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 0 0 1px rgb(29 22 0 / 0.18),
+    0 4px 12px rgb(2 8 24 / 0.22);
+}
+
+.founder-badge-sun {
+  flex-shrink: 0;
+}
+
+.founder-badge--button {
+  padding-right: 8px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+/* The pill is 32px tall; the hit area reaches 44px without changing what is drawn. */
+.founder-badge--button::before {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
+}
+
+.founder-badge--button:hover {
+  background: color-mix(in srgb, var(--gold) 88%, #fff);
+}
+
+.founder-badge--button:active {
+  scale: 0.96;
+}
+
+.founder-badge--button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.founder-badge-chevron {
+  rotate: 90deg;
+  transition: rotate var(--dur-base) var(--ease-out);
+}
+
+.founder-badge--button[aria-expanded='true'] .founder-badge-chevron {
+  rotate: -90deg;
+}
+
+/* The badge and its story join the row they sit in; the story takes a line of its own. */
+.founder {
+  display: contents;
+}
+
+.founder-popover {
+  flex-basis: 100%;
+  margin-top: 4px;
+  padding: 16px;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+.founder-popover-title {
+  margin-bottom: 8px;
+  font-size: 1.125rem;
+  text-wrap: balance;
+}
+
+.founder-story {
+  display: grid;
+  gap: 10px;
+}
+
+.founder-story-lead {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+
+.founder-story-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.founder-story-facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-wrap: pretty;
+}
+
+.founder-story-facts svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--gold);
+}
+
+.founder-story-thanks {
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* Perfil header: the name, and the badge next to it. */
+.profile-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+
+.profile-name {
+  font-weight: 700;
+  font-size: 1.125rem;
+  text-wrap: balance;
+}
+
+/* The account tab of a founder: a small gold seal on the icon. */
+.tab-icon {
+  position: relative;
+}
+
+.tab-founder {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--gold-ink);
+  box-shadow: 0 0 0 2px var(--panel-deep);
+}
+
+/* ───────── Suscripción (cuenta-planes-alertas S14) ───────── */
+
+.sub-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 4px;
+}
+
+.sub-usage {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-usage li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sub-usage svg {
+  flex-shrink: 0;
+  color: var(--ink-2);
+}
+
+.sub-pending {
+  display: grid;
+  gap: 8px;
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+.sub-pending .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.sub-pending .panel-title svg {
+  color: var(--gold);
+}
+
+.sub-pending-text {
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+.sub-pending .btn {
+  justify-self: start;
+  min-height: 48px;
+}
+
+/* Compact options sit mid-panel, away from its corners, so they take the control radius like
+   the buttons in them instead of a strict 20 − 16 = 4px. */
+.sub-options {
+  display: grid;
+  gap: 10px;
+}
+
+.sub-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--panel-deep);
+}
+
+.sub-option-body {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 12rem;
+}
+
+.sub-option-name {
+  font-size: 1.125rem;
+  text-wrap: balance;
+}
+
+.sub-option-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-option .btn {
+  min-height: 48px;
+}
+
+.sub-cancel ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  text-wrap: pretty;
+}
+
+.sub-cancel p:not(.confirm-text) {
+  text-wrap: pretty;
+}
+
+/* History: a quiet vertical line, newest on top. */
+.timeline {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 0 0 16px 24px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: -4px;
+  left: 5px;
+  width: 2px;
+  background: var(--line);
+}
+
+.timeline-item:last-child::before {
+  display: none;
+}
+
+.timeline-dot {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.timeline-title {
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+.timeline-plans {
+  color: var(--ink-2);
+}
+
+.account-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+
+/* ───────── Lote waiting for its first forecast (cuenta-planes-alertas S12) ───────── */
+
+/* A calm sweep on a thin track: progress without a number we could not keep. */
+.forecast-search {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.forecast-search::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--gold);
+  animation: forecast-search 1.8s var(--ease-out) infinite;
+}
+
+@keyframes forecast-search {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 250% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forecast-search::after {
+    width: 100%;
+    opacity: 0.5;
+    animation: none;
+  }
+}

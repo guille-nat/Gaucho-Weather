@@ -12,8 +12,12 @@ import type {
   LoteHistory,
   LoteInput,
   Plan,
+  PlanChange,
+  PlanRequest,
+  PlanRequestInput,
   PublicForecast,
   PushSubscriptionInput,
+  Subscription,
   User,
 } from '../api/types';
 import { account, demoPlans } from './fixtures';
@@ -58,6 +62,10 @@ export interface MockDb {
   pushSubscriptions: PushSubscriptionInput[];
   /** The VAPID public key; null answers 503 like a server without VAPID settings. */
   pushPublicKey: string | null;
+  /** The account's pending plan request (cuenta-planes-alertas S14). */
+  planRequest: PlanRequest | null;
+  /** Plan changes, newest first; undefined derives the sign-up from `user` (see subscriptionOf). */
+  planHistory?: PlanChange[];
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -127,6 +135,7 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     pushSubscriptions: [],
     pushPublicKey:
       'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+    planRequest: null,
     ...partial,
   };
 }
@@ -136,6 +145,38 @@ const withUsage = (user: User, db: MockDb): User => ({
   ...user,
   usage: { lotes: db.lotes.length, alert_rules: db.alertRules.length },
 });
+
+/** GET /api/auth/suscripcion/ (S14), derived from the account like the backend does. */
+function subscriptionOf(user: User, db: MockDb): Subscription {
+  const plan = user.plan ?? db.plans.find((p) => p.code === 'basico')!;
+  const status =
+    user.founder_number != null ? 'founder' : user.plan_expires_at ? 'trial' : 'active';
+  const signUp: PlanChange = {
+    at: '2026-10-01T12:00:00Z',
+    from_plan: null,
+    to_plan: { code: 'productor', name: 'Productor' },
+    reason: status === 'active' ? 'trial' : status,
+  };
+  return {
+    plan,
+    status,
+    founder_number: user.founder_number ?? null,
+    trial_ends_at: user.plan_expires_at ?? null,
+    usage: { lotes: db.lotes.length, alert_rules: db.alertRules.length },
+    pending_request: db.planRequest,
+    history: db.planHistory ?? [signUp],
+  };
+}
+
+/** Like the backend's request validation: the reason a plan request cannot be made, if any. */
+function planRequestError(input: PlanRequestInput, user: User, db: MockDb): string | null {
+  const code = input.kind === 'cancel' ? 'basico' : input.plan;
+  const plan = db.plans.find((p) => p.code === code);
+  if (!plan) return 'Ese plan no existe.';
+  if (user.plan?.code === plan.code) return `Ya estás en el plan ${plan.name}.`;
+  if (db.planRequest) return 'Ya tenés un pedido pendiente.';
+  return null;
+}
 
 /** Like plans.start_membership: a founder slot while any is left, else the Productor trial. */
 function signUp(db: MockDb, identity: Pick<User, 'id' | 'email' | 'name'>): User {
@@ -412,6 +453,34 @@ export function createHandlers(db: MockDb): HttpHandler[] {
     http.get('*/api/planes/', () =>
       HttpResponse.json({ plans: db.plans, founders: db.founders, trial_days: db.trialDays }),
     ),
+
+    http.get('*/api/auth/suscripcion/', () =>
+      db.user ? HttpResponse.json(subscriptionOf(db.user, db)) : forbidden(),
+    ),
+
+    http.post('*/api/auth/suscripcion/pedido/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const input = (await request.json()) as PlanRequestInput;
+      const detail = planRequestError(input, db.user, db);
+      if (detail) return HttpResponse.json({ detail }, { status: 400 });
+      db.planRequest = {
+        id: db.nextId++,
+        kind: input.kind,
+        plan: input.kind === 'change' ? input.plan : null,
+        created_at: new Date().toISOString(),
+      };
+      return HttpResponse.json(db.planRequest, { status: 201 });
+    }),
+
+    http.delete('*/api/auth/suscripcion/pedido/', ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      db.planRequest = null;
+      return new HttpResponse(null, { status: 204 });
+    }),
 
     http.post('*/api/auth/login/', async ({ request }) => {
       const failed = csrfFailure(request, db);

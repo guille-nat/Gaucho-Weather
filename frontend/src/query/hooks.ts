@@ -16,6 +16,7 @@ import { ApiError } from '../api/client';
 import { getLoteHistory } from '../api/historico';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
 import { getPlans } from '../api/plans';
+import { getSubscription, requestPlan, withdrawPlanRequest } from '../api/subscription';
 import {
   getForecast,
   asForecastSnapshot,
@@ -30,6 +31,9 @@ import type {
   Lote,
   LoteInput,
   LotesSnapshot,
+  PlanRequest,
+  PlanRequestInput,
+  Subscription,
   User,
 } from '../api/types';
 import {
@@ -84,13 +88,36 @@ export function useForecast(point: { lat: number; lon: number } | null) {
   });
 }
 
+/**
+ * A new or moved lote has no forecast for a few seconds while the backend fetches it
+ * (cuenta-planes-alertas S12): the API answers 404 until then.
+ */
+export const isForecastPending = (error: unknown) =>
+  error instanceof ApiError && error.status === 404;
+
+/** How the lote page waits for that first forecast: every 5 s, for about a minute. */
+export const FORECAST_WAIT = { everyMs: 5_000, tries: 12 };
+
 export const useLoteForecast = (id: number) =>
   useQuery({
     queryKey: queryKeys.loteForecast(id),
     queryFn: () => getLoteForecast(id),
     select: asForecastSnapshot,
     enabled: Number.isFinite(id),
+    // Only with nothing to show yet: a cached forecast stays on screen as it always did.
+    refetchInterval: ({ state }) =>
+      state.data === undefined &&
+      isForecastPending(state.error) &&
+      state.errorUpdateCount < FORECAST_WAIT.tries
+        ? FORECAST_WAIT.everyMs
+        : false,
   });
+
+/** Starts the wait for the first forecast over, after it gave up (see FORECAST_WAIT). */
+export function useRetryLoteForecast(id: number) {
+  const queryClient = useQueryClient();
+  return () => queryClient.resetQueries({ queryKey: queryKeys.loteForecast(id), exact: true });
+}
 
 /** Places matching a search (S10); the backend wants at least 2 letters. */
 export const usePlaceSearch = (query: string) =>
@@ -355,4 +382,39 @@ export async function forgetPushBeforeLogout(ms = 3000): Promise<void> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** My subscription (cuenta-planes-alertas S14): plan, status, usage, request and history. */
+export const useSubscription = () =>
+  useQuery({ queryKey: queryKeys.subscription, queryFn: getSubscription });
+
+/** After a request is made or withdrawn: show it at once, then re-read the account and plan. */
+function useRefreshSubscription() {
+  const queryClient = useQueryClient();
+  return (pending: PlanRequest | null) => {
+    queryClient.setQueryData<Subscription>(queryKeys.subscription, (sub) =>
+      sub ? { ...sub, pending_request: pending } : sub,
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.me });
+  };
+}
+
+export function useRequestPlan() {
+  const queryClient = useQueryClient();
+  const refresh = useRefreshSubscription();
+  return useMutation({
+    mutationFn: (input: PlanRequestInput) => requestPlan(input),
+    onSuccess: (request: PlanRequest) => refresh(request),
+    // Refused (e.g. another phone asked first): re-read what the server holds.
+    onError: () => queryClient.invalidateQueries({ queryKey: queryKeys.subscription }),
+  });
+}
+
+export function useWithdrawPlanRequest() {
+  const refresh = useRefreshSubscription();
+  return useMutation({
+    mutationFn: withdrawPlanRequest,
+    onSuccess: () => refresh(null),
+  });
 }

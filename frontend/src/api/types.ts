@@ -291,3 +291,44 @@ export interface PushSubscriptionInput {
   endpoint: string;
   keys: { p256dh: string; auth: string };
 }
+
+/** How the account holds its plan (cuenta-planes-alertas S14). */
+export type SubscriptionStatus = 'founder' | 'trial' | 'active';
+
+export interface PlanRef {
+  code: PlanCode;
+  name: string;
+}
+
+/** A plan change the account asked for; staff apply it in the admin until payment exists. */
+export interface PlanRequest {
+  id: number;
+  kind: 'change' | 'cancel';
+  /** The plan asked for; null for `cancel`, which moves to Básico. */
+  plan: PlanCode | null;
+  created_at: string;
+}
+
+export type PlanChangeReason = 'founder' | 'trial' | 'trial_ended' | 'request' | 'staff';
+
+/** One recorded plan change; `from_plan` is null at sign-up. */
+export interface PlanChange {
+  at: string;
+  from_plan: PlanRef | null;
+  to_plan: PlanRef;
+  reason: PlanChangeReason;
+}
+
+/** `GET /api/auth/suscripcion/` (S14); `history` comes newest first. */
+export interface Subscription {
+  plan: Plan;
+  status: SubscriptionStatus;
+  founder_number: number | null;
+  trial_ends_at: string | null;
+  usage: { lotes: number; alert_rules: number };
+  pending_request: PlanRequest | null;
+  history: PlanChange[];
+}
+
+/** `POST /api/auth/suscripcion/pedido/`. */
+export type PlanRequestInput = { kind: 'change'; plan: PlanCode } | { kind: 'cancel' };

@@ -14,6 +14,7 @@ import { Planes } from './pages/Planes';
 import { Recuperar } from './pages/Recuperar';
 import { Register } from './pages/Register';
 import { Restablecer } from './pages/Restablecer';
+import { Suscripcion } from './pages/Suscripcion';
 
 /** S8: the weather and the plans are public; lotes, alerts and the profile need an account. */
 export function AppRoutes() {
@@ -37,6 +38,7 @@ export function AppRoutes() {
           <Route path="/lotes/:id/historico" element={<LoteHistorico />} />
           <Route path="/alertas" element={<Alertas />} />
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/perfil/suscripcion" element={<Suscripcion />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

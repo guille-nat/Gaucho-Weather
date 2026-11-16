@@ -1,38 +1,24 @@
 import { Link } from 'react-router';
 import type { Plan, User } from '../api/types';
-import { Icon, type IconName } from '../components/Icon';
+import { Icon } from '../components/Icon';
 import { membership } from '../lib/membership';
+import { planFeatures } from '../lib/planFeatures';
 import { useMe, usePlans } from '../query/hooks';
 
 const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 
-interface Feature {
-  icon: IconName;
-  text: string;
-  /** A limitation of the plan rather than something it gives. */
-  missing?: boolean;
-}
-
-function features(plan: Plan): Feature[] {
-  const list: Feature[] = [
-    {
-      icon: 'parcel',
-      text: plan.max_lotes === null ? 'Lotes sin límite' : `Hasta ${plan.max_lotes} lotes`,
-    },
-    {
-      icon: 'bell',
-      text:
-        plan.max_alert_rules === null
-          ? 'Reglas de alerta sin límite'
-          : `Hasta ${plan.max_alert_rules} reglas de alerta`,
-    },
-    plan.allows_push
-      ? { icon: 'check', text: 'Notificaciones push' }
-      : { icon: 'close', text: 'Sin notificaciones push', missing: true },
-    { icon: 'check', text: 'Alertas por email y en la app' },
-  ];
-  if (plan.priority_support) list.push({ icon: 'check', text: 'Soporte prioritario' });
-  return list;
+/** What a plan includes, with its limitations marked (shared with the subscription page). */
+export function PlanFeatureList({ plan }: { plan: Plan }) {
+  return (
+    <ul className="plan-features">
+      {planFeatures(plan).map((feature) => (
+        <li key={feature.text} className={feature.missing ? 'plan-feature--missing' : undefined}>
+          <Icon name={feature.icon} size={20} strokeWidth={2} />
+          <span>{feature.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function PlanCard({ plan, me }: { plan: Plan; me: User | null | undefined }) {
@@ -54,14 +40,7 @@ function PlanCard({ plan, me }: { plan: Plan; me: User | null | undefined }) {
           </>
         )}
       </p>
-      <ul className="plan-features">
-        {features(plan).map((feature) => (
-          <li key={feature.text} className={feature.missing ? 'plan-feature--missing' : undefined}>
-            <Icon name={feature.icon} size={20} strokeWidth={2} />
-            <span>{feature.text}</span>
-          </li>
-        ))}
-      </ul>
+      <PlanFeatureList plan={plan} />
       <div className="plan-foot">
         {current && me ? (
           <>
@@ -117,6 +96,11 @@ export function Planes() {
               <PlanCard key={plan.code} plan={plan} me={me.data} />
             ))}
           </div>
+          {me.data ? (
+            <Link className="account-link" to="/perfil/suscripcion">
+              Administrar suscripción
+            </Link>
+          ) : null}
           <p className="fine">
             Todavía no cobramos: cuando habilitemos el pago te avisamos antes. Quien no es founder
             prueba Productor {plans.data.trial_days} días y después pasa a Básico.

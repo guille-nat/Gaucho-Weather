@@ -1,4 +1,6 @@
+import { useId } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { founderLabel } from '../lib/membership';
 import { useMe } from '../query/hooks';
 import { BrandMark } from './BrandMark';
 import { Icon, type IconName } from './Icon';
@@ -14,7 +16,9 @@ export function AppShell() {
   const { pathname } = useLocation();
   // The session check runs on every screen, Inicio included: a session that ended elsewhere
   // still clears this phone (AppProviders), and a pending offline logout still finishes.
-  useMe();
+  const me = useMe();
+  const founder = me.data?.founder_number ?? null;
+  const founderId = useId();
   return (
     <div className="shell">
       <a className="skip-link" href="#contenido">
@@ -28,18 +32,31 @@ export function AppShell() {
         <ul>
           {NAV.map((item) => {
             const active = item.match(pathname);
+            // A founder's account tab carries a small gold seal (S13); the name stays "Perfil".
+            const sealed = item.to === '/perfil' && founder !== null;
             return (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   className={active ? 'tab is-active' : 'tab'}
                   aria-current={active ? 'page' : undefined}
+                  aria-describedby={sealed ? founderId : undefined}
                 >
                   <span className="tab-icon">
                     <Icon name={item.icon} size={24} strokeWidth={active ? 2.4 : 2} />
+                    {sealed ? (
+                      <span className="tab-founder" aria-hidden="true">
+                        <Icon name="sun" size={12} strokeWidth={2.6} />
+                      </span>
+                    ) : null}
                   </span>
                   {item.label}
                 </NavLink>
+                {sealed ? (
+                  <span id={founderId} hidden>
+                    {founderLabel(founder)}
+                  </span>
+                ) : null}
               </li>
             );
           })}

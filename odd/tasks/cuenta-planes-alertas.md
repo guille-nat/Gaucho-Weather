@@ -74,10 +74,10 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T10 | S6 S7 | Frontend push + `/alertas` page | delegated (context backstop) | none | done | see L26 |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
-| T14 | S12 | Fetch the forecast when a lote is created or moved + "buscando" state on the lote page | delegated (parallel) | none | backend done, frontend pending | see L32 |
-| T15 | S13 | Founder badge + explanation | delegated (parallel) | none | pending | |
+| T14 | S12 | Fetch the forecast when a lote is created or moved + "buscando" state on the lote page | delegated (parallel) | none | done | see L32, L33 |
+| T15 | S13 | Founder badge + explanation | delegated (parallel) | none | done | see L33 |
 | T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | done | see L32 |
-| T17 | S14 | Subscription frontend page | delegated (parallel) | none | pending | |
+| T17 | S14 | Subscription frontend page | delegated (parallel) | none | done | see L33 |
 | T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
 | T19 | S7 S9 S11 S5 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
@@ -235,3 +235,7 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Migrations 0006 and 0007: history seeded only from known facts (3 founder rows on dev).
   - Gap for T19: a trial user cannot ask to keep Productor ("Ya estás en el plan Productor.").
   - The dev worker and beat were restarted.
+- **L33** (2026-11-16): T14 frontend, T15 and T17 done by a bounded writer using the make-interfaces-feel-better skill (RED: 18 failing). Parent spot check: Vitest 145 passed, tsc and lint clean, 0 warnings.
+  - T14: the lote page shows "Estamos buscando el pronóstico de este lote. Tarda unos segundos." and polls every 5 s, 12 times, then offers "Volver a intentar".
+  - T15: FounderBadge (gold pill with a sun, "Founder n.º N") in the Perfil header with the explanation on tap, plus a gold sun on the Perfil tab. The explanation states only true facts.
+  - T17: `/perfil/suscripcion` with the plan card (status, features, usage), the pending request with "Retirar pedido", other plans with "Pedir este plan", "Darme de baja" with its consequences, and the history. Plan features are shared in `lib/planFeatures.ts`.

@@ -7,6 +7,7 @@ import { ApiError } from '../api/client';
 import type { User } from '../api/types';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { CREDITS } from '../components/ForecastView';
+import { FounderBadge } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
 import {
   forgetPushBeforeLogout,
@@ -61,9 +62,14 @@ function PlanSection({ me }: { me: User }) {
       <p className="account-usage">
         {me.plan.max_lotes === null ? `${lotes} lotes` : `${lotes} de ${me.plan.max_lotes} lotes`}
       </p>
-      <Link className="account-link" to="/planes">
-        Ver planes
-      </Link>
+      <div className="account-links">
+        <Link className="account-link" to="/perfil/suscripcion">
+          Administrar suscripción
+        </Link>
+        <Link className="account-link" to="/planes">
+          Ver planes
+        </Link>
+      </div>
     </Section>
   );
 }
@@ -319,6 +325,14 @@ export function Perfil() {
         <div className="page-head-row">
           <h1 className="page-title">Perfil</h1>
         </div>
+        {me.data ? (
+          <div className="profile-id">
+            <p className="profile-name">{me.data.name}</p>
+            {me.data.founder_number != null ? (
+              <FounderBadge number={me.data.founder_number} explain />
+            ) : null}
+          </div>
+        ) : null}
       </header>
       {me.data ? (
         <>
