@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from . import plans
-from .models import Plan, User
+from .models import Plan, PlanChange, PlanRequest, User
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -44,6 +44,80 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_usage(self, user: User) -> dict[str, int]:
         return vars(plans.usage(user))
+
+
+class PlanNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = ["code", "name"]
+        read_only_fields = fields
+
+
+class PlanChangeSerializer(serializers.ModelSerializer):
+    from_plan = PlanNameSerializer(read_only=True)
+    to_plan = PlanNameSerializer(read_only=True)
+
+    class Meta:
+        model = PlanChange
+        fields = ["at", "from_plan", "to_plan", "reason"]
+        read_only_fields = fields
+
+
+class PlanRequestSerializer(serializers.ModelSerializer):
+    plan = serializers.CharField(source="plan_id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = PlanRequest
+        fields = ["id", "kind", "plan", "created_at"]
+        read_only_fields = fields
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    """GET /api/auth/suscripcion/ (S14)."""
+
+    plan = PlanSerializer(read_only=True)
+    status = serializers.SerializerMethodField()
+    trial_ends_at = serializers.SerializerMethodField()
+    usage = serializers.SerializerMethodField()
+    pending_request = serializers.SerializerMethodField()
+    history = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "plan",
+            "status",
+            "founder_number",
+            "trial_ends_at",
+            "usage",
+            "pending_request",
+            "history",
+        ]
+        read_only_fields = fields
+
+    def get_status(self, user: User) -> str:
+        return plans.membership_status(user)
+
+    def get_trial_ends_at(self, user: User):
+        if plans.membership_status(user) != "trial":
+            return None
+        return serializers.DateTimeField().to_representation(user.plan_expires_at)
+
+    def get_usage(self, user: User) -> dict[str, int]:
+        return vars(plans.usage(user))
+
+    def get_pending_request(self, user: User):
+        request = plans.pending_request(user)
+        return None if request is None else PlanRequestSerializer(request).data
+
+    def get_history(self, user: User):
+        changes = user.plan_changes.select_related("from_plan", "to_plan")
+        return PlanChangeSerializer(changes, many=True).data
+
+
+class PlanRequestCreateSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=PlanRequest.Kind.choices)
+    plan = serializers.CharField(max_length=20, required=False, allow_null=True, allow_blank=True)
 
 
 class RegisterSerializer(serializers.Serializer):

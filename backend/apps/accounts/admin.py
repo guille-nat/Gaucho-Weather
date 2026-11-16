@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.db import transaction
 
-from .models import FounderProgram, Plan, User
+from . import plans
+from .models import FounderProgram, Plan, PlanChange, PlanRequest, User
 
 
 class UserAddForm(UserCreationForm):
@@ -17,9 +19,28 @@ class UserEditForm(UserChangeForm):
         fields = "__all__"
 
 
+class PlanChangeInline(admin.TabularInline):
+    """Read-only plan history (S14): rows come from sign-up, trials, requests and staff edits."""
+
+    model = PlanChange
+    fk_name = "user"
+    verbose_name_plural = "Historial de planes"
+    fields = ["at", "from_plan", "to_plan", "reason", "by", "note"]
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     form = UserEditForm
+    inlines = [PlanChangeInline]
     add_form = UserAddForm
     ordering = ["email"]
     list_display = ["email", "name", "plan", "founder_number", "plan_expires_at", "date_joined"]
@@ -47,6 +68,21 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = [
         (None, {"classes": ["wide"], "fields": ["email", "name", "password1", "password2"]}),
     ]
+
+    def save_model(self, request, obj, form, change):
+        """A plan picked here goes through plans.change_plan, so it is recorded as `staff`."""
+        if not (change and "plan" in form.changed_data):
+            super().save_model(request, obj, form, change)
+            return
+        new_plan, expires_at = obj.plan_id, obj.plan_expires_at
+        obj.plan_id = User.objects.values_list("plan_id", flat=True).get(pk=obj.pk)
+        with transaction.atomic():
+            super().save_model(request, obj, form, change)
+            plans.change_plan(obj, new_plan, PlanChange.Reason.STAFF, by=request.user)
+            if "plan_expires_at" in form.changed_data:
+                # Staff set an expiry on purpose in the same edit: keep it.
+                obj.plan_expires_at = expires_at
+                obj.save(update_fields=["plan_expires_at"])
 
 
 @admin.register(Plan)
@@ -90,3 +126,42 @@ class FounderProgramAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PlanRequest)
+class PlanRequestAdmin(admin.ModelAdmin):
+    """Requests from the subscription page (S14). Staff apply them until payment exists."""
+
+    list_display = ["user", "kind", "plan", "status", "created_at", "resolved_at", "resolved_by"]
+    list_filter = ["status", "kind", "plan"]
+    search_fields = ["user__email", "user__name"]
+    readonly_fields = ["user", "kind", "plan", "status", "created_at", "resolved_at", "resolved_by"]
+    actions = ["apply_requests", "reject_requests"]
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.action(description="Aplicar pedidos seleccionados")
+    def apply_requests(self, request, queryset):
+        done = [
+            pk
+            for pk in queryset.values_list("pk", flat=True)
+            if plans.apply_request(pk, request.user)
+        ]
+        self._report(request, queryset, done, "aplicados")
+
+    @admin.action(description="Rechazar pedidos seleccionados")
+    def reject_requests(self, request, queryset):
+        done = [
+            pk
+            for pk in queryset.values_list("pk", flat=True)
+            if plans.reject_request(pk, request.user)
+        ]
+        self._report(request, queryset, done, "rechazados")
+
+    def _report(self, request, queryset, done, verb):
+        skipped = queryset.count() - len(done)
+        message = f"Pedidos {verb}: {len(done)}."
+        if skipped:
+            message += f" Omitidos {skipped} que ya no estaban pendientes."
+        self.message_user(request, message)

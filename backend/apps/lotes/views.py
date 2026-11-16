@@ -14,7 +14,7 @@ from apps.archiver import history
 from apps.archiver.cells import grid_cell
 from apps.archiver.forecast import forecasts
 from apps.archiver.summary import tonight_summaries
-from apps.archiver.tasks import backfill_history
+from apps.archiver.tasks import backfill_history, fetch_cell_forecast
 
 from .models import Lote
 from .serializers import LoteSerializer
@@ -24,17 +24,26 @@ logger = logging.getLogger(__name__)
 NO_FORECAST = "Todavía no hay pronóstico para este lote."
 
 
-def _load_history_later(lote: Lote) -> None:
-    """Queue the lote cell's past weather (S9–S11) once the lote is committed."""
-    if not settings.HISTORY_BACKFILL_ON_CREATE:
+def _load_weather_later(lote: Lote) -> None:
+    """Queue the lote cell's forecast (S12) and past weather (S9–S11) once it is committed."""
+    forecast_on = settings.LOTE_FORECAST_ON_CREATE
+    history_on = settings.HISTORY_BACKFILL_ON_CREATE
+    if not (forecast_on or history_on):
         return
+    latitude, longitude = str(lote.latitude), str(lote.longitude)
 
     def queue():
-        try:
-            backfill_history.delay(str(lote.latitude), str(lote.longitude))
-        except OperationalError:
-            # The daily run and the next save try again; saving the lote must not fail.
-            logger.exception("Could not queue the history backfill of lote %s", lote.pk)
+        # The scheduled runs and the next save try again; saving the lote must not fail.
+        if forecast_on:
+            try:
+                fetch_cell_forecast.delay(latitude, longitude)
+            except OperationalError:
+                logger.exception("Could not queue the forecast of lote %s", lote.pk)
+        if history_on:
+            try:
+                backfill_history.delay(latitude, longitude)
+            except OperationalError:
+                logger.exception("Could not queue the history backfill of lote %s", lote.pk)
 
     transaction.on_commit(queue)
 
@@ -51,12 +60,12 @@ class LoteViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             check_limit(self.request.user, "lotes")
             lote = serializer.save(user=self.request.user)
-            _load_history_later(lote)
+            _load_weather_later(lote)
 
     def perform_update(self, serializer):
         with transaction.atomic():
             lote = serializer.save()
-            _load_history_later(lote)  # a moved lote may sit in another cell
+            _load_weather_later(lote)  # a moved lote may sit in another cell
 
     def list(self, request, *args, **kwargs):
         lotes = list(self.get_queryset())

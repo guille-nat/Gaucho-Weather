@@ -64,6 +64,35 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   Productor en el medio y destacado, el contador "Quedan N lugares de
   founder", el plan actual marcado y "Próximamente" como botón.
 
+### Suscripción
+- Modelos: `PlanChange` (historial: plan anterior, plan nuevo, motivo, fecha,
+  quién y nota) y `PlanRequest` (pedido de cambio o de baja a Básico, con
+  estado `pending`, `applied`, `rejected` o `withdrawn`). Un usuario tiene como
+  mucho un pedido pendiente (restricción única condicional).
+- Se registra un `PlanChange` en el alta (`founder` o `trial`, en
+  `start_membership`), al vencer la prueba (`trial_ended`, en
+  `expire_trials`), al aplicar un pedido (`request`) y cuando staff cambia el
+  plan en el admin de Usuarios (`staff`). Los dos últimos pasan por
+  `plans.change_plan`, que borra el vencimiento salvo que staff lo haya
+  cambiado en la misma edición.
+- API (sesión + CSRF):
+  - `GET /api/auth/suscripcion/` → `{plan, status, founder_number,
+    trial_ends_at, usage, pending_request, history}`. `status` es `founder` si
+    tiene número, `trial` si tiene vencimiento, si no `active`. `history` va
+    del más nuevo al más viejo.
+  - `POST /api/auth/suscripcion/pedido/` con `{kind: "change", plan}` o
+    `{kind: "cancel"}` → 201 con el pedido. Errores 400: "Ya estás en el plan
+    <Nombre>.", "Ya tenés un pedido pendiente.", "Ese plan no existe.".
+  - `DELETE /api/auth/suscripcion/pedido/` → 204 (retira el pedido); 404 "No
+    tenés un pedido pendiente." si no hay.
+- Admin, "Pedidos de plan": acciones "Aplicar pedidos seleccionados" y
+  "Rechazar pedidos seleccionados". Aplicar cambia el plan, registra el
+  historial y, después del commit, manda el email "Tu plan ahora es <Nombre>"
+  con el enlace a `/perfil/suscripcion`. Si el email falla, el cambio queda.
+  Los pedidos que ya no están pendientes se omiten.
+- La ficha del usuario en el admin muestra el historial de planes (solo
+  lectura).
+
 ## Decisiones y por qué
 - **Decisión:** tres planes con el del medio destacado, uno barato con límites
   y uno caro.
@@ -97,13 +126,31 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   **Por qué:** sin `select_for_update` el test de concurrencia falló 3 de 3
   veces (prueba de mutación).
 
+- **Decisión:** los pedidos de cambio o baja se registran y staff los aplica
+  en el admin.
+  **Por qué:** pedido del usuario ("falta el apartasdo de manejo de
+  subsicripciones", eligió «Mi suscripción (plan)»); sin pago todavía, nadie
+  puede cambiar de plan solo.
+- **Decisión:** la migración `0007_seed_plan_history` solo reconstruye lo
+  seguro: founders (`founder`) y pruebas (`trial`), con fecha `date_joined`.
+  **Por qué:** del resto (Básico después de una prueba, staff, planes puestos
+  por staff) nunca se guardó cuándo ni por qué cambió; un registro inventado
+  sería falso. Esas cuentas arrancan con historial vacío.
+  **Alternativas descartadas:** registrar `staff` con fecha `date_joined`.
+  El reverse borra solo las filas sembradas (nota "Reconstruido al crear el
+  historial de planes.").
+- **Decisión:** dar de baja es pedir pasar a Básico, no borrar la cuenta.
+  **Por qué:** S14: "cancel down to Básico". Borrar la cuenta está en
+  [cuenta.md](cuenta.md).
+
 ## Cómo modificarlo
 - Límites, precio, push, soporte, destacado y orden se editan en el admin
   (`/api/admin/`, Planes). El cupo de founders y los días de prueba, en
   "Programa founders". El plan y el vencimiento de cada usuario, en Usuarios.
 - Un plan nuevo con límite: sumar el campo en `Plan`, el caso en `LIMITS` y la
   llamada a `check_limit` en la vista que crea.
-- Tests: `backend/tests/test_plans.py` (incluye la concurrencia de founders).
+- Tests: `backend/tests/test_plans.py` (incluye la concurrencia de founders) y
+  `backend/tests/test_subscription.py` (historial, pedidos, admin y migración).
 
 ### Pendientes
 - **Cobro:** Mercado Pago en una fase posterior; hoy el botón dice
@@ -116,3 +163,6 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 
 ## Historial
 - 2026-11-16: versión inicial (feature `cuenta-planes-alertas`, T1 y T2).
+- 2026-11-16: suscripción (S14): historial de cambios de plan, pedidos de
+  cambio o baja, API `/api/auth/suscripcion/`, acciones del admin y migración
+  que siembra el historial de las cuentas existentes.

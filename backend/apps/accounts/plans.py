@@ -3,7 +3,8 @@
 The first `FounderProgram.limit` sign-ups are founders: Productor for free, forever. Everyone
 after them gets Productor for `trial_days` and then moves to Básico. A founder slot is never
 handed out twice, even when its account is deleted. There is no payment yet: staff move users
-between plans from the admin.
+between plans from the admin: users ask for a change or a cancellation (PlanRequest) and staff
+apply it. Every move between plans is recorded as a PlanChange (S14).
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
-from .models import FounderProgram, Plan, User
+from .models import FounderProgram, Plan, PlanChange, PlanRequest, User
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,54 @@ def start_membership(user: User, now: datetime | None = None) -> User:
     else:
         user.plan_expires_at = now + timedelta(days=program.trial_days)
     user.save(update_fields=["plan", "plan_expires_at", "founder_number"])
+    reason = PlanChange.Reason.FOUNDER if user.is_founder else PlanChange.Reason.TRIAL
+    PlanChange.objects.create(user=user, to_plan_id=Plan.PRODUCTOR, reason=reason, at=now)
     return user
+
+
+def _switch(
+    user: User, plan_code: str, reason: str, now: datetime, by: User | None = None, note: str = ""
+) -> PlanChange | None:
+    """Move a locked user to `plan_code` and record it. Same plan: nothing to record.
+
+    Only a trial keeps an expiry: any other change is for good until the next one.
+    """
+    from_plan = user.plan_id
+    if from_plan == plan_code:
+        return None
+    user.plan_id = plan_code
+    if reason != PlanChange.Reason.TRIAL:
+        user.plan_expires_at = None
+    user.save(update_fields=["plan", "plan_expires_at"])
+    return PlanChange.objects.create(
+        user=user,
+        from_plan_id=from_plan,
+        to_plan_id=plan_code,
+        reason=reason,
+        at=now,
+        by=by,
+        note=note,
+    )
+
+
+def change_plan(
+    user: User, plan_code: str, reason: str, *, by: User | None = None, note: str = ""
+) -> PlanChange | None:
+    """Move `user` to `plan_code` and record why (a request applied, a staff edit)."""
+    with transaction.atomic():
+        locked = User.objects.select_for_update().get(pk=user.pk)
+        change = _switch(locked, plan_code, reason, timezone.now(), by=by, note=note)
+    user.plan_id, user.plan_expires_at = locked.plan_id, locked.plan_expires_at
+    return change
+
+
+def membership_status(user: User) -> str:
+    """founder / trial / active, as the subscription page shows it."""
+    if user.founder_number is not None:
+        return "founder"
+    if user.plan_expires_at is not None:
+        return "trial"
+    return "active"
 
 
 class PlanLimitExceeded(APIException):
@@ -172,9 +220,7 @@ def expire_trials(now: datetime | None = None) -> int:
                 or user.plan_expires_at > now
             ):
                 continue  # changed by staff meanwhile
-            user.plan_id = Plan.BASICO
-            user.plan_expires_at = None
-            user.save(update_fields=["plan", "plan_expires_at"])
+            _switch(user, Plan.BASICO, PlanChange.Reason.TRIAL_ENDED, now)
             transaction.on_commit(lambda user=user: _send_trial_ended(user))
         moved += 1
     return moved
@@ -197,3 +243,98 @@ def _send_trial_ended(user: User) -> None:
         )
     except Exception:  # the downgrade already happened; a lost email must not undo it
         logger.exception("Could not send the trial-ended email to user %s", user.pk)
+
+
+# --- Plan requests (S14) -------------------------------------------------------------------
+
+ALREADY_ON_PLAN = "Ya estás en el plan {name}."
+REQUEST_PENDING = "Ya tenés un pedido pendiente."
+NO_SUCH_PLAN = "Ese plan no existe."
+
+
+class PlanRequestError(Exception):
+    """A request the user cannot make; the message is shown as is."""
+
+
+def request_plan(user: User, kind: str, plan_code: str | None = None) -> PlanRequest:
+    """Record a pending request to change plan, or to cancel down to Básico."""
+    if kind == PlanRequest.Kind.CANCEL:
+        plan_code = Plan.BASICO
+    plan = Plan.objects.filter(code=plan_code).first() if plan_code else None
+    if plan is None:
+        raise PlanRequestError(NO_SUCH_PLAN)
+    with transaction.atomic():
+        # Locking the account serializes two requests sent at once; the conditional unique
+        # constraint on PlanRequest backs it up.
+        locked = User.objects.select_for_update().get(pk=user.pk)
+        if locked.plan_id == plan.code:
+            raise PlanRequestError(ALREADY_ON_PLAN.format(name=plan.name))
+        if locked.plan_requests.filter(status=PlanRequest.Status.PENDING).exists():
+            raise PlanRequestError(REQUEST_PENDING)
+        return PlanRequest.objects.create(user=locked, kind=kind, plan=plan)
+
+
+def pending_request(user: User) -> PlanRequest | None:
+    return user.plan_requests.filter(status=PlanRequest.Status.PENDING).first()
+
+
+def _resolve(request: PlanRequest, status: str, by: User | None) -> None:
+    request.status = status
+    request.resolved_at = timezone.now()
+    request.resolved_by = by
+    request.save(update_fields=["status", "resolved_at", "resolved_by"])
+
+
+def withdraw_request(user: User) -> bool:
+    """Withdraw the user's pending request. False when there is none."""
+    with transaction.atomic():
+        request = (
+            user.plan_requests.select_for_update().filter(status=PlanRequest.Status.PENDING).first()
+        )
+        if request is None:
+            return False
+        _resolve(request, PlanRequest.Status.WITHDRAWN, user)
+    return True
+
+
+def apply_request(request_id: int, by: User) -> bool:
+    """Staff apply a pending request: move the plan, record it, email the user after commit.
+
+    False when the request is no longer pending (withdrawn or resolved by someone else).
+    """
+    with transaction.atomic():
+        request = PlanRequest.objects.select_for_update().select_related("user").get(pk=request_id)
+        if request.status != PlanRequest.Status.PENDING:
+            return False
+        change_plan(request.user, request.plan_id, PlanChange.Reason.REQUEST, by=by)
+        _resolve(request, PlanRequest.Status.APPLIED, by)
+        user = request.user
+        transaction.on_commit(lambda: _send_plan_changed(user))
+    return True
+
+
+def reject_request(request_id: int, by: User) -> bool:
+    with transaction.atomic():
+        request = PlanRequest.objects.select_for_update().get(pk=request_id)
+        if request.status != PlanRequest.Status.PENDING:
+            return False
+        _resolve(request, PlanRequest.Status.REJECTED, by)
+    return True
+
+
+PLAN_CHANGED_SUBJECT = "Tu plan ahora es {plan}"
+PLAN_CHANGED_BODY = (
+    "Hola {name}:\n\n"
+    "Aplicamos tu pedido: tu plan ahora es {plan}.\n\n"
+    "Podés ver tu suscripción en {url}/perfil/suscripcion\n\n"
+    "Gaucho Weather"
+)
+
+
+def _send_plan_changed(user: User) -> None:
+    try:
+        plan = Plan.objects.get(code=user.plan_id)
+        body = PLAN_CHANGED_BODY.format(name=user.name, plan=plan.name, url=settings.PUBLIC_APP_URL)
+        send_mail(PLAN_CHANGED_SUBJECT.format(plan=plan.name), body, None, [user.email])
+    except Exception:  # the change already happened; a lost email must not undo it
+        logger.exception("Could not send the plan-changed email to user %s", user.pk)

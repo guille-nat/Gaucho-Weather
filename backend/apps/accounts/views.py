@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import password_reset
+from . import password_reset, plans
 from .authentication import enforce_csrf
 from .models import FounderProgram, Plan
 from .serializers import (
@@ -25,8 +25,11 @@ from .serializers import (
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PlanRequestCreateSerializer,
+    PlanRequestSerializer,
     PlanSerializer,
     RegisterSerializer,
+    SubscriptionSerializer,
     UserSerializer,
 )
 from .throttling import IPScopedRateThrottle
@@ -161,6 +164,35 @@ class PlansView(APIView):
                 "trial_days": program.trial_days,
             }
         )
+
+
+class SubscriptionView(APIView):
+    """S14: the account's plan, status, usage, pending request and plan history."""
+
+    def get(self, request):
+        return Response(SubscriptionSerializer(request.user).data)
+
+
+NO_PENDING_REQUEST = "No tenés un pedido pendiente."
+
+
+class PlanRequestView(APIView):
+    """S14: ask for another plan or to cancel down to Básico; staff apply it in the admin."""
+
+    def post(self, request):
+        serializer = PlanRequestCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            plan_request = plans.request_plan(request.user, data["kind"], data.get("plan"))
+        except plans.PlanRequestError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(PlanRequestSerializer(plan_request).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        if not plans.withdraw_request(request.user):
+            return Response({"detail": NO_PENDING_REQUEST}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PasswordResetView(CsrfProtectedView):

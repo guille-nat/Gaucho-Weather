@@ -192,6 +192,8 @@ OPEN_METEO_API_KEY = env("OPEN_METEO_API_KEY")
 OPEN_METEO_HISTORICAL_URL = env("OPEN_METEO_HISTORICAL_URL") or (
     "https://historical-forecast-api.open-meteo.com/v1/forecast"
 )
+# A new or moved lote fetches its cell's forecast at once instead of waiting for the 6-hourly run.
+LOTE_FORECAST_ON_CREATE = (env("LOTE_FORECAST_ON_CREATE") or "true").lower() == "true"
 # A new or moved lote loads the last 90 days of its cell in the background.
 HISTORY_BACKFILL_ON_CREATE = (env("HISTORY_BACKFILL_ON_CREATE") or "true").lower() == "true"
 SMN_DATOHORARIO_URL = env(

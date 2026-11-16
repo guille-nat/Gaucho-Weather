@@ -1,5 +1,5 @@
 # Lotes
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-16
 
 ## Qué hace
 Cada usuario carga sus lotes con su ubicación exacta. Cultivo, fecha de siembra,
@@ -36,6 +36,20 @@ pronóstico está en [pronostico.md](pronostico.md).
     (`level` `ok`, `caution` o `critical`, y una frase). Es null si la celda no
     tiene pronóstico determinístico.
 
+### Pronóstico al crear o mover un lote
+- Al crear un lote o cambiar su ubicación, `_load_weather_later`
+  (`backend/apps/lotes/views.py`) encola, después del commit y en un solo
+  callback, `archiver.fetch_cell_forecast` (pronóstico de la celda) y
+  `archiver.backfill_history` (90 días de historial, ver
+  [historico.md](historico.md)).
+- `fetch_cell_forecast` (`backend/apps/archiver/tasks.py`) guarda todos los
+  modelos de la celda por `archive_cell`, el mismo camino que la corrida de
+  cada 6 h. Si la celda tiene un pronóstico determinístico de menos de
+  `FRESH_FOR` (3 h, `apps/weather/ondemand.py`), no pide nada.
+- Si el lote ya tiene reglas de alerta activas (un lote movido) y se guardó
+  algo nuevo, encola `alerts.evaluate_rules`, como la corrida programada.
+- Se apaga con `LOTE_FORECAST_ON_CREATE=false` (ver [entorno](../entorno.md)).
+
 ## Decisiones y por qué
 - **Decisión:** `boundary` en un `JSONField` común, sin PostGIS.
   **Por qué:** en la Fase 1 el contorno solo se guarda y se dibuja. PostGIS
@@ -47,6 +61,21 @@ pronóstico está en [pronostico.md](pronostico.md).
 - **Decisión:** redondear coordenadas en vez de rechazarlas.
   **Por qué:** el GPS del teléfono entrega más de 6 decimales, y 6 equivalen a ~10 cm.
 
+- **Decisión:** pedir el pronóstico del lote apenas se crea o se mueve.
+  **Por qué:** pedido del usuario ("falta el ver el clima por lote tambien"):
+  un lote nuevo esperaba hasta 6 h la corrida programada y mostraba "Todavía
+  no hay pronóstico".
+  **Alternativas descartadas:** pedirlo dentro del request (como la búsqueda
+  pública): con los ensembles tarda demasiado para el POST del lote.
+- **Decisión:** si encolar falla (broker caído) se registra en el log y el lote
+  se guarda igual.
+  **Por qué:** guardar el lote es lo importante; la corrida programada trae el
+  pronóstico después.
+- **Decisión:** la evaluación de alertas se encola solo si el lote ya tenía
+  reglas activas.
+  **Por qué:** `evaluate_rules` evalúa todas las reglas de todos los usuarios;
+  un lote nuevo no tiene reglas, así que correrla sería trabajo sin efecto.
+
 ## Cómo modificarlo
 - La celda se calcula con `apps.archiver.cells.grid_cell`. Si cambia la
   resolución, los pronósticos viejos dejan de coincidir con los lotes.
@@ -54,8 +83,11 @@ pronóstico está en [pronostico.md](pronostico.md).
   trae del JSON solo `time` y `temperature_2m`. Los `headline` salen de dos
   consultas más para todas las celdas (`apps.archiver.forecast.forecasts`), así
   que la cantidad de consultas no crece con los lotes.
-- Tests: `backend/tests/test_lotes.py` y `test_pronostico.py` (`TestHeadline`).
+- Tests: `backend/tests/test_lotes.py`, `test_pronostico.py` (`TestHeadline`)
+  y `test_lote_forecast_on_create.py`.
 
 ## Historial
 - 2026-11-03: versión inicial (Fase 1).
 - 2026-11-03: `summary.headline` y `GET /api/lotes/{id}/pronostico/`.
+- 2026-11-16: el lote pide su pronóstico al crearse o moverse (S12), en vez de
+  esperar la corrida de cada 6 h.

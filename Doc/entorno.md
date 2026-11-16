@@ -80,6 +80,8 @@ desarrollo y `docker-compose.prod.yml` para producción.
 - `ALERTS_MAX_FORECAST_AGE_HOURS`: un pronóstico más viejo no se evalúa (12).
 - `OPEN_METEO_HISTORICAL_URL`: Historical Forecast API de Open-Meteo. El uso
   comercial requiere el plan Professional (prefijo `customer-` y clave).
+- `LOTE_FORECAST_ON_CREATE`: un lote nuevo o movido pide el pronóstico de su
+  celda en segundo plano en vez de esperar la corrida de cada 6 h (`true`).
 - `HISTORY_BACKFILL_ON_CREATE`: un lote nuevo o movido carga 90 días de su
   celda en segundo plano (`true`).
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (secreta) y `VAPID_SUBJECT`: Web Push.

@@ -74,9 +74,9 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T10 | S6 S7 | Frontend push + `/alertas` page | delegated (context backstop) | none | done | see L26 |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
-| T14 | S12 | Fetch the forecast when a lote is created or moved + "buscando" state on the lote page | delegated (parallel) | none | pending | |
+| T14 | S12 | Fetch the forecast when a lote is created or moved + "buscando" state on the lote page | delegated (parallel) | none | backend done, frontend pending | see L32 |
 | T15 | S13 | Founder badge + explanation | delegated (parallel) | none | pending | |
-| T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | pending | |
+| T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | done | see L32 |
 | T17 | S14 | Subscription frontend page | delegated (parallel) | none | pending | |
 | T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
 | T19 | S7 S9 S11 S5 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | pending | |
@@ -226,3 +226,12 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
       - a WebPushException with status None or 413 can come from our side, so deleting the subscription there is wrong (only 400 should delete);
       - every lote PATCH queues a backfill even without a move.
     - Readability: `push.ts` uses `ready` vs `getRegistration` inconsistently; the mock duplicates the rule ranges without saying so.
+- **L32** (2026-11-16): T14 backend and T16 done by a bounded writer (RED: 8 failing, then an ImportError). Parent spot check: pytest 429 passed.
+  - T14: `archiver.fetch_cell_forecast` reuses `archive_cell`, skips a cell fresher than 3 h, and is queued on commit with the history backfill (`_load_weather_later`, `LOTE_FORECAST_ON_CREATE`).
+  - T16 models: PlanChange (with `by`) and PlanRequest (at most one pending per user).
+  - T16 helpers: `plans.change_plan`, `request_plan`, `apply_request` and `reject_request`, plus the history recorded at sign-up and at trial end.
+  - T16 API: `GET suscripcion/`, `POST` and `DELETE suscripcion/pedido/`. DELETE with nothing pending answers 404 "No tenés un pedido pendiente.".
+  - T16 admin: apply/reject actions, a history inline, and staff edits recorded as `staff`; the user is emailed when a request is applied.
+  - Migrations 0006 and 0007: history seeded only from known facts (3 founder rows on dev).
+  - Gap for T19: a trial user cannot ask to keep Productor ("Ya estás en el plan Productor.").
+  - The dev worker and beat were restarted.

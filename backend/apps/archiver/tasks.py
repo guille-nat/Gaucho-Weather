@@ -1,4 +1,4 @@
-"""Archiver tasks (S9). Both are idempotent and never raise on network errors:
+"""Archiver tasks (S9, S12). All are idempotent and never raise on network errors:
 they log, skip what failed, and the next scheduled run tries again."""
 
 import logging
@@ -80,6 +80,38 @@ def fetch_forecasts() -> dict[str, int]:
             archive_cell(client, cell, openmeteo.JOBS, now, stats)
     logger.info("Forecast archive run: %s", stats)
     _queue_alert_evaluation()
+    return stats
+
+
+@shared_task(name="archiver.fetch_cell_forecast")
+def fetch_cell_forecast(latitude: str, longitude: str) -> dict[str, int]:
+    """S12: the forecast of a new or moved lote's cell now, not at the next 6-hourly run.
+
+    A cell whose deterministic models were fetched less than FRESH_FOR ago (another lote or a
+    public search) is skipped. Network errors are logged by `archive_cell`, never raised.
+    """
+    # Imported here: apps.weather.ondemand imports this module for archive_cell.
+    from apps.alerts.models import AlertRule
+    from apps.weather.ondemand import FRESH_FOR
+
+    from .forecast import latest_archives
+
+    now = timezone.now()
+    cell = grid_cell(Decimal(latitude), Decimal(longitude))
+    stats = {"stored": 0, "skipped": 0, "failed": 0, "fresh": 0}
+    archive = latest_archives({cell}).get(cell)
+    if archive is not None and now - archive.fetched_at < FRESH_FOR:
+        stats["fresh"] = 1
+        return stats
+    with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+        archive_cell(client, cell, openmeteo.JOBS, now, stats)
+    logger.info("Forecast of cell %s: %s", cell, stats)
+    # Only a moved lote can already have rules; a new one has none to evaluate yet.
+    has_rules = AlertRule.objects.filter(
+        enabled=True, lote__latitude=Decimal(latitude), lote__longitude=Decimal(longitude)
+    ).exists()
+    if stats["stored"] and has_rules:
+        _queue_alert_evaluation()
     return stats
 
 
