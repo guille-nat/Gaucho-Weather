@@ -23,6 +23,7 @@ from django.db.models import F
 from pywebpush import WebPushException, webpush
 
 from .models import AlertEvent, DeliveryStatus, PushSubscription
+from .push_hosts import is_allowed_push_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,15 @@ def _send_push(event: AlertEvent) -> str:
     )
     sent, rejected, transient = 0, 0, []
     for subscription in subscriptions:
+        if not is_allowed_push_endpoint(subscription.endpoint):
+            # Stored before the allowlist (or by hand): never call it, and drop it.
+            logger.warning(
+                "Alert %s: dropping subscription %s, not an allowed push service",
+                event.pk,
+                subscription.pk,
+            )
+            subscription.delete()
+            continue
         try:
             webpush(
                 {

@@ -1,12 +1,10 @@
-from urllib.parse import urlsplit
-
-from django.conf import settings
 from rest_framework import serializers
 
 from apps.lotes.models import Lote
 
 from . import rules
 from .models import AlertEvent, AlertRule
+from .push_hosts import is_allowed_push_endpoint
 
 
 class OwnLoteField(serializers.PrimaryKeyRelatedField):
@@ -114,12 +112,7 @@ class PushSubscriptionSerializer(serializers.Serializer):
             raise serializers.ValidationError("La suscripción push no es válida.")
         # The worker POSTs to this URL: only the browsers' push services, never a host the
         # user picks (internal addresses, cloud metadata).
-        host = (urlsplit(value).hostname or "").lower()
-        allowed = any(
-            host == allowed or host.endswith(f".{allowed}")
-            for allowed in settings.PUSH_ALLOWED_HOSTS
-        )
-        if not allowed:
+        if not is_allowed_push_endpoint(value):
             raise serializers.ValidationError("Ese servicio de notificaciones no está permitido.")
         return value
 

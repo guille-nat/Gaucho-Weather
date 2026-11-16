@@ -28,3 +28,7 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 PUBLIC_APP_URL = "https://clima.example.com"
 HISTORY_BACKFILL_ON_CREATE = False  # tests that want it turn it on (no network by default)
 LOTE_FORECAST_ON_CREATE = False  # tests that want it turn it on (no network by default)
+from .base import PUSH_ALLOWED_HOSTS  # noqa: E402
+
+# The delivery tests use a fake push service host next to the real ones.
+PUSH_ALLOWED_HOSTS = [*PUSH_ALLOWED_HOSTS, "push.example.com"]

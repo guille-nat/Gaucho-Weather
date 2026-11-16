@@ -141,7 +141,7 @@ class PlanRequestAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.action(description="Aplicar pedidos seleccionados")
+    @admin.action(description="Aplicar pedidos seleccionados", permissions=["change"])
     def apply_requests(self, request, queryset):
         done = [
             pk
@@ -150,7 +150,7 @@ class PlanRequestAdmin(admin.ModelAdmin):
         ]
         self._report(request, queryset, done, "aplicados")
 
-    @admin.action(description="Rechazar pedidos seleccionados")
+    @admin.action(description="Rechazar pedidos seleccionados", permissions=["change"])
     def reject_requests(self, request, queryset):
         done = [
             pk

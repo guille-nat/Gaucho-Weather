@@ -80,6 +80,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T17 | S14 | Subscription frontend page | delegated (parallel) | none | done | see L33 |
 | T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
 | T19 | S7 S9 S11 S5 S14 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | done | see L34 |
+| T20 | S7 S14 | Fix the warnings of review slices E and F | inline | item 2 (SSRF, admin permission) | done | see L35 |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -251,3 +252,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - S14 gap: a trial can ask to keep Productor (backend: same plan during a trial; frontend: "Quedarme con Productor"). The mock now stores a cancel with plan `basico` like the backend.
   - Readability comments added (`push.ts` ready vs getRegistration; mock ranges mirror `rules.py`).
   - pytest 448, Vitest 147, tsc, lint and ruff clean.
+- **L35** (2026-11-16): Review slices E (3f68bb3..2fa3654) and F (2fa3654..f20f880) were approved and acknowledged; the reviewed boundary is now `f20f880`.
+  - Their warnings were fixed test-first (RED: 2 failing):
+    - the push allowlist moved to `apps/alerts/push_hosts.py` and is checked again before every send, so stored subscriptions outside it are never called and are dropped;
+    - the plan request admin actions require the `change` permission.
+  - pytest 450 passed, ruff clean.

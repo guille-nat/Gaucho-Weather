@@ -231,3 +231,58 @@ class TestKeepProductorAfterTrial:
 
         assert response.status_code == 400
         assert response.json() == {"detail": "Ya estás en el plan Productor."}
+
+
+class TestPlanRequestAdminPermissions:
+    def test_staff_who_can_only_view_requests_cannot_apply_them(self, user, make_user):
+        from django.contrib.auth.models import Permission
+
+        viewer = make_user(email="visor@example.com")
+        viewer.is_staff = True
+        viewer.save()
+        viewer.user_permissions.add(Permission.objects.get(codename="view_planrequest"))
+        request = plans.request_plan(user, "change", "empresa")
+        client = APIClient()
+        client.force_login(viewer)
+
+        client.post(
+            "/api/admin/accounts/planrequest/",
+            {"action": "apply_requests", "_selected_action": [request.pk]},
+        )
+
+        request.refresh_from_db()
+        user.refresh_from_db()
+        assert request.status == "pending"
+        assert user.plan_id == "basico"
+
+
+class TestPushHostsAtDelivery:
+    def test_a_stored_subscription_outside_the_allowlist_is_never_called_and_is_dropped(
+        self, user, settings, monkeypatch, caplog
+    ):
+        from apps.alerts import delivery
+        from apps.alerts.models import PushSubscription
+
+        settings.VAPID_PUBLIC_KEY, settings.VAPID_PRIVATE_KEY = "pub", "priv"
+        User.objects.filter(pk=user.pk).update(plan_id="productor")
+        user.refresh_from_db()
+        good = PushSubscription.objects.create(
+            user=user, endpoint="https://fcm.googleapis.com/fcm/send/ok", p256dh="k", auth="a"
+        )
+        # Saved before the allowlist existed: the worker must never POST to it.
+        PushSubscription.objects.create(
+            user=user, endpoint="https://169.254.169.254/latest", p256dh="k", auth="a"
+        )
+        called = []
+        monkeypatch.setattr(
+            delivery, "webpush", lambda info, **kw: called.append(info["endpoint"]) or "ok"
+        )
+        event = AlertEvent.objects.create(
+            user=user, lote=make_lote(user), target_date=timezone.localdate(), title="T", body="B"
+        )
+
+        delivery.deliver(event.pk)
+
+        assert called == [good.endpoint]
+        assert list(PushSubscription.objects.values_list("endpoint", flat=True)) == [good.endpoint]
+        assert "not an allowed push service" in caplog.text
