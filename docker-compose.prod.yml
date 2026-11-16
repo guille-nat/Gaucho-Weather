@@ -60,6 +60,11 @@ services:
     build:
       context: ./frontend
       target: prod
+      # Optional sharper satellite provider (see Doc/funcionalidades/frontend-pwa.md).
+      args:
+        VITE_SATELLITE_TILES_URL: ${VITE_SATELLITE_TILES_URL:-}
+        VITE_SATELLITE_ATTRIBUTION: ${VITE_SATELLITE_ATTRIBUTION:-}
+        VITE_SATELLITE_MAX_ZOOM: ${VITE_SATELLITE_MAX_ZOOM:-}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-8080}:80"

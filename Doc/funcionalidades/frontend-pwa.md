@@ -187,14 +187,33 @@ señal se siguen viendo los últimos datos.
   Copernicus Sentinel data 2016), CC BY 4.0", en el botón (i) del mapa.
   **Límite:** 10 m por píxel; desde zoom 15 la imagen se estira. Alcanza para ver
   alambrados y caminos de lotes grandes, no para detalles chicos, y es de 2016.
-  **Alternativas descartadas:** Esri World Imagery (más nítida, pero el servicio
-  público pide cuenta ArcGIS y sus términos no permiten uso comercial sin plan;
+  **Alternativas descartadas:** Esri World Imagery por la URL pública anónima (más
+  nítida, pero esa URL no permite uso comercial; el camino comercial es una cuenta de
+  ArcGIS Location Platform con API key: 2M teselas/mes gratis y después USD 0,15 cada
+  1000, https://location.arcgis.com/pricing/, con plugin oficial para MapLibre,
+  https://developers.arcgis.com/maplibre-gl-js/; pendiente de decisión del usuario;
   https://goto.arcgis.com/maps/World_Imagery y
   https://community.esri.com/t5/arcgis-location-platform-developers-ques/inquiry-about-world-imagery/m-p/1569266)
   y MapTiler Satellite (pide key). Se pueden enchufar sin tocar código con
   `VITE_SATELLITE_TILES_URL` (plantilla XYZ `{z}/{x}/{y}`), `VITE_SATELLITE_ATTRIBUTION`
   y `VITE_SATELLITE_MAX_ZOOM` en el build (`frontend/Dockerfile` los recibe como
-  `ARG`), siempre con su licencia y su atribución.
+  `ARG`, y `docker-compose.prod.yml` se los pasa desde el `.env`), siempre con su
+  licencia y su atribución.
+- **Decisión (2026-11-04):** el mapa no deja acercarse más de un nivel por encima del
+  zoom máximo de la imagen satelital (16 con EOX); con el mapa de calles sigue en 18.
+  **Por qué:** pasado el máximo de la fuente, MapLibre solo estira la tesela y el
+  usuario veía la imagen borrosa al hacer zoom ("al hacer zoom no se ve bien").
+- **Decisión (2026-11-04):** nombres de localidades y rutas encima del satélite, con
+  las teselas vectoriales de OpenFreeMap (capas `place` y `transportation_name`), en
+  blanco con halo oscuro.
+  **Por qué:** pedido del usuario ("tampoco dice el nombre de las localidades"). Es la
+  misma fuente del mapa de calles: sin key y con uso comercial permitido (ODbL, con
+  atribución en el botón (i)).
+- **Decisión (2026-11-04):** controles del mapa de 44 px, botón "mi ubicación" (GPS) y
+  pantalla completa para dibujar el lote. En iPhone, donde no existe la API de pantalla
+  completa, MapLibre llena la ventana.
+  **Por qué:** "debe ser útil en dispositivos móviles": el productor está en el lote,
+  con una mano y a pleno sol.
 - **Decisión:** calles con OpenFreeMap "liberty" (datos OpenStreetMap, ODbL).
   **Por qué:** sin key y de uso libre, también comercial, con atribución
   (https://openfreemap.org/).

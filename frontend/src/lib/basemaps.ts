@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, StyleSpecification } from 'maplibre-gl';
 
 export type Basemap = 'satellite' | 'street';
 
@@ -41,9 +41,35 @@ export function satelliteConfig(env: Record<string, string | undefined>): Satell
   };
 }
 
+/** The street map's own limit; the satellite stops one level past its imagery instead. */
+const STREET_MAX_ZOOM = 18;
+
+/**
+ * How far the map may zoom in. Past its source's maxzoom a raster is only stretched, so the
+ * satellite stops one level beyond it: enough to place a corner, not enough to blur into mush.
+ */
+export function mapMaxZoom(basemap: Basemap, config: SatelliteConfig): number {
+  return basemap === 'satellite'
+    ? Math.min(STREET_MAX_ZOOM + 1, config.maxzoom + 1)
+    : STREET_MAX_ZOOM;
+}
+
+/** Place and road names over the imagery: OpenFreeMap vector tiles (OpenStreetMap, ODbL). */
+const LABELS_ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">&copy; OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+
+const NAME: ExpressionSpecification = ['coalesce', ['get', 'name:es'], ['get', 'name']];
+const HALO = {
+  'text-color': '#ffffff',
+  'text-halo-color': 'rgba(4, 16, 42, 0.85)',
+  'text-halo-width': 1.6,
+  'text-halo-blur': 0.4,
+} as const;
+
 export function satelliteStyle(config: SatelliteConfig): StyleSpecification {
   return {
     version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     sources: {
       satellite: {
         type: 'raster',
@@ -52,7 +78,51 @@ export function satelliteStyle(config: SatelliteConfig): StyleSpecification {
         maxzoom: config.maxzoom,
         attribution: config.attribution,
       },
+      labels: {
+        type: 'vector',
+        url: 'https://tiles.openfreemap.org/planet',
+        attribution: LABELS_ATTRIBUTION,
+      },
     },
-    layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }],
+    layers: [
+      { id: 'satellite', type: 'raster', source: 'satellite' },
+      {
+        // Route numbers and road names: how a farmer tells which camino leads to the lote.
+        id: 'labels-road',
+        type: 'symbol',
+        source: 'labels',
+        'source-layer': 'transportation_name',
+        minzoom: 11,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['coalesce', ['get', 'ref'], NAME],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 12,
+          'text-max-angle': 30,
+        },
+        paint: HALO,
+      },
+      {
+        id: 'labels-place',
+        type: 'symbol',
+        source: 'labels',
+        'source-layer': 'place',
+        filter: [
+          'match',
+          ['get', 'class'],
+          ['city', 'town', 'village', 'hamlet', 'locality'],
+          true,
+          false,
+        ],
+        layout: {
+          'text-field': NAME,
+          'text-font': ['Noto Sans Bold'],
+          'text-size': ['match', ['get', 'class'], 'city', 18, 'town', 16, 'village', 14, 13],
+          'text-max-width': 8,
+          'symbol-sort-key': ['match', ['get', 'class'], 'city', 0, 'town', 1, 'village', 2, 3],
+        },
+        paint: HALO,
+      },
+    ],
   };
 }

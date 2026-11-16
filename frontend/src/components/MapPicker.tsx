@@ -1,5 +1,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
+  FullscreenControl,
+  GeolocateControl,
   Map as MapLibreMap,
   Marker,
   NavigationControl,
@@ -14,7 +16,13 @@ import {
 // draws a tile. Vite builds the worker itself here, as a `.js` file nginx serves as JavaScript.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useRef } from 'react';
-import { STREET_STYLE_URL, satelliteConfig, satelliteStyle, type Basemap } from '../lib/basemaps';
+import {
+  STREET_STYLE_URL,
+  mapMaxZoom,
+  satelliteConfig,
+  satelliteStyle,
+  type Basemap,
+} from '../lib/basemaps';
 import type { LngLat, Outline } from '../lib/outline';
 
 setWorkerUrl(workerUrl);
@@ -185,7 +193,7 @@ export default function MapPicker(props: MapPickerProps) {
       style: styleFor(start.basemap),
       center: start.pin ? [start.pin.lon, start.pin.lat] : DEFAULT_CENTER,
       zoom: start.pin ? 14 : 8,
-      maxZoom: 18,
+      maxZoom: mapMaxZoom(start.basemap, satelliteConfig(import.meta.env)),
       attributionControl: { compact: true },
       cooperativeGestures: false,
     });
@@ -197,6 +205,16 @@ export default function MapPicker(props: MapPickerProps) {
       });
     }
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    // In the field: centre on the phone's GPS, and give the drawing the whole screen. On iPhone,
+    // where the Fullscreen API is missing, MapLibre falls back to filling the viewport.
+    instance.addControl(
+      new GeolocateControl({
+        positionOptions: { enableHighAccuracy: true, timeout: 10_000 },
+        fitBoundsOptions: { maxZoom: 15 },
+      }),
+      'top-right',
+    );
+    instance.addControl(new FullscreenControl(), 'top-right');
     instance.on('style.load', () => addOutlineLayers(instance, latest.current.outline));
     instance.on('click', (event: MapMouseEvent) => {
       if (isHandle(event)) return;
@@ -226,6 +244,7 @@ export default function MapPicker(props: MapPickerProps) {
     const instance = map.current;
     if (!instance || shownBasemap.current === basemap) return;
     shownBasemap.current = basemap;
+    instance.setMaxZoom(mapMaxZoom(basemap, satelliteConfig(import.meta.env)));
     instance.setStyle(styleFor(basemap), { diff: false });
   }, [basemap]);
 
@@ -352,10 +371,10 @@ export default function MapPicker(props: MapPickerProps) {
   useEffect(() => {
     const instance = map.current;
     if (!instance || !focus) return;
-    // Sentinel-2 at 10 m reads best two levels under its limit; the street map at 14.
+    // Close enough to see the fields: one level under the imagery's limit, the street map at 14.
     const zoom =
       latest.current.basemap === 'satellite'
-        ? Math.min(15, satelliteConfig(import.meta.env).maxzoom - 2)
+        ? Math.min(15, satelliteConfig(import.meta.env).maxzoom - 1)
         : 14;
     const target = { center: [focus.lon, focus.lat] as [number, number], zoom };
     if (reducedMotion()) instance.jumpTo(target);

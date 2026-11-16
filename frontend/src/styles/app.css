@@ -1539,6 +1539,23 @@ input[type='date'].input {
   margin-bottom: 6px;
 }
 
+/* Map controls sized for a thumb in the field: 44 px targets, the brand's focus ring. */
+.map-frame .maplibregl-ctrl-group {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgb(2 8 24 / 0.3);
+}
+
+.map-frame .maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
+.map-frame .maplibregl-ctrl-group button:focus-visible {
+  outline: var(--focus);
+  outline-offset: -3px;
+}
+
 /* The map's frame. Drawing corners needs room: tall, but the toolbar stays in one thumb's reach. */
 .map-frame {
   position: relative;

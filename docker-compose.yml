@@ -65,6 +65,9 @@ services:
       target: dev
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_SATELLITE_TILES_URL: ${VITE_SATELLITE_TILES_URL:-}
+      VITE_SATELLITE_ATTRIBUTION: ${VITE_SATELLITE_ATTRIBUTION:-}
+      VITE_SATELLITE_MAX_ZOOM: ${VITE_SATELLITE_MAX_ZOOM:-}
     volumes:
       - ./frontend:/app
       - /app/node_modules

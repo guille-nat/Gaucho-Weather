@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { EMPTY_OUTLINE } from '../lib/outline';
 import MapPicker, { type MapPickerProps } from './MapPicker';
 
@@ -39,6 +39,8 @@ vi.mock('maplibre-gl', () => {
     Map: FakeMap,
     Marker: class extends Evented {},
     NavigationControl: class {},
+    GeolocateControl: class {},
+    FullscreenControl: class {},
     setWorkerUrl: (url: string) => {
       maplibre.workerUrl = url;
     },
@@ -72,6 +74,13 @@ describe('MapPicker setup (the blank map bug)', () => {
   });
 
   it('opens on the satellite imagery with its attribution', () => {
+    // The default source, whatever provider the developer's .env configures.
+    vi.stubEnv('VITE_SATELLITE_TILES_URL', '');
+    vi.stubEnv('VITE_SATELLITE_ATTRIBUTION', '');
+    vi.stubEnv('VITE_SATELLITE_MAX_ZOOM', '');
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
     render(<MapPicker {...props} />);
     const style = maplibre.options.at(-1)?.style as {
       sources: { satellite: { tiles: string[]; attribution: string } };
