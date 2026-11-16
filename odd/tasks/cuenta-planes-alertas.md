@@ -50,7 +50,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T4 | S5 | Email settings + password reset | inline | item 2 | done (verified) | see L12 |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | done | see L14 |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | done | see L16 |
-| T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
+| T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | delegated (context backstop) | none | done | see L19 |
 | T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
 | T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
@@ -118,3 +118,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - pytest 290 passed.
 - **L17** (2026-11-16, user, verbatim, mid-task): "hay que agregar un historico de vientos por lote para los aplicadores, un historico de clima por lote tambien"
 - **L18** (2026-11-16, user, verbatim, answering the data source question): "el de openmetro y guardarlos nosotros en una db por las dudas que cambiemos de proveedor, la idea es hacer nuestra base de datos tambien aparte de nutrirnos de las existentes"
+- **L19** (2026-11-16): T7 done by a bounded writer, delegated as the context backstop; parent spot check: pytest 323 passed.
+  - RED: an ImportError before the code existed, and the hook tests failed with the hook blanked.
+  - `apps/alerts/evaluate.py` reads the `forecasts()` payload for the future hours of today and tomorrow. Rain for tomorrow uses the daily value. The frost event is dated to the start of the night, so one night gives one event.
+  - `alerts.evaluate_rules` (`run_evaluation`) groups rules by cell, skips forecasts older than `ALERTS_MAX_FORECAST_AGE_HOURS` (12), and uses `get_or_create(rule, target_date)`, so it is idempotent.
+  - `fetch_forecasts` calls it through `.delay()`; a broker outage is logged and the archive run continues. The `evaluate_alerts` command runs it by hand.
+  - Decision: disabled rules count toward the plan cap, consistent with the create limit ("Hasta 3 reglas").

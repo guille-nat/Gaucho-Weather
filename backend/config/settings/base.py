@@ -190,6 +190,10 @@ SMN_DATOHORARIO_URL = env(
 )
 SMN_LOOKBACK_DAYS = env_int("SMN_LOOKBACK_DAYS", 3)
 
+# --- Custom alerts (S6) ---
+# A cell whose latest forecast is older than this is not evaluated (stale data, no alerts).
+ALERTS_MAX_FORECAST_AGE_HOURS = env_int("ALERTS_MAX_FORECAST_AGE_HOURS", 12)
+
 # --- Places (S10): Georef AR, CC BY 4.0, commercial use allowed ---
 GEOREF_API_URL = env("GEOREF_API_URL", "https://apis.datos.gob.ar/georef/api")
 PLACES_CACHE_SECONDS = env_int("PLACES_CACHE_SECONDS", 60 * 60 * 24)

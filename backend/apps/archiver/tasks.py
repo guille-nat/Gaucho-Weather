@@ -8,7 +8,9 @@ import httpx
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
+from kombu.exceptions import OperationalError
 
+from apps.alerts.tasks import evaluate_rules
 from apps.lotes.models import Lote
 
 from . import openmeteo
@@ -76,7 +78,20 @@ def fetch_forecasts() -> dict[str, int]:
         for cell in forecast_cells():
             archive_cell(client, cell, openmeteo.JOBS, now, stats)
     logger.info("Forecast archive run: %s", stats)
+    _queue_alert_evaluation()
     return stats
+
+
+def _queue_alert_evaluation() -> None:
+    """Evaluate the custom alerts on the fresh forecasts, in the worker.
+
+    `delay` (not `send_task`) so eager mode runs it inline in tests without a broker. A broker
+    outage must not fail the archive run: the next run queues it again.
+    """
+    try:
+        evaluate_rules.delay()
+    except OperationalError as exc:
+        logger.warning("Could not queue the alert evaluation: %s", exc)
 
 
 @shared_task(name="archiver.fetch_smn_observations")
