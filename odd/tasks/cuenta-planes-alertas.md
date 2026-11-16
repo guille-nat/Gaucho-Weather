@@ -31,8 +31,15 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
   - Dedup: one event per `(rule, target_date)`.
 - **S7 — Channels** (decision L7): Web Push (VAPID) + in-app inbox at `/alertas` + email. Push only for plans with `allows_push`. WhatsApp is out of scope.
 - **S8 — Plans page:** public `/planes` with three cards, Productor in the middle and highlighted, the founder counter ("Quedan N lugares de founder"), the current plan marked, and "Próximamente" as the call to action.
-- **S9 — Wind history per lote** (L17 verbatim): "hay que agregar un historico de vientos por lote para los aplicadores". Data source and range are pending the user's decision.
-- **S10 — Weather history per lote** (L17 verbatim): "un historico de clima por lote tambien". Data source and range are pending the user's decision.
+- **S9 — Wind history per lote** (L17 verbatim): "hay que agregar un historico de vientos por lote para los aplicadores".
+  - For each past hour of a lote: wind speed at 10 m, gusts, direction, plus temperature, humidity and rain (what an applicator needs to justify an application).
+  - Each hour shows whether it was inside the spray wind range of the engine (`engine/config.py`), and the screen says the data is modelled, not measured on the lote.
+- **S10 — Weather history per lote** (L17 verbatim): "un historico de clima por lote tambien".
+  - Daily summary per lote: max, min, rain, max wind and max gust, over a chosen range.
+- **S11 — Own dataset** (L18 verbatim): "el de openmetro y guardarlos nosotros en una db por las dudas que cambiemos de proveedor, la idea es hacer nuestra base de datos tambien aparte de nutrirnos de las existentes".
+  - Source: Open-Meteo Historical Forecast API (verified in its docs: hourly from 2021, stitched from each run's first hours, tracks actual conditions). The commercial `customer-` prefix and API key work as for the forecast.
+  - Stored in our own provider-independent table, per grid cell (0.1°, like the archiver), with a `source` column, so another provider can be added later without changing the API or the screen.
+  - Assumptions: a new lote backfills 90 days; a daily task adds the last days, with overlap; one request covers up to 31 days; available on every plan.
 
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
@@ -47,7 +54,8 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
 | T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
-| T12 | S9 S10 | Wind and weather history per lote (scope pending decision) | tbd | tbd | pending | |
+| T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | item 1 (new stored dataset), item 5 (external provider) | pending | |
+| T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | inline | none | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -109,3 +117,4 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - The 4th rule on Básico answers 402; rules beyond the cap after a downgrade report `paused_by_plan`; `usage` adds `alert_rules`. Deleting a lote cascades its rules.
   - pytest 290 passed.
 - **L17** (2026-11-16, user, verbatim, mid-task): "hay que agregar un historico de vientos por lote para los aplicadores, un historico de clima por lote tambien"
+- **L18** (2026-11-16, user, verbatim, answering the data source question): "el de openmetro y guardarlos nosotros en una db por las dudas que cambiemos de proveedor, la idea es hacer nuestra base de datos tambien aparte de nutrirnos de las existentes"
