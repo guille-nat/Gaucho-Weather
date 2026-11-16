@@ -41,6 +41,24 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
   - Stored in our own provider-independent table, per grid cell (0.1°, like the archiver), with a `source` column, so another provider can be added later without changing the API or the screen.
   - Assumptions: a new lote backfills 90 days; a daily task adds the last days, with overlap; one request covers up to 31 days; available on every plan.
 
+- **S12 — Weather of every lote** (L29 verbatim: "falta el ver el clima por lote tambien").
+  - Evidence: lote 9 never had a forecast and the rest were 12 days old. A new lote waits for the 6-hourly archive run and shows "Todavía no hay pronóstico".
+  - Fix: creating or moving a lote fetches its cell's forecast at once, through a Celery task queued on commit; a fresh cell (under 3 h) is skipped.
+  - The lote page shows "Estamos buscando el pronóstico de este lote…" and retries on its own instead of a dead end.
+- **S13 — Founder badge** (L29 verbatim: "una insignea de cuando sos founder y explicarlo para que se sientan Importantes").
+  - A visible badge "Founder n.º N" (Perfil header, subscription page, the account tab) with an explanation that only states what is true: one of the first 100, Productor free forever, the number is theirs for good, and thanks for helping build the app. No benefit is invented.
+- **S14 — My subscription** (L29 verbatim: "falta el apartado de manejo de subsicripciones"; L30: the user chose «Mi suscripción (plan)»). An account section showing:
+  - the current plan;
+  - its status (founder / trial with days left / active);
+  - what the plan includes and its usage;
+  - the history of plan changes;
+  - a way to ask for another plan, or to cancel down to Básico. Requests are recorded and staff apply them in the admin until payment exists.
+  - API contract (backend and frontend build against it):
+    - `GET /api/auth/suscripcion/` → `{plan: Plan, status: "founder"|"trial"|"active", founder_number, trial_ends_at, usage: {lotes, alert_rules}, pending_request: {id, kind: "change"|"cancel", plan: code|null, created_at}|null, history: [{at, from_plan: {code,name}|null, to_plan: {code,name}, reason: "founder"|"trial"|"trial_ended"|"request"|"staff"}]}` (history newest first).
+    - `POST /api/auth/suscripcion/pedido/` with `{kind:"change", plan:"empresa"}` or `{kind:"cancel"}` → 201 with the pending_request. 400 `{"detail"}` errors: "Ya estás en el plan <Nombre>.", "Ya tenés un pedido pendiente.", "Ese plan no existe.".
+    - `DELETE /api/auth/suscripcion/pedido/` → 204 (withdraws the pending request).
+  - Recorded plan changes: sign-up (founder or trial), trial end, a request applied by staff, a staff edit in the admin. A data migration seeds the history of existing users.
+
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
 |---|---|---|---|---|---|---|
@@ -56,6 +74,11 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T10 | S6 S7 | Frontend push + `/alertas` page | delegated (context backstop) | none | done | see L26 |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
+| T14 | S12 | Fetch the forecast when a lote is created or moved + "buscando" state on the lote page | delegated (parallel) | none | pending | |
+| T15 | S13 | Founder badge + explanation | delegated (parallel) | none | pending | |
+| T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | pending | |
+| T17 | S14 | Subscription frontend page | delegated (parallel) | none | pending | |
+| T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -187,3 +210,5 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
 - **L28** (2026-11-16): RDD review of the slice ba985f9..acccc29 (79 files, 7534 lines; high risk, escalated item 5) was granted by the user, but START stopped with `lens_context_budget_exceeded`. No authority was created.
   - Remaining options: split the slice into smaller reviewed ranges (ODD and RDD), or accept the independent verifiers that already passed T8 and T9 (the high-risk units).
   - Needs the user's decision.
+- **L29** (2026-11-16, user, verbatim): "falta el ver el clima por lote tambien, falta el apartasdo de manejo de subsicripciones. si partelo en lo que necesites,  tambien el una insignea de cuando sos founder y explicarlo para que se sientan Importantes"
+- **L30** (decision): «Manejo de suscripciones» = «Mi suscripción (plan)», not push devices.
