@@ -21,7 +21,7 @@ from .series import (
     wet_bulb_stull,
     wind_2m,
 )
-from .spray import rate_spray_hour, spray_today
+from .spray import rate_spray_hour, rate_wind, spray_today
 
 __all__ = [
     "DEFAULT",
@@ -42,6 +42,7 @@ __all__ = [
     "frost_tonight",
     "headline",
     "rate_spray_hour",
+    "rate_wind",
     "sky",
     "spray_today",
     "wet_bulb_stull",

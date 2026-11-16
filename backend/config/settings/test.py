@@ -26,3 +26,4 @@ STORAGES = {
 }
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 PUBLIC_APP_URL = "https://clima.example.com"
+HISTORY_BACKFILL_ON_CREATE = False  # tests that want it turn it on (no network by default)

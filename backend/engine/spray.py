@@ -63,18 +63,7 @@ def rate_spray_hour(
                 (state, "Delta T bajo" if delta_t < cfg.delta_t_min else "Delta T alto")
             )
 
-    u2 = wind_2m(hour.wind_kmh, cfg.wind_2m_factor)
-    state = _band(
-        u2, (cfg.wind_2m_min, cfg.wind_2m_max), (cfg.wind_2m_red_below, cfg.wind_2m_red_above)
-    )
-    if state:
-        findings.append((state, "poco viento" if u2 < cfg.wind_2m_min else "mucho viento"))
-
-    if hour.gust_kmh is not None:
-        gust = wind_2m(hour.gust_kmh, cfg.wind_2m_factor)
-        state = _band(gust, (0, cfg.gust_2m_max), (-1e9, cfg.gust_2m_red_above))
-        if state:
-            findings.append((state, "ráfagas fuertes"))
+    findings.extend(wind_findings(hour.wind_kmh, hour.gust_kmh, cfg))
 
     state = _band(t, (-1e9, cfg.spray_temp_max_c), (-1e9, cfg.spray_temp_red_above_c))
     if state:
@@ -99,6 +88,34 @@ def rate_spray_hour(
     findings.sort(key=lambda f: -f[0])  # stable: rule order within a level
     level: Level = ("ok", "caution", "critical")[findings[0][0]] if findings else "ok"
     return SprayHour(time=hour.time, level=level, causes=tuple(c for _, c in findings))
+
+
+def wind_findings(
+    wind_kmh: float, gust_kmh: float | None, cfg: Thresholds = DEFAULT
+) -> list[tuple[int, str]]:
+    """Wind and gust findings at 2 m for one hour (0 green, 1 yellow, 2 red)."""
+    findings: list[tuple[int, str]] = []
+    u2 = wind_2m(wind_kmh, cfg.wind_2m_factor)
+    state = _band(
+        u2, (cfg.wind_2m_min, cfg.wind_2m_max), (cfg.wind_2m_red_below, cfg.wind_2m_red_above)
+    )
+    if state:
+        findings.append((state, "poco viento" if u2 < cfg.wind_2m_min else "mucho viento"))
+    if gust_kmh is not None:
+        gust = wind_2m(gust_kmh, cfg.wind_2m_factor)
+        state = _band(gust, (0, cfg.gust_2m_max), (-1e9, cfg.gust_2m_red_above))
+        if state:
+            findings.append((state, "ráfagas fuertes"))
+    return findings
+
+
+def rate_wind(
+    wind_kmh: float, gust_kmh: float | None, cfg: Thresholds = DEFAULT
+) -> tuple[Level, tuple[str, ...]]:
+    """The spray verdict's wind part alone: what an applicator's record needs for a past hour."""
+    findings = sorted(wind_findings(wind_kmh, gust_kmh, cfg), key=lambda f: -f[0])
+    level: Level = ("ok", "caution", "critical")[findings[0][0]] if findings else "ok"
+    return level, tuple(cause for _, cause in findings)
 
 
 def _main_cause(rated: Sequence[SprayHour]) -> str:

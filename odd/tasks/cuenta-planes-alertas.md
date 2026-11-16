@@ -54,7 +54,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
 | T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
-| T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | item 1 (new stored dataset), item 5 (external provider) | pending | |
+| T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | inline | none | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
 
@@ -124,3 +124,18 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - `alerts.evaluate_rules` (`run_evaluation`) groups rules by cell, skips forecasts older than `ALERTS_MAX_FORECAST_AGE_HOURS` (12), and uses `get_or_create(rule, target_date)`, so it is idempotent.
   - `fetch_forecasts` calls it through `.delay()`; a broker outage is logged and the archive run continues. The `evaluate_alerts` command runs it by hand.
   - Decision: disabled rules count toward the plan cap, consistent with the create limit ("Hasta 3 reglas").
+- **L20** (2026-11-16): T12 done.
+  - Storage: `WeatherHour` (provider-independent, per cell, with `source`, unique per hour) in archiver migration 0002.
+  - `apps/archiver/history.py`:
+    - fetch uses the Historical Forecast API with unixtime UTC and an upsert that revises recent hours;
+    - `parse_range` validates `?desde=&hasta=` in Spanish, at most 31 days, starting no earlier than 2021-01-01;
+    - `lote_history` returns days, hours, the per-hour `spray_wind` rating and a `complete` flag.
+  - Engine refactor: the wind and gust bands moved to `engine.spray.wind_findings` and `rate_wind`, now shared by the spray verdict and the history; the engine tests still pass.
+  - Tasks:
+    - `archiver.fetch_history` runs daily at 04:30 over the last 3 days;
+    - `archiver.backfill_history` loads 90 days, once per cell, queued on commit when a lote is created or moved (`HISTORY_BACKFILL_ON_CREATE`, off in tests);
+    - a broker outage never fails a lote save.
+  - The API reads only our table (architecture rule). pytest 340 passed.
+  - Test-first was partial: the module and API tests failed before the settings existed (RED observed for fetch); the task tests were written alongside the code.
+  - Real call on dev: lote 1's cell stored 2179 hours in one request.
+  - Note: commercial use of the historical API needs the Open-Meteo Professional plan (memory #2061).

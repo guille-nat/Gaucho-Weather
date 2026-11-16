@@ -67,3 +67,40 @@ class Observation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.station_name} {self.observed_at:%Y-%m-%d %H:%M}"
+
+
+class WeatherHour(models.Model):
+    """One past hour of weather for a grid cell, in our own shape (not the provider's).
+
+    Our dataset (odd/tasks/cuenta-planes-alertas.md S11): the provider only fills it, so another
+    one can be added later under its own `source` without touching the API or the screens.
+    """
+
+    cell_lat = models.DecimalField("latitud de la celda", max_digits=4, decimal_places=1)
+    cell_lon = models.DecimalField("longitud de la celda", max_digits=4, decimal_places=1)
+    time = models.DateTimeField("hora")  # UTC, the hour the values belong to
+    source = models.CharField("fuente", max_length=60)
+    temperature_c = models.FloatField("temperatura (°C)", null=True, blank=True)
+    humidity_pct = models.FloatField("humedad (%)", null=True, blank=True)
+    dew_point_c = models.FloatField("punto de rocío (°C)", null=True, blank=True)
+    rain_mm = models.FloatField("lluvia (mm)", null=True, blank=True)
+    wind_kmh = models.FloatField("viento a 10 m (km/h)", null=True, blank=True)
+    wind_dir_deg = models.FloatField("dirección del viento (°)", null=True, blank=True)
+    gust_kmh = models.FloatField("ráfaga a 10 m (km/h)", null=True, blank=True)
+    fetched_at = models.DateTimeField("descargado")
+
+    class Meta:
+        verbose_name = "hora de clima"
+        verbose_name_plural = "historial de clima"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cell_lat", "cell_lon", "source", "time"],
+                name="weather_hour_unique_per_source",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["cell_lat", "cell_lon", "time"], name="weather_hour_cell_time")
+        ]
+
+    def __str__(self) -> str:
+        return f"({self.cell_lat}, {self.cell_lon}) {self.time:%Y-%m-%d %H:%M} {self.source}"

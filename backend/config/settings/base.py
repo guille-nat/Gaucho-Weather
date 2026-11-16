@@ -155,6 +155,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "archiver.fetch_smn_observations",
         "schedule": crontab(minute=0, hour=3),
     },
+    "archive-history": {
+        "task": "archiver.fetch_history",
+        "schedule": crontab(minute=30, hour=4),
+    },
     "expire-trials": {
         "task": "accounts.expire_trials",
         "schedule": crontab(minute=0, hour=9),
@@ -184,6 +188,12 @@ OPEN_METEO_ENSEMBLE_URL = env(
     "OPEN_METEO_ENSEMBLE_URL", "https://ensemble-api.open-meteo.com/v1/ensemble"
 )
 OPEN_METEO_API_KEY = env("OPEN_METEO_API_KEY")
+# Past weather per lote (S9–S11): the Historical Forecast API fills our own WeatherHour table.
+OPEN_METEO_HISTORICAL_URL = env("OPEN_METEO_HISTORICAL_URL") or (
+    "https://historical-forecast-api.open-meteo.com/v1/forecast"
+)
+# A new or moved lote loads the last 90 days of its cell in the background.
+HISTORY_BACKFILL_ON_CREATE = (env("HISTORY_BACKFILL_ON_CREATE") or "true").lower() == "true"
 SMN_DATOHORARIO_URL = env(
     "SMN_DATOHORARIO_URL",
     "https://ssl.smn.gob.ar/dpd/descarga_opendata.php?file=observaciones/datohorario{date}.txt",

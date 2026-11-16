@@ -3,6 +3,7 @@ they log, skip what failed, and the next scheduled run tries again."""
 
 import logging
 from datetime import timedelta
+from decimal import Decimal
 
 import httpx
 from celery import shared_task
@@ -13,9 +14,9 @@ from kombu.exceptions import OperationalError
 from apps.alerts.tasks import evaluate_rules
 from apps.lotes.models import Lote
 
-from . import openmeteo
+from . import history, openmeteo
 from .cells import Cell, grid_cell
-from .models import ForecastSnapshot, Observation
+from .models import ForecastSnapshot, Observation, WeatherHour
 from .smn import parse_datohorario
 from .stations import STATIONS, STATIONS_BY_NAME
 
@@ -146,3 +147,47 @@ def _store_observations(text: str) -> int | None:
     before = Observation.objects.count()
     Observation.objects.bulk_create(observations, ignore_conflicts=True)
     return Observation.objects.count() - before
+
+
+def lote_cells() -> list[Cell]:
+    return sorted(
+        {grid_cell(lat, lon) for lat, lon in Lote.objects.values_list("latitude", "longitude")}
+    )
+
+
+@shared_task(name="archiver.fetch_history")
+def fetch_history() -> dict[str, int]:
+    """Daily: the last few days of every lote cell, revising hours the provider filled in."""
+    start, end = history.refresh_range(timezone.localdate())
+    stats = {"stored": 0, "failed": 0}
+    with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+        for cell in lote_cells():
+            try:
+                stats["stored"] += history.store_history(client, cell, start, end)
+            except (httpx.HTTPError, ValueError) as exc:
+                stats["failed"] += 1
+                logger.warning("History %s failed: %s", cell, exc)
+    logger.info("History run: %s", stats)
+    return stats
+
+
+@shared_task(name="archiver.backfill_history")
+def backfill_history(latitude: str, longitude: str) -> int:
+    """The last BACKFILL_DAYS of one lote's cell, unless another lote already loaded them."""
+    cell = grid_cell(Decimal(latitude), Decimal(longitude))
+    start, end = history.backfill_range(timezone.localdate())
+    oldest_needed = timezone.make_aware(
+        timezone.datetime.combine(start + timedelta(days=1), timezone.datetime.min.time()),
+        history.LOCAL,
+    )
+    loaded = WeatherHour.objects.filter(
+        cell_lat=cell[0], cell_lon=cell[1], source=history.SOURCE, time__lte=oldest_needed
+    ).exists()
+    if loaded:
+        return 0
+    try:
+        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
+            return history.store_history(client, cell, start, end)
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("History backfill %s failed: %s", cell, exc)
+        return 0
