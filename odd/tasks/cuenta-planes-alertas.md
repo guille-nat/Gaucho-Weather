@@ -55,7 +55,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T9 | S7 | Service worker → injectManifest + push handlers | delegated (parallel with T8, T13) | item 5, 6 | done (verifier pending) | see L22 |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
-| T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | inline | none | pending | |
+| T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -156,3 +156,10 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - The push and notificationclick handlers were tested through CDP. A click opens same-origin URLs only.
   - tsconfig is split into app and sw projects, plus workbox 7.4.1 devDependencies.
   - Decision: no `skipWaiting`/`clientsClaim`. The old worker did not have them (injectRegister false), so update behaviour stays the same.
+- **L23** (2026-11-16): T13 done by a bounded writer (RED: 9 failing). Parent spot check: Vitest 106 passed, tsc and lint clean.
+  - New route `/lotes/:id/historico`, linked from the lote page as "Histórico de clima y viento".
+  - Range picker: 7 or 30 days, or Desde/Hasta (the server's 400 message is shown).
+  - Daily table (scrolls inside its own panel).
+  - Hours of a chosen day: wind, gust, direction word and arrow, and the spray chip "Apto" / "Con cuidado" / "No apto" / "Sin dato" with its causes.
+  - Shows the attribution ("no medidos en el lote") and an incomplete-data notice.
+  - The query key sits under the persisted `lotes` root (readable offline, cleared on logout) with a 24 h `gcTime`.

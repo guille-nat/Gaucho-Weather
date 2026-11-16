@@ -2385,3 +2385,238 @@ input[type='date'].input {
   margin-bottom: 12px;
   text-wrap: pretty;
 }
+
+/* ───────── Lote history ───────── */
+
+/* Entry from the lote: a whole-row link, a thumb's reach under the forecast. */
+.lote-history {
+  margin-top: 28px;
+}
+
+.history-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.history-link:hover {
+  background: var(--panel-hover);
+}
+
+.history-link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.history-link-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-link-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+  text-wrap: balance;
+}
+
+.page-history .page-title {
+  text-wrap: balance;
+}
+
+.hist-range {
+  display: grid;
+  gap: 16px;
+}
+
+.hist-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.hist-dates .input {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-dates-submit {
+  grid-column: 1 / -1;
+  min-height: 48px;
+}
+
+.hist-body {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* The daily table may be wider than a phone: it scrolls inside its panel, never the page. */
+.hist-days {
+  min-width: 0;
+  padding-inline: 0;
+}
+
+.hist-days .panel-title {
+  padding-inline: 16px;
+}
+
+.hist-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.hist-scroll:focus-visible {
+  outline: var(--focus);
+  outline-offset: -3px;
+  border-radius: var(--radius-panel);
+}
+
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hist-table th,
+.hist-table td {
+  padding: 10px 12px;
+  text-align: right;
+}
+
+.hist-table thead th {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.hist-table th:first-child {
+  padding-left: 16px;
+  text-align: left;
+}
+
+.hist-table th[scope='row'] {
+  font-weight: 700;
+}
+
+.hist-table td:last-child,
+.hist-table th:last-child {
+  padding-right: 16px;
+}
+
+.hist-table tbody tr {
+  border-top: 1px solid var(--line);
+}
+
+.hist-wind {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hist-wind .panel-title {
+  margin-bottom: 0;
+}
+
+.hist-lead,
+.hist-hour-causes {
+  text-wrap: pretty;
+}
+
+.hist-hour-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hist-hour {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.hist-hour + .hist-hour {
+  border-top: 1px solid var(--line);
+}
+
+.hist-hour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hist-hour-time {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-hour-causes {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+.hist-hour-facts {
+  display: grid;
+  /* Two or three per row on a phone ("Temperatura" must fit), all six on a wide screen. */
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 8px 12px;
+}
+
+.hist-hour-facts dt {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+.hist-hour-facts dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.level--none {
+  background: var(--track);
+  color: #fff;
+}
+
+.hist-attribution {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-wrap: pretty;
+}
+
+.hist-attribution svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+@media (min-width: 760px) {
+  .hist-dates {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  .hist-dates-submit {
+    grid-column: auto;
+  }
+}

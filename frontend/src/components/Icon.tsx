@@ -106,6 +106,7 @@ const PATHS = {
   ),
   close: <path d="M6 6l12 12M18 6 6 18" />,
   navigation: <path d="M4 11 20 4l-7 16-2-7-7-2Z" />,
+  arrowUp: <path d="M12 20V4M6 10l6-6 6 6" />,
   history: (
     <>
       <path d="M4 12a8 8 0 1 0 2.34-5.66L4 8.5" />

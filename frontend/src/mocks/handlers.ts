@@ -1,8 +1,17 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
 import type { AccountChanges } from '../api/account';
-import type { Forecast, Lote, LoteInput, Plan, PublicForecast, User } from '../api/types';
+import type {
+  Forecast,
+  Lote,
+  LoteHistory,
+  LoteInput,
+  Plan,
+  PublicForecast,
+  User,
+} from '../api/types';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
+import { checkHistoryRange, demoLoteHistory, localToday } from './history';
 
 /**
  * In-memory implementation of the S8 API contract (odd/tasks/phase-1-foundation.md).
@@ -30,6 +39,10 @@ export interface MockDb {
   resetRequests: string[];
   /** Valid reset links as `uid/token` → the account's email; a link works once. */
   resetLinks: Record<string, string>;
+  /** History of a lote for a range the API accepts (cuenta-planes-alertas S9, S10). */
+  loteHistory: (loteId: number, from: string, to: string) => LoteHistory;
+  /** Every history asked for, with its raw `desde`/`hasta`, in order. */
+  historyRequests: { id: number; desde: string | null; hasta: string | null }[];
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -92,6 +105,8 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     trialDays: 30,
     resetRequests: [],
     resetLinks: {},
+    loteHistory: (_id, from, to) => demoLoteHistory(from, to),
+    historyRequests: [],
     ...partial,
   };
 }
@@ -424,6 +439,21 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       return forecast
         ? HttpResponse.json(forecast)
         : HttpResponse.json({ detail: NO_LOTE_FORECAST }, { status: 404 });
+    }),
+
+    http.get('*/api/lotes/:id/historico/', ({ request, params }) => {
+      if (!db.user) return forbidden();
+      const id = Number(params.id);
+      const query = new URL(request.url).searchParams;
+      const desde = query.get('desde');
+      const hasta = query.get('hasta');
+      db.historyRequests.push({ id, desde, hasta });
+      if (!db.lotes.some((l) => l.id === id)) {
+        return HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
+      }
+      const range = checkHistoryRange(desde, hasta, localToday());
+      if ('error' in range) return HttpResponse.json({ detail: range.error }, { status: 400 });
+      return HttpResponse.json(db.loteHistory(id, range.from, range.to));
     }),
 
     http.get('*/api/lotes/:id/', ({ params }) => {

@@ -5,6 +5,7 @@ import { Alertas } from './pages/Alertas';
 import { Buscar } from './pages/Buscar';
 import { Inicio } from './pages/Inicio';
 import { LoteDetail } from './pages/LoteDetail';
+import { LoteHistorico } from './pages/LoteHistorico';
 import { EditarLote, NuevoLote } from './pages/LoteForm';
 import { Login } from './pages/Login';
 import { MisLotes } from './pages/MisLotes';
@@ -33,6 +34,7 @@ export function AppRoutes() {
           <Route path="/lotes/nuevo" element={<NuevoLote />} />
           <Route path="/lotes/:id" element={<LoteDetail />} />
           <Route path="/lotes/:id/editar" element={<EditarLote />} />
+          <Route path="/lotes/:id/historico" element={<LoteHistorico />} />
           <Route path="/alertas" element={<Alertas />} />
           <Route path="/perfil" element={<Perfil />} />
         </Route>

@@ -164,6 +164,17 @@ export function LoteDetail() {
     <div className="page page-detail">
       <LoteForecast lote={data} header={header} />
 
+      <section className="section lote-history" aria-label="Histórico">
+        <Link className="history-link" to={`/lotes/${data.id}/historico`}>
+          <Icon name="history" size={26} />
+          <span className="history-link-text">
+            <span className="history-link-title">Histórico de clima y viento</span>
+            <span className="fine">Viento hora por hora para tus registros de aplicación</span>
+          </span>
+          <Icon name="chevronRight" strokeWidth={2.6} />
+        </Link>
+      </section>
+
       <section className="section lote-facts" aria-labelledby="sec-facts">
         <h2 id="sec-facts" className="panel-title">
           Datos del lote

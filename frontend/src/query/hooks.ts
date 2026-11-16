@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { updateAccount, type AccountChanges } from '../api/account';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { ApiError } from '../api/client';
+import { getLoteHistory } from '../api/historico';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
 import { getPlans } from '../api/plans';
 import {
@@ -168,3 +169,19 @@ export function useEndSession() {
     await localData.clear();
   };
 }
+
+/**
+ * Past weather of a lote (cuenta-planes-alertas S9, S10). Every range is its own key under the
+ * persisted `lotes` root; a shorter gcTime keeps only ranges seen in the last day, so the
+ * persisted cache does not grow with every range someone browses.
+ */
+export const useLoteHistory = (id: number, from: string, to: string) =>
+  useQuery({
+    queryKey: queryKeys.loteHistory(id, from, to),
+    queryFn: () => getLoteHistory(id, from, to),
+    enabled: Number.isFinite(id),
+    gcTime: 24 * 60 * 60_000,
+    // Keep the previous range of the same lote on screen while the next one loads.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === id ? previous : undefined,
+  });

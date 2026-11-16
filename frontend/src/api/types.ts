@@ -196,3 +196,42 @@ export interface ForecastSnapshot<T extends Forecast = Forecast> {
   servedAt: number;
   fromCache: boolean;
 }
+
+/** One local day of `GET /api/lotes/{id}/historico/` (cuenta-planes-alertas S10). */
+export interface HistoryDay {
+  date: string;
+  temp_max_c: number | null;
+  temp_min_c: number | null;
+  rain_mm: number | null;
+  wind_max_kmh: number | null;
+  gust_max_kmh: number | null;
+  /** Hours stored for the day: fewer than 24 on a past day means it is still loading. */
+  hours: number;
+}
+
+/** One past hour of a lote (S9): wind at 10 m and the engine's spray wind range. */
+export interface HistoryHour {
+  /** Local time with its offset, e.g. `2026-11-15T09:00:00-03:00`. */
+  time: string;
+  temperature_c: number | null;
+  humidity_pct: number | null;
+  rain_mm: number | null;
+  wind_kmh: number | null;
+  wind_dir_deg: number | null;
+  gust_kmh: number | null;
+  /** `null` when the hour has no wind to rate. */
+  spray_wind: Level | null;
+  spray_wind_causes: string[];
+}
+
+/** `GET /api/lotes/{id}/historico/?desde&hasta` (S9, S10): modelled, not measured on the lote. */
+export interface LoteHistory {
+  from: string;
+  to: string;
+  source: string;
+  attribution: string;
+  /** False while some past day of the range lacks hours. */
+  complete: boolean;
+  days: HistoryDay[];
+  hours: HistoryHour[];
+}

@@ -7,6 +7,9 @@ export const queryKeys = {
   lote: (id: number) => ['lotes', id] as const,
   /** Under `lotes`: private, persisted and cleared with the rest of the account. */
   loteForecast: (id: number) => ['lotes', id, 'pronostico'] as const,
+  /** Under `lotes` too: private (cleared at logout) and persisted, so a range seen stays offline. */
+  loteHistory: (id: number, from: string, to: string) =>
+    ['lotes', id, 'historico', from, to] as const,
   forecast: (lat: number, lon: number) => ['pronostico', ...at(lat, lon)] as const,
   places: (query: string) => ['lugares', query] as const,
   placeName: (lat: number, lon: number) => ['lugares', 'reverso', ...at(lat, lon)] as const,
