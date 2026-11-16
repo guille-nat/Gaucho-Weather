@@ -4,7 +4,7 @@ import type { MapPickerProps } from '../components/MapPicker';
 import { formatHa } from '../lib/format';
 import { areaHa, centroid, roundHa, type LngLat } from '../lib/outline';
 import { createMockDb } from '../mocks/handlers';
-import { demoLotes, demoUser } from '../mocks/fixtures';
+import { account, demoLotes, demoUser, planOf } from '../mocks/fixtures';
 import { readPersisted } from './localData';
 import { renderApp } from './renderApp';
 
@@ -72,6 +72,28 @@ describe('Agregar lote', () => {
       await screen.findByText('Esa ubicación queda fuera de la Argentina.'),
     ).toBeInTheDocument();
     expect(db.unsafeRequests).toHaveLength(0);
+  });
+
+  it('explains the plan limit with a way to the plans, and keeps the session', async () => {
+    const basico = account({ id: 5, email: 'b@x.com', name: 'B', plan: planOf('basico') });
+    const db = createMockDb({ user: basico, lotes: demoLotes().slice(0, 2) });
+    const { user } = renderApp('/lotes/nuevo', db);
+
+    await user.type(await screen.findByLabelText(/Nombre del lote/), 'Lote 3');
+    await user.type(screen.getByLabelText('Latitud'), '-33,4592');
+    await user.type(screen.getByLabelText('Longitud'), '-61.4831');
+    await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Tu plan Básico permite hasta 2 lotes. Mirá los planes para sumar más.',
+    );
+    expect(within(alert).getByRole('link', { name: 'Ver planes' })).toHaveAttribute(
+      'href',
+      '/planes',
+    );
+    expect(screen.getByRole('button', { name: 'Guardar lote' })).toBeInTheDocument();
+    expect(db.lotes).toHaveLength(2);
   });
 
   it('creates the lote with the CSRF header and opens its page', async () => {

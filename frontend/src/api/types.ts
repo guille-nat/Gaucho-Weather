@@ -1,9 +1,39 @@
 /** Types of the S8 API contract (odd/tasks/phase-1-foundation.md). */
 
+export type PlanCode = 'basico' | 'productor' | 'empresa';
+
+/** A plan of GET /api/planes/ and of the account (odd/tasks/cuenta-planes-alertas.md S1). */
+export interface Plan {
+  code: PlanCode;
+  name: string;
+  /** ARS per month; null until it is set ("Precio a confirmar"). */
+  price_ars_month: number | null;
+  /** null = no limit. */
+  max_lotes: number | null;
+  max_alert_rules: number | null;
+  allows_push: boolean;
+  priority_support: boolean;
+  highlighted: boolean;
+}
+
+export interface PlansInfo {
+  plans: Plan[];
+  founders: { limit: number; remaining: number };
+  trial_days: number;
+}
+
 export interface User {
   id: number;
   email: string;
   name: string;
+  // The plan fields are absent in a `me` persisted by a build from before plans existed.
+  plan?: Plan;
+  /** ISO date; null when the plan does not expire (founders, paid plans). */
+  plan_expires_at?: string | null;
+  founder_number?: number | null;
+  usage?: { lotes: number };
+  notify_push?: boolean;
+  notify_email?: boolean;
 }
 
 export const CROPS = ['soja', 'maiz', 'trigo', 'girasol', 'cebada', 'sorgo', 'otro'] as const;

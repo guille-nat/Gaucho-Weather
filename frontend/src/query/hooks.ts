@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
+import { getPlans } from '../api/plans';
 import {
   getForecast,
   asForecastSnapshot,
@@ -16,6 +17,10 @@ import { useLocalData } from './localData';
 export const useMe = () => useQuery({ queryKey: queryKeys.me, queryFn: fetchMe });
 
 export const useLotes = () => useQuery({ queryKey: queryKeys.lotes, queryFn: listLotes });
+
+/** The public price table; it changes only when staff edit a plan. */
+export const usePlans = () =>
+  useQuery({ queryKey: queryKeys.plans, queryFn: getPlans, staleTime: 10 * 60_000 });
 
 export function useLote(id: number) {
   const queryClient = useQueryClient();
@@ -94,7 +99,16 @@ function useStoreLote() {
 
 export function useCreateLote() {
   const store = useStoreLote();
-  return useMutation({ mutationFn: (input: LoteInput) => createLote(input), onSuccess: store });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LoteInput) => createLote(input),
+    onSuccess: async (lote: Lote) => {
+      // Awaited: the screen changes only once the lote is persisted (see useStoreLote).
+      await store(lote);
+      // The account's usage counts lotes (S4).
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
 }
 
 export function useUpdateLote(id: number) {

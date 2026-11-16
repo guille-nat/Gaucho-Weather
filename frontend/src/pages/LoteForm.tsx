@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ApiError } from '../api/client';
+import { ApiError, isPlanLimit } from '../api/client';
 import { CROPS, type Crop, type Lote, type LoteInput } from '../api/types';
 import { FormAlert, SelectField, TextField } from '../components/Field';
 import { Icon } from '../components/Icon';
@@ -198,7 +198,13 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
         <h1 className="page-title">{title}</h1>
       </header>
       <form ref={formRef} className="form" onSubmit={submit} noValidate>
-        <FormAlert message={alert} />
+        <FormAlert message={alert}>
+          {isPlanLimit(submitError) ? (
+            <Link className="form-alert-link" to="/planes">
+              Ver planes
+            </Link>
+          ) : null}
+        </FormAlert>
         <TextField
           label="Nombre del lote"
           required

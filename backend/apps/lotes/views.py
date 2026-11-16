@@ -1,8 +1,10 @@
+from django.db import transaction
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
+from apps.accounts.plans import check_limit
 from apps.archiver.cells import grid_cell
 from apps.archiver.forecast import forecasts
 from apps.archiver.summary import tonight_summaries
@@ -22,7 +24,9 @@ class LoteViewSet(viewsets.ModelViewSet):
         return Lote.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        with transaction.atomic():
+            check_limit(self.request.user, "lotes")
+            serializer.save(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
         lotes = list(self.get_queryset())

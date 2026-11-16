@@ -134,12 +134,22 @@ export function SelectField({
   );
 }
 
-export function FormAlert({ message }: { message?: string | null }) {
+export function FormAlert({
+  message,
+  children,
+}: {
+  message?: string | null;
+  /** A way out next to the message, e.g. a link to the plans. */
+  children?: ReactNode;
+}) {
   if (!message) return null;
   return (
     <div className="form-alert" role="alert">
       <Icon name="alertCircle" />
-      <p>{message}</p>
+      <div className="form-alert-body">
+        <p>{message}</p>
+        {children}
+      </div>
     </div>
   );
 }

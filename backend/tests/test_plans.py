@@ -7,6 +7,7 @@ import time_machine
 from django.apps import apps as django_apps
 from django.core import mail
 from django.db import close_old_connections, connection, transaction
+from rest_framework.test import APIClient
 
 from apps.accounts import plans
 from apps.accounts.models import FounderProgram, Plan, User
@@ -244,3 +245,72 @@ def test_backfill_makes_existing_accounts_founders_oldest_first(make_user):
     assert newest.plan_id == "productor" and newest.plan_expires_at is not None
     assert (staff.plan_id, staff.founder_number) == ("basico", None)
     assert FounderProgram.objects.get().next_number == 3
+
+
+LOTES = "/api/lotes/"
+LOTE = {"name": "Lote", "latitude": -33.04, "longitude": -61.06}
+LIMIT_BASICO = {
+    "detail": "Tu plan Básico permite hasta 2 lotes. Mirá los planes para sumar más.",
+    "code": "plan_limit",
+}
+
+
+def client_for(user):
+    client = APIClient()
+    client.force_login(user)
+    return client
+
+
+class TestLoteLimit:
+    def test_basico_creates_two_lotes_and_the_third_is_refused_with_402(self, user):
+        client = client_for(user)
+        for _ in range(2):
+            assert client.post(LOTES, LOTE, format="json").status_code == 201
+
+        response = client.post(LOTES, LOTE, format="json")
+
+        assert response.status_code == 402
+        assert response.json() == LIMIT_BASICO
+        assert user.lotes.count() == 2
+
+    def test_productor_allows_fifteen_lotes(self, user):
+        User.objects.filter(pk=user.pk).update(plan_id="productor")
+        for _ in range(14):
+            make_lote(user)
+        client = client_for(user)
+
+        assert client.post(LOTES, LOTE, format="json").status_code == 201
+        response = client.post(LOTES, LOTE, format="json")
+
+        assert response.status_code == 402
+        assert response.json()["detail"] == (
+            "Tu plan Productor permite hasta 15 lotes. Mirá los planes para sumar más."
+        )
+
+    def test_empresa_has_no_lote_limit(self, user):
+        User.objects.filter(pk=user.pk).update(plan_id="empresa")
+        for _ in range(20):
+            make_lote(user)
+
+        response = client_for(user).post(LOTES, LOTE, format="json")
+
+        assert response.status_code == 201
+
+    def test_other_users_lotes_do_not_count(self, user, make_user):
+        other = make_user(email="otro@example.com")
+        for _ in range(2):
+            make_lote(other)
+
+        assert client_for(user).post(LOTES, LOTE, format="json").status_code == 201
+
+    def test_a_downgraded_account_keeps_and_edits_its_lotes(self, user):
+        lotes = [make_lote(user) for _ in range(4)]  # created while on a bigger plan
+        client = client_for(user)
+
+        listed = client.get(LOTES)
+        edited = client.patch(f"{LOTES}{lotes[0].pk}/", {"name": "Norte"}, format="json")
+        created = client.post(LOTES, LOTE, format="json")
+
+        assert listed.status_code == 200 and len(listed.json()) == 4
+        assert edited.status_code == 200
+        assert created.status_code == 402

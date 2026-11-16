@@ -9,9 +9,10 @@ import { EditarLote, NuevoLote } from './pages/LoteForm';
 import { Login } from './pages/Login';
 import { MisLotes } from './pages/MisLotes';
 import { Perfil } from './pages/Perfil';
+import { Planes } from './pages/Planes';
 import { Register } from './pages/Register';
 
-/** S8: the weather is public; lotes, alerts and the profile need an account. */
+/** S8: the weather and the plans are public; lotes, alerts and the profile need an account. */
 export function AppRoutes() {
   return (
     <Routes>
@@ -22,6 +23,7 @@ export function AppRoutes() {
       <Route path="/buscar" element={<Buscar />} />
       <Route element={<AppShell />}>
         <Route index element={<Inicio />} />
+        <Route path="/planes" element={<Planes />} />
         <Route element={<RequireAuth />}>
           <Route path="/lotes" element={<MisLotes />} />
           <Route path="/lotes/nuevo" element={<NuevoLote />} />

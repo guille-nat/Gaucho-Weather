@@ -1,6 +1,64 @@
-import type { Lote, User } from '../api/types';
+import type { Lote, Plan, PlanCode, User } from '../api/types';
 
-export const demoUser: User = { id: 1, email: 'ana@lacampana.com.ar', name: 'Ana Ferreyra' };
+/** The three plans as migration 0003 seeds them (prices still unset). */
+export const demoPlans: Plan[] = [
+  {
+    code: 'basico',
+    name: 'Básico',
+    price_ars_month: null,
+    max_lotes: 2,
+    max_alert_rules: 3,
+    allows_push: false,
+    priority_support: false,
+    highlighted: false,
+  },
+  {
+    code: 'productor',
+    name: 'Productor',
+    price_ars_month: null,
+    max_lotes: 15,
+    max_alert_rules: null,
+    allows_push: true,
+    priority_support: false,
+    highlighted: true,
+  },
+  {
+    code: 'empresa',
+    name: 'Empresa',
+    price_ars_month: null,
+    max_lotes: null,
+    max_alert_rules: null,
+    allows_push: true,
+    priority_support: true,
+    highlighted: false,
+  },
+];
+
+export const planOf = (code: PlanCode): Plan => {
+  const plan = demoPlans.find((p) => p.code === code);
+  if (!plan) throw new Error(`Unknown plan ${code}`);
+  return plan;
+};
+
+/** An account as /api/auth/me/ serialises it; defaults to Productor with no expiry. */
+export function account(fields: Pick<User, 'id' | 'email' | 'name'> & Partial<User>): User {
+  return {
+    plan: planOf('productor'),
+    plan_expires_at: null,
+    founder_number: null,
+    usage: { lotes: 0 },
+    notify_push: true,
+    notify_email: true,
+    ...fields,
+  };
+}
+
+export const demoUser: User = account({
+  id: 1,
+  email: 'ana@lacampana.com.ar',
+  name: 'Ana Ferreyra',
+  founder_number: 7,
+});
 
 const fetchedAt = '2026-11-03T09:10:00Z';
 

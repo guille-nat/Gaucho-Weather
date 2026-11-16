@@ -16,6 +16,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
 from .models import FounderProgram, Plan, User
 
@@ -78,6 +79,39 @@ def start_membership(user: User, now: datetime | None = None) -> User:
         user.plan_expires_at = now + timedelta(days=program.trial_days)
     user.save(update_fields=["plan", "plan_expires_at", "founder_number"])
     return user
+
+
+class PlanLimitExceeded(APIException):
+    """402, not 403: the SPA reads any non-CSRF 403 as a lost session and signs out."""
+
+    status_code = 402
+    default_code = "plan_limit"
+
+    def __init__(self, message: str):
+        # A dict detail is returned as the body as is: {"detail": ..., "code": "plan_limit"}.
+        super().__init__({"detail": message, "code": self.default_code})
+
+
+# kind -> (Plan field with the cap, related name on User, noun in the message)
+LIMITS = {
+    "lotes": ("max_lotes", "lotes", "lotes"),
+}
+
+
+def check_limit(user: User, kind: str) -> None:
+    """Refuse one more `kind` when the plan's cap is reached.
+
+    Must run inside the transaction that creates the row: it locks the account so two
+    parallel creates cannot both pass the count.
+    """
+    field, related, noun = LIMITS[kind]
+    locked = User.objects.select_for_update().select_related("plan").get(pk=user.pk)
+    cap = getattr(locked.plan, field)
+    if cap is not None and getattr(locked, related).count() >= cap:
+        raise PlanLimitExceeded(
+            f"Tu plan {locked.plan.name} permite hasta {cap} {noun}. "
+            "Mirá los planes para sumar más."
+        )
 
 
 @dataclass(frozen=True)

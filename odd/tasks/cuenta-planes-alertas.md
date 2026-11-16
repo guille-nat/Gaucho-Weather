@@ -36,7 +36,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | ID | Specs | Unit | Route | Risk | Status | Commit |
 |---|---|---|---|---|---|---|
 | T1 | S1 S2 S3 | Plans + founders + trial backend: models, migrations, backfill, signup, `/me`, `/api/planes/`, `expire_trials` | inline | item 1, 4 | done (verified) | see L9 |
-| T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | pending | |
+| T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | done | see L10 |
 | T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | pending | |
 | T4 | S5 | Email settings + password reset | inline | item 2 | pending | |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
@@ -68,3 +68,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Accepted: login, register and me share the extended `User` payload (additive fields).
   - Open advisories: admin-created users get Básico with no slot; `EMAIL_USE_TLS` accepts only "true"; a same-email race returns 500 (pre-existing).
   - `.env` is not readable by the agent (deny rule); defaults cover dev.
+- **L10** (2026-11-16): T1 RDD review (risk, resilience, reliability) approved and acknowledged; reviewed boundary = `b8be0fe`.
+  - Advisory R1-001: bots on many IPs could drain the 100 founder slots, because sign-up has no email verification. To raise with the user.
+  - T2 done test-first. Backend RED: 3 failing limit tests. Frontend RED: 8 failing tests (planes page and 402 alert).
+  - GREEN: pytest 229, Vitest 86, tsc, eslint and prettier all clean.
+  - `/api/planes/` smoke-tested through the Vite proxy.
+  - The 402 body is `{detail, code: "plan_limit"}`. `ApiError.code` and `isPlanLimit()` are on the client, and creating a lote invalidates `me` (usage).

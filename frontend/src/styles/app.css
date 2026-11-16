@@ -2078,3 +2078,165 @@ input[type='date'].input {
   margin: 0 auto;
   padding: 40px 0;
 }
+
+/* Form alert with a way out (plan limit → Ver planes) */
+
+.form-alert-body {
+  display: grid;
+  gap: 4px;
+}
+
+.form-alert-link {
+  width: fit-content;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+/* Planes (cuenta-planes-alertas S1, S8): Productor sits in the middle and carries the gold */
+
+.page-lede {
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.founder-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+.founder-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.plans {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.plan-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+
+.plan-card--featured {
+  background: var(--panel-hover);
+  box-shadow:
+    inset 0 0 0 2px var(--gold),
+    0 10px 28px rgb(2 8 24 / 0.28);
+}
+
+.plan-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% -50%;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.plan-name {
+  font-size: 1.375rem;
+  text-wrap: balance;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-price-amount {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.plan-price-period,
+.plan-price-tbd {
+  color: var(--ink-2);
+}
+
+.plan-price-tbd {
+  font-weight: 700;
+}
+
+.plan-features {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.plan-features svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.plan-card--featured .plan-features li:not(.plan-feature--missing) svg {
+  color: var(--gold);
+}
+
+.plan-feature--missing {
+  color: var(--ink-2);
+}
+
+.plan-foot {
+  display: grid;
+  gap: 6px;
+  align-self: end;
+}
+
+.plan-current {
+  background: var(--ok-fill);
+  color: var(--ok-ink);
+}
+
+.plan-membership {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+@media (min-width: 760px) {
+  .plans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    padding-top: 12px;
+  }
+
+  .plan-card--featured {
+    margin-block: -12px;
+    padding-block: 32px;
+  }
+}

@@ -1,5 +1,6 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
-import type { Forecast, Lote, LoteInput, PublicForecast, User } from '../api/types';
+import type { Forecast, Lote, LoteInput, Plan, PublicForecast, User } from '../api/types';
+import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
 
 /**
@@ -20,6 +21,10 @@ export interface MockDb {
   forecastRequests: { lat: number; lon: number }[];
   /** Per-lote forecasts (S5); a lote missing here has none archived yet (404). */
   loteForecasts: Record<number, Forecast>;
+  /** GET /api/planes/ (cuenta-planes-alertas S1, S8). */
+  plans: Plan[];
+  founders: { limit: number; remaining: number };
+  trialDays: number;
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -77,8 +82,28 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     publicForecast: (lat, lon) => demoPublicForecast('sol', nearestPlace(lat, lon)),
     forecastRequests: [],
     loteForecasts: demoLoteForecasts(partial.lotes ?? []),
+    plans: demoPlans,
+    founders: { limit: 100, remaining: 93 },
+    trialDays: 30,
     ...partial,
   };
+}
+
+/** The account as the backend serialises it, with its usage counted from the mock's lotes. */
+const withUsage = (user: User, db: MockDb): User => ({
+  ...user,
+  usage: { lotes: db.lotes.length },
+});
+
+/** Like plans.start_membership: a founder slot while any is left, else the Productor trial. */
+function signUp(db: MockDb, identity: Pick<User, 'id' | 'email' | 'name'>): User {
+  if (db.founders.remaining > 0) {
+    const number = db.founders.limit - db.founders.remaining + 1;
+    db.founders = { ...db.founders, remaining: db.founders.remaining - 1 };
+    return account({ ...identity, founder_number: number });
+  }
+  const expires = new Date(Date.now() + db.trialDays * 86_400_000).toISOString();
+  return account({ ...identity, plan_expires_at: expires });
 }
 
 const forbidden = () =>
@@ -164,7 +189,13 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       return new HttpResponse(null, { status: 204 });
     }),
 
-    http.get('*/api/auth/me/', () => (db.user ? HttpResponse.json(db.user) : forbidden())),
+    http.get('*/api/auth/me/', () =>
+      db.user ? HttpResponse.json(withUsage(db.user, db)) : forbidden(),
+    ),
+
+    http.get('*/api/planes/', () =>
+      HttpResponse.json({ plans: db.plans, founders: db.founders, trial_days: db.trialDays }),
+    ),
 
     http.post('*/api/auth/login/', async ({ request }) => {
       const failed = csrfFailure(request, db);
@@ -201,7 +232,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
           { status: 400 },
         );
       }
-      const user: User = { id: db.nextId++, email, name: body.name?.trim() ?? '' };
+      const user = signUp(db, { id: db.nextId++, email, name: body.name?.trim() ?? '' });
       db.accounts.push({ email, password: body.password, user });
       db.user = user;
       rotateCsrf(db);
@@ -227,6 +258,11 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       const body = (await request.json()) as LoteInput;
       const errors = validateLote(body, false);
       if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      const cap = db.user.plan?.max_lotes;
+      if (cap != null && db.lotes.length >= cap) {
+        const detail = `Tu plan ${db.user.plan?.name} permite hasta ${cap} lotes. Mirá los planes para sumar más.`;
+        return HttpResponse.json({ detail, code: 'plan_limit' }, { status: 402 });
+      }
       const lote = toLote(db.nextId++, body);
       db.lotes.push(lote);
       return HttpResponse.json(lote, { status: 201 });

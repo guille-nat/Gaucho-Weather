@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { FormAlert } from '../components/Field';
@@ -50,6 +50,18 @@ export function Perfil() {
             <dt>Email</dt>
             <dd className="break">{me.data.email}</dd>
           </div>
+          {me.data.plan ? (
+            <div className="facts-row">
+              <dt>Plan</dt>
+              <dd>
+                {me.data.plan.name}
+                {me.data.founder_number != null
+                  ? ` · founder n.º ${me.data.founder_number}`
+                  : ''}{' '}
+                <Link to="/planes">Ver planes</Link>
+              </dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
       <FormAlert message={exit.error?.message} />

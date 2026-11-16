@@ -10,12 +10,20 @@ export class ApiError extends Error {
   readonly status: number;
   /** DRF field errors, e.g. `{ email: ['Ya existe…'] }`. */
   readonly fieldErrors: Record<string, string[]>;
+  /** Machine-readable reason next to `detail`, e.g. `plan_limit` (402). */
+  readonly code: string | undefined;
 
-  constructor(status: number, message: string, fieldErrors: Record<string, string[]> = {}) {
+  constructor(
+    status: number,
+    message: string,
+    fieldErrors: Record<string, string[]> = {},
+    code?: string,
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 
   get isNetwork(): boolean {
@@ -63,7 +71,10 @@ async function toApiError(response: Response): Promise<ApiError> {
   }
   if (body && typeof body === 'object') {
     const record = body as Record<string, unknown>;
-    if (typeof record.detail === 'string') return new ApiError(response.status, record.detail);
+    if (typeof record.detail === 'string') {
+      const code = typeof record.code === 'string' ? record.code : undefined;
+      return new ApiError(response.status, record.detail, {}, code);
+    }
     const fields: Record<string, string[]> = {};
     for (const [key, value] of Object.entries(record)) {
       if (Array.isArray(value)) fields[key] = value.map(String);
@@ -80,6 +91,10 @@ async function toApiError(response: Response): Promise<ApiError> {
       : 'No pudimos completar el pedido.',
   );
 }
+
+/** The plan's cap on lotes or alert rules was reached (402, never 403: see query/client.ts). */
+export const isPlanLimit = (error: unknown): error is ApiError =>
+  error instanceof ApiError && error.status === 402 && error.code === 'plan_limit';
 
 /** Django answers a missing or stale token with 403 and a detail that names CSRF. */
 export const isCsrfFailure = (error: ApiError) =>
