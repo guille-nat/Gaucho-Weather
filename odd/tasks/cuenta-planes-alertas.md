@@ -95,3 +95,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - New pages: `/recuperar` (same answer either way) and `/restablecer/:uid/:token` (a bad link offers "Pedir otro enlace"). Login links "¿Olvidaste tu contraseña?".
   - Vitest 97, tsc, eslint and prettier clean.
   - E2E on the dev stack: the reset request answered 204 and the Celery worker emailed the /restablecer link. The worker and beat were not running in dev and were started.
+- **L15** (2026-11-16): RDD review of the slice b8be0fe..ba985f9 (risk, resilience, reliability; escalated item 2) was approved and acknowledged. The reviewed boundary is now `ba985f9`.
+  - Warnings fixed test-first:
+    - R1-001: a reset email goes to one address at most every 10 minutes, whatever the IP (`cache.add` per user).
+    - R4-001: when the broker is down the reset request still answers 204 and logs the error.
+  - pytest 264 passed.

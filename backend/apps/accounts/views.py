@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import (
     authenticate,
     login,
@@ -28,6 +30,8 @@ from .serializers import (
     UserSerializer,
 )
 from .throttling import IPScopedRateThrottle
+
+logger = logging.getLogger(__name__)
 
 BAD_CREDENTIALS_MESSAGE = "Email o contraseña incorrectos."
 BAD_RESET_LINK = "El enlace no es válido o venció. Pedí uno nuevo."
@@ -170,7 +174,12 @@ class PasswordResetView(CsrfProtectedView):
 
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        send_password_reset.delay(serializer.validated_data["email"])
+        try:
+            send_password_reset.delay(serializer.validated_data["email"])
+        except Exception:
+            # Still 204: a 500 here would tell apart "queued" from "queue down" and break
+            # the always-the-same answer. The log is how staff learn the queue is down.
+            logger.exception("Could not queue the password reset email")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

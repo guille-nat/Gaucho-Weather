@@ -124,10 +124,39 @@ def test_signs_out_every_session_of_the_account(api_client, auth_client, user):
 
 
 def test_requests_are_throttled_per_ip(api_client, user):
-    codes = [request_reset(api_client, user.email).status_code for _ in range(6)]
+    codes = [request_reset(api_client, f"u{i}@example.com").status_code for i in range(6)]
 
     assert codes == [204] * 5 + [429]
-    assert len(mail.outbox) == 5
+
+
+def test_one_address_gets_at_most_one_email_every_ten_minutes(user):
+    # From different IPs, so only the per-address cooldown can hold them back.
+    first, second, later = APIClient(), APIClient(REMOTE_ADDR="10.0.0.2"), APIClient()
+
+    assert request_reset(first, user.email).status_code == 204
+    assert request_reset(second, "ANA@example.com").status_code == 204
+    assert len(mail.outbox) == 1
+
+    with time_machine.travel(timezone.now() + timedelta(minutes=11)):
+        request_reset(later, user.email)
+
+    assert len(mail.outbox) == 2
+
+
+def test_answers_204_even_when_the_queue_is_down(api_client, user, monkeypatch, caplog):
+    from kombu.exceptions import OperationalError
+
+    from apps.accounts import tasks
+
+    def broker_down(*args, **kwargs):
+        raise OperationalError("Connection refused")
+
+    monkeypatch.setattr(tasks.send_password_reset, "delay", broker_down)
+
+    response = request_reset(api_client, user.email)
+
+    assert response.status_code == 204
+    assert "Could not queue the password reset email" in caplog.text
 
 
 def test_needs_the_csrf_token(csrf_client, user):
