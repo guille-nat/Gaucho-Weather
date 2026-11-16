@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.lotes",
     "apps.archiver",
     "apps.weather",
+    "apps.alerts",
     "apps.places",
 ]
 

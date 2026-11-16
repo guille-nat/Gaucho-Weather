@@ -207,7 +207,7 @@ def test_me_reports_plan_usage_founder_number_and_preferences(api_client):
     }
     assert body["founder_number"] == 1
     assert body["plan_expires_at"] is None
-    assert body["usage"] == {"lotes": 1}
+    assert body["usage"] == {"lotes": 1, "alert_rules": 0}
     assert (body["notify_push"], body["notify_email"]) == (True, True)
 
 

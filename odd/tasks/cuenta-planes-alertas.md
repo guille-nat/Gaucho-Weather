@@ -31,6 +31,8 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
   - Dedup: one event per `(rule, target_date)`.
 - **S7 — Channels** (decision L7): Web Push (VAPID) + in-app inbox at `/alertas` + email. Push only for plans with `allows_push`. WhatsApp is out of scope.
 - **S8 — Plans page:** public `/planes` with three cards, Productor in the middle and highlighted, the founder counter ("Quedan N lugares de founder"), the current plan marked, and "Próximamente" as the call to action.
+- **S9 — Wind history per lote** (L17 verbatim): "hay que agregar un historico de vientos por lote para los aplicadores". Data source and range are pending the user's decision.
+- **S10 — Weather history per lote** (L17 verbatim): "un historico de clima por lote tambien". Data source and range are pending the user's decision.
 
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
@@ -40,11 +42,12 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verified) | see L11 |
 | T4 | S5 | Email settings + password reset | inline | item 2 | done (verified) | see L12 |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | done | see L14 |
-| T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
+| T6 | S6 S4 | Alert models + rules API + limit | inline | none | done | see L16 |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
 | T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
 | T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
+| T12 | S9 S10 | Wind and weather history per lote (scope pending decision) | tbd | tbd | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -100,3 +103,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
     - R1-001: a reset email goes to one address at most every 10 minutes, whatever the IP (`cache.add` per user).
     - R4-001: when the broker is down the reset request still answers 204 and logs the error.
   - pytest 264 passed.
+- **L16** (2026-11-16): T6 done test-first (RED: the module could not import).
+  - New app `apps.alerts` with models AlertRule, AlertEvent (`UniqueConstraint(rule, target_date)`) and PushSubscription; migration 0001.
+  - `/api/alertas/reglas/` CRUD scoped to the owner. Validation per variable lives in `rules.validation_errors` and the Spanish description in `rules.describe`.
+  - The 4th rule on Básico answers 402; rules beyond the cap after a downgrade report `paused_by_plan`; `usage` adds `alert_rules`. Deleting a lote cascades its rules.
+  - pytest 290 passed.
+- **L17** (2026-11-16, user, verbatim, mid-task): "hay que agregar un historico de vientos por lote para los aplicadores, un historico de clima por lote tambien"

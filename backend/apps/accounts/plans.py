@@ -95,6 +95,7 @@ class PlanLimitExceeded(APIException):
 # kind -> (Plan field with the cap, related name on User, noun in the message)
 LIMITS = {
     "lotes": ("max_lotes", "lotes", "lotes"),
+    "alert_rules": ("max_alert_rules", "alert_rules", "reglas de alerta"),
 }
 
 
@@ -117,10 +118,18 @@ def check_limit(user: User, kind: str) -> None:
 @dataclass(frozen=True)
 class Usage:
     lotes: int
+    alert_rules: int
 
 
 def usage(user: User) -> Usage:
-    return Usage(lotes=user.lotes.count())
+    return Usage(lotes=user.lotes.count(), alert_rules=user.alert_rules.count())
+
+
+def rule_ids_within_plan(user: User) -> set[int]:
+    """The rules the plan covers: the oldest ones up to its cap. The rest pause, not vanish."""
+    rules = user.alert_rules.order_by("created_at", "id").values_list("id", flat=True)
+    cap = user.plan.max_alert_rules
+    return set(rules if cap is None else rules[:cap])
 
 
 TRIAL_ENDED_SUBJECT = "Terminó tu prueba de Productor"
@@ -139,7 +148,7 @@ def _describe_limits(plan: Plan) -> str:
     if plan.max_lotes is not None:
         caps.append(f"{plan.max_lotes} lotes")
     if plan.max_alert_rules is not None:
-        caps.append(f"{plan.max_alert_rules} reglas de alerta activas")
+        caps.append(f"{plan.max_alert_rules} reglas de alerta")
     if caps:
         parts.append("permite hasta " + " y ".join(caps))
     return " y ".join(parts) or "tiene otras condiciones"

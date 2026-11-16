@@ -15,4 +15,5 @@ urlpatterns = [
     path("api/", include("apps.lotes.urls")),
     path("api/", include("apps.weather.urls")),
     path("api/", include("apps.places.urls")),
+    path("api/", include("apps.alerts.urls")),
 ]
