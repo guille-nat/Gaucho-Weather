@@ -1,5 +1,5 @@
 # Arquitectura
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-16
 
 ## Qué hace
 Describe los componentes de la v2 y cómo fluyen los datos. El plan completo está
@@ -12,13 +12,19 @@ beat ──▶ Redis ──▶ Celery worker ──▶ Open-Meteo, SMN
                          └──────────────────────────────────────▶ Postgres (archivo)
 Django (pronóstico público) ──▶ Open-Meteo (a demanda) ──▶ Postgres (archivo)
 Django (lugares) ──▶ Georef AR (cacheado en Redis)
+fetch_forecasts ──▶ alerts.evaluate_rules ──▶ alerts.deliver_event ──▶ Web Push, email
 ```
 - **Backend** (`backend/`), con Django + DRF. Apps en `backend/apps/`:
   - `accounts`: usuario con email y sesión con CSRF. Ver `funcionalidades/auth.md`.
+    También los planes y founders (`/api/planes/`, ver `funcionalidades/planes.md`)
+    y la gestión de la cuenta (ver `funcionalidades/cuenta.md`).
   - `lotes`: lotes del usuario y su `summary`. Ver `funcionalidades/lotes.md`.
   - `archiver`: pronósticos y observaciones crudos. Ver `funcionalidades/archivador.md`.
     También arma el pronóstico del lote desde el archivo (`forecast.py`). Ver
-    `funcionalidades/pronostico.md`.
+    `funcionalidades/pronostico.md`. Y el clima pasado propio (`WeatherHour`)
+    que lee `GET /api/lotes/{id}/historico/`. Ver `funcionalidades/historico.md`.
+  - `alerts`: reglas de alerta por lote, su evaluación, la bandeja y el envío
+    por push y email, bajo `/api/alertas/`. Ver `funcionalidades/alertas.md`.
   - `weather`: pronóstico público de cualquier punto de Argentina, sin cuenta.
     Ver `funcionalidades/pronostico.md`.
   - `places`: búsqueda de lugares y reverso con Georef AR. Ver
@@ -51,3 +57,5 @@ Django (lugares) ──▶ Georef AR (cacheado en Redis)
 - 2026-11-03: motor de decisiones v0 y endpoint de pronóstico del lote.
 - 2026-11-03: apps `weather` (pronóstico público a demanda) y `places`
   (Georef AR) para la app "clima primero".
+- 2026-11-16: app `alerts`, planes y gestión de cuenta en `accounts`, y el
+  histórico propio en `archiver` (feature `cuenta-planes-alertas`).

@@ -1,5 +1,5 @@
 # Autenticación
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-16
 
 ## Qué hace
 Alta, ingreso y salida con email y contraseña. La sesión vive en una cookie del
@@ -18,7 +18,11 @@ servidor (httpOnly) y dura 60 días, renovándose con cada uso.
   | `POST logout/` | 204 (también sin sesión) |
   | `GET me/` | 200 `User`, o 403 sin sesión |
 
-  `User` = `{id, email, name}`.
+  `User` = `{id, email, name}`. Desde el 2026-11-16 suma `plan`,
+  `plan_expires_at`, `founder_number`, `usage`, `notify_push` y `notify_email`
+  (campos agregados, ver [planes.md](planes.md)).
+- La gestión de la cuenta (`PATCH` y `DELETE me/`, `password/change/`,
+  `password/reset/` y `password/reset/confirm/`) está en [cuenta.md](cuenta.md).
 - Todo método que modifica (POST, PATCH, DELETE) exige el header `X-CSRFToken`
   con el valor de la cookie `csrftoken`, incluso en login y registro. Sin token
   responde 403 `{"detail": "Token CSRF ausente o inválido. Recargue la página e intente de nuevo."}`.
@@ -49,3 +53,7 @@ servidor (httpOnly) y dura 60 días, renovándose con cada uso.
 
 ## Historial
 - 2026-11-03: versión inicial (Fase 1).
+- 2026-11-16: `User` con plan, uso y preferencias; nuevos endpoints de cuenta y
+  recuperación de contraseña, documentados en [cuenta.md](cuenta.md). Los pedidos
+  que comprueban una contraseña comparten el límite de login (feature
+  `cuenta-planes-alertas`).

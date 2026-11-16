@@ -12,6 +12,14 @@
   (solo los nombres).
 - [funcionalidades/auth.md](funcionalidades/auth.md): login con cookie de
   sesión, CSRF y límite de intentos.
+- [funcionalidades/planes.md](funcionalidades/planes.md): los tres planes,
+  los 100 founders, la prueba de Productor y el límite 402.
+- [funcionalidades/cuenta.md](funcionalidades/cuenta.md): editar datos y
+  preferencias, cambiar y recuperar la contraseña, y borrar la cuenta.
+- [funcionalidades/alertas.md](funcionalidades/alertas.md): reglas de alerta
+  por lote, su evaluación y el envío por push, email y bandeja.
+- [funcionalidades/historico.md](funcionalidades/historico.md): histórico de
+  clima y viento por lote, guardado en una tabla propia.
 - [funcionalidades/lotes.md](funcionalidades/lotes.md): API de lotes, cómo se
   validan y el resumen de la mínima de la noche.
 - [funcionalidades/archivador.md](funcionalidades/archivador.md): cómo se

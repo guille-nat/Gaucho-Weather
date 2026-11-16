@@ -56,7 +56,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T10 | S6 S7 | Frontend push + `/alertas` page | delegated (context backstop) | none | done | see L26 |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
-| T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
+| T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
 
@@ -178,3 +178,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Perfil hints when push is on but this phone is not subscribed.
   - Parent moved the non-component helpers to `lib/formErrors.ts` and `lib/membership.ts`, which cleared 4 react-refresh lint warnings.
   - Open: an expired cookie or a deleted account leaves the browser subscribed until another account subscribes it; the frontend copy of the rule wording must follow `rules.py`.
+- **L27** (2026-11-16): T11 done by a bounded writer following the project-docs skill.
+  - New docs: planes.md, cuenta.md, alertas.md and historico.md.
+  - Updated: auth.md, archivador.md, arquitectura.md, README index and entorno.md (new env vars, start worker and beat, rebuild for pywebpush).
+  - Structural readback and link check: 15 links resolve.
+  - Dev environment: the backend image was rebuilt (pywebpush 2.5.0) and the worker registers all 8 tasks.
+  - E2E on dev: a fresh forecast plus `evaluate_alerts` created 2 events (today and tomorrow); the worker emailed both and skipped push (no VAPID or subscription in dev). The smoke rule and its events were deleted afterwards.

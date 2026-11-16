@@ -1,5 +1,5 @@
 # Archivador de pronósticos y observaciones
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-16
 
 ## Qué hace
 Guarda desde la Fase 1 los pronósticos de Open-Meteo y las observaciones
@@ -11,6 +11,13 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   beat (hora argentina):
   - `archiver.fetch_forecasts`, cada 6 h (00, 06, 12 y 18).
   - `archiver.fetch_smn_observations`, todos los días a las 03:00.
+  - `archiver.fetch_history`, todos los días a las 04:30: últimos 3 días del
+    clima pasado de cada celda con lotes. Ver [historico.md](historico.md).
+  - `archiver.backfill_history`, sin agenda: se encola al crear o mover un lote
+    y carga 90 días de su celda.
+- Al terminar, `fetch_forecasts` encola `alerts.evaluate_rules`, que evalúa las
+  reglas de alerta con los pronósticos nuevos (ver [alertas.md](alertas.md)). Si
+  el broker está caído lo registra y la corrida sigue.
 - **Pronósticos** (`ForecastSnapshot`):
   - Celdas: coordenadas de cada lote redondeadas a 0,1°, más las estaciones
     del SMN Rosario Aero (87480), Venado Tuerto Aero (87468) y Marcos Juárez
@@ -88,3 +95,6 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   determinísticos, para el pronóstico del lote (feature `clima-y-fileteado`).
 - 2026-11-03: `archive_cell` extraída de la tarea para reusarla en la descarga
   a demanda del pronóstico público (T5).
+- 2026-11-16: tareas `fetch_history` y `backfill_history` con la tabla
+  `WeatherHour`, y la evaluación de alertas al final de `fetch_forecasts`
+  (feature `cuenta-planes-alertas`).
