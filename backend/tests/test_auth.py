@@ -14,6 +14,11 @@ ME = "/api/auth/me/"
 CSRF = "/api/auth/csrf/"
 
 
+def identity(body: dict) -> dict:
+    """The account fields; plan and usage are covered in test_plans."""
+    return {key: body[key] for key in ("id", "email", "name")}
+
+
 def test_csrf_endpoint_returns_204_and_sets_readable_cookie(csrf_client):
     response = csrf_client.get(CSRF)
 
@@ -32,7 +37,11 @@ def test_register_creates_user_and_logs_in(api_client):
 
     assert response.status_code == 201
     user = User.objects.get()
-    assert response.json() == {"id": user.id, "email": "pedro@example.com", "name": "Pedro"}
+    assert identity(response.json()) == {
+        "id": user.id,
+        "email": "pedro@example.com",
+        "name": "Pedro",
+    }
     assert user.check_password(PASSWORD)
     me = api_client.get(ME)
     assert me.status_code == 200
@@ -75,7 +84,7 @@ def test_login_returns_user(api_client, user):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"id": user.id, "email": "ana@example.com", "name": "Ana"}
+    assert identity(response.json()) == {"id": user.id, "email": "ana@example.com", "name": "Ana"}
     assert api_client.get(ME).status_code == 200
 
 

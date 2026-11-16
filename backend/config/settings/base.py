@@ -131,6 +131,7 @@ REST_FRAMEWORK = {
         # Public endpoints (S10). A forecast miss costs ~7 Open-Meteo calls.
         "public_forecast": env("THROTTLE_PUBLIC_FORECAST_RATE", "60/hour"),
         "places": env("THROTTLE_PLACES_RATE", "300/hour"),
+        "plans": env("THROTTLE_PLANS_RATE", "300/hour"),
     },
     # Number of reverse proxies in front of Django; DRF reads the client IP for
     # throttling from X-Forwarded-For using this count. 0 = use REMOTE_ADDR.
@@ -152,7 +153,26 @@ CELERY_BEAT_SCHEDULE = {
         "task": "archiver.fetch_smn_observations",
         "schedule": crontab(minute=0, hour=3),
     },
+    "expire-trials": {
+        "task": "accounts.expire_trials",
+        "schedule": crontab(minute=0, hour=9),
+    },
 }
+
+# --- Email (trial notices, password reset, alerts) ---
+# Console in dev: messages are printed in the backend/worker logs. Prod: smtp backend + EMAIL_*.
+# An empty value in .env means "use the default", like an unset one.
+EMAIL_BACKEND = env("EMAIL_BACKEND") or "django.core.mail.backends.console.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST") or "localhost"
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = (env("EMAIL_USE_TLS") or "true").lower() == "true"
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL") or "Gaucho Weather <no-reply@localhost>"
+
+# Public origin of the SPA, for links inside emails (no trailing slash).
+PUBLIC_APP_URL = (env("PUBLIC_APP_URL") or "http://localhost:5173").rstrip("/")
 
 # --- Archiver data sources (S9) ---
 OPEN_METEO_FORECAST_URL = env("OPEN_METEO_FORECAST_URL", "https://api.open-meteo.com/v1/forecast")

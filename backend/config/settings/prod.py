@@ -1,7 +1,7 @@
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
-from .base import ALLOWED_HOSTS, SECRET_KEY, env_int
+from .base import ALLOWED_HOSTS, SECRET_KEY, env, env_int
 
 if not SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY is required in production.")
@@ -9,6 +9,9 @@ if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS is required in production.")
 
 DEBUG = False
+
+# Real delivery by default; base.py's console default only suits development.
+EMAIL_BACKEND = env("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend"
 
 # TLS ends at the reverse proxy; trust its X-Forwarded-Proto header.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

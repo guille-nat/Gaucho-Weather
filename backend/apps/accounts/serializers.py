@@ -1,15 +1,49 @@
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
-from .models import User
+from . import plans
+from .models import Plan, User
+
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = [
+            "code",
+            "name",
+            "price_ars_month",
+            "max_lotes",
+            "max_alert_rules",
+            "allows_push",
+            "priority_support",
+            "highlighted",
+        ]
+        read_only_fields = fields
 
 
 class UserSerializer(serializers.ModelSerializer):
+    plan = PlanSerializer(read_only=True)
+    usage = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "email", "name"]
+        fields = [
+            "id",
+            "email",
+            "name",
+            "plan",
+            "plan_expires_at",
+            "founder_number",
+            "usage",
+            "notify_push",
+            "notify_email",
+        ]
         read_only_fields = fields
+
+    def get_usage(self, user: User) -> dict[str, int]:
+        return vars(plans.usage(user))
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -32,7 +66,9 @@ class RegisterSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        with transaction.atomic():
+            user = User.objects.create_user(**validated_data)
+            return plans.start_membership(user)
 
 
 class LoginSerializer(serializers.Serializer):

@@ -1,0 +1,70 @@
+# Cuenta, planes y alertas — account management, three anchored plans with founders, and custom alerts
+Objective: let the farmer manage their account, pick among three plans (first 100 are founders, free forever), and get their own per-lote alerts by push, email and an in-app inbox.
+Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · Runners: pytest (backend/tests); Vitest + Testing Library + MSW (frontend).
+
+## Specs
+- **S1 — Plans** (L1, L2 verbatim): "gestion de cuenta y planes de cuenta"; "Debe de haber 3 planes con uno en el medio, destacado como el preferido y uno muy caro y otro muy barato pero con limitaciones, lo que resuelve mas dolencia debe de ser el del medio para que se tienda a elegir".
+
+  | Plan | Lotes | Rules | Channels | Extras |
+  |---|---|---|---|---|
+  | Básico | 2 | 3 | inbox + email, no push | — |
+  | Productor (highlighted "Recomendado") | 15 | unlimited | push + email + inbox | — |
+  | Empresa | unlimited | unlimited | push + email + inbox | priority support; WhatsApp in phase 3 |
+
+  - No payment yet (decision L3); Mercado Pago comes in a later phase.
+  - Limits, prices (ARS/month, seeded empty → "Precio a confirmar") and flags are editable in Django admin.
+- **S2 — Founders** (L1 verbatim): "los primeros 100 usuarios seran founders y no se les cobrara nada".
+  - The first 100 get Productor free, forever (decision L4). They carry a founder number (#N).
+  - Race-safe numbering; deleted accounts never free up their slot.
+  - Assumption: existing non-staff users are backfilled first, ordered by `(date_joined, id)`; staff never take a slot.
+- **S3 — Trial** (decision L5): user 101 onward gets Productor for 30 days, then moves to Básico. A daily task moves expired trials and emails the user.
+- **S4 — Limits:** creating a lote or an alert rule over the plan limit answers HTTP 402 `{"detail": "...", "code": "plan_limit"}` in Spanish. Never 403: `frontend/src/query/client.ts:7-9` treats a non-CSRF 403 as a lost session. Downgrade deletes nothing; creation is blocked and rules beyond the limit pause (`paused_by_plan`).
+- **S5 — Account management** (L1 verbatim: "gestion de cuenta"; scope is an assumption from the approved plan):
+  - edit name and email (email needs the current password);
+  - change password;
+  - password reset by email (token lasts 1 h, always answers 204, throttled);
+  - delete account with password (cascades lotes, rules, events, subscriptions);
+  - show plan, usage, founder badge and trial days left;
+  - notification preferences (push on/off, email on/off).
+- **S6 — Custom alerts** (L1 verbatim: "alertas personalizadas"; decision L6): the user writes their own rule per lote: variable (`frost`, `temp_min`, `temp_max`, `rain`, `wind`, `spray_window`) + comparator (`lt`, `lte`, `gt`, `gte`) + threshold, e.g. "avisame si la mínima baja de 2 °C en el lote Norte".
+  - Evaluated on the archived consensus payload (`forecasts()`), after each forecast update, for the rest of today plus tomorrow.
+  - Dedup: one event per `(rule, target_date)`.
+- **S7 — Channels** (decision L7): Web Push (VAPID) + in-app inbox at `/alertas` + email. Push only for plans with `allows_push`. WhatsApp is out of scope.
+- **S8 — Plans page:** public `/planes` with three cards, Productor in the middle and highlighted, the founder counter ("Quedan N lugares de founder"), the current plan marked, and "Próximamente" as the call to action.
+
+## Tasks
+| ID | Specs | Unit | Route | Risk | Status | Commit |
+|---|---|---|---|---|---|---|
+| T1 | S1 S2 S3 | Plans + founders + trial backend: models, migrations, backfill, signup, `/me`, `/api/planes/`, `expire_trials` | inline | item 1, 4 | done (verified) | see L9 |
+| T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | pending | |
+| T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | pending | |
+| T4 | S5 | Email settings + password reset | inline | item 2 | pending | |
+| T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
+| T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
+| T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
+| T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
+| T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
+| T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
+| T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
+
+Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
+
+Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk asks for the chain strategy before the PR.
+
+## Log
+- **L1** (2026-11-16, user, verbatim): "Hay que desarrollar dos nuevas funcionalidades, 1 alertas personalizadas, 2 gestion de cuenta y planes de cuenta, los primeros 100 usuarios seran founders y no se les cobrara nada"
+- **L2** (2026-11-16, user, verbatim, plan review): "Debe de haber 3 planes con uno en el medio, destacado como el preferido y uno muy caro y otro muy barato pero con limitaciones, lo que resuelve mas dolencia debe de ser el del medio para que se tienda a elegir"
+- **L3** (decision): "Planes sin cobro" — model plans and founders now; payment later.
+- **L4** (decision): plan split "Reparto por canal y lotes" — Básico 2 lotes / 3 rules / no push; Productor 15 lotes / unlimited rules / push; Empresa unlimited + priority support. Founders get Productor.
+- **L5** (decision): user 101+ gets "Prueba de Productor" — 30 days, then Básico.
+- **L6** (decision): alerts are "Reglas propias por lote".
+- **L7** (decision): channels "opcion 1 y 2" — push + inbox, and email.
+- **L8** (2026-11-16): Step 0 done on `main`: `3e6a700` (map) and `02d0ed1` (brand). Map test made independent of the developer's `.env`. Branch created. Next: T1.
+- **L9** (2026-11-16): T1 done.
+  - Tests were written after the code, so I ran a mutation probe instead: without `select_for_update` the concurrency test fails 3/3.
+  - pytest 224 passed (twice with --reuse-db), ruff clean, `makemigrations --check` clean, migrations 0005→0001→latest reversible on dev.
+  - Dev DB backfill: the 3 existing users are founders #1–#3.
+  - Independent verifier: S1, S2 and S3 pass, no blockers. Advisories fixed: `expire_trials` only touches Productor trials, the trial email reads the real limits, PlansView reads the founder row by pk=1.
+  - Accepted: login, register and me share the extended `User` payload (additive fields).
+  - Open advisories: admin-created users get Básico with no slot; `EMAIL_USE_TLS` accepts only "true"; a same-email race returns 500 (pre-existing).
+  - `.env` is not readable by the agent (deny rule); defaults cover dev.

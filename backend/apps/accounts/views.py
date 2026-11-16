@@ -6,7 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .authentication import enforce_csrf
-from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
+from .models import FounderProgram, Plan
+from .serializers import LoginSerializer, PlanSerializer, RegisterSerializer, UserSerializer
 from .throttling import IPScopedRateThrottle
 
 BAD_CREDENTIALS_MESSAGE = "Email o contraseña incorrectos."
@@ -70,3 +71,21 @@ class LogoutView(CsrfProtectedView):
 class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class PlansView(APIView):
+    """Public price table: the three plans and how many founder slots are left."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [IPScopedRateThrottle]
+    throttle_scope = "plans"
+
+    def get(self, request):
+        program = FounderProgram.objects.filter(pk=1).first() or FounderProgram()
+        return Response(
+            {
+                "plans": PlanSerializer(Plan.objects.all(), many=True).data,
+                "founders": {"limit": program.limit, "remaining": program.remaining},
+                "trial_days": program.trial_days,
+            }
+        )
