@@ -30,6 +30,11 @@ MAX_RETRIES = 3
 PUSH_TTL_SECONDS = 12 * 60 * 60  # a notice older than this is not worth showing
 PUSH_TIMEOUT_SECONDS = 10
 GONE_STATUSES = {404, 410}  # the browser dropped the subscription: delete it, not an error
+# The subscription itself is unusable (bad keys, refused payload): drop it, never retry it.
+# None is what pywebpush raises with for malformed keys, before any push service answers.
+BROKEN_STATUSES = {None, 400, 413}
+# The push service refused our VAPID credentials: a configuration problem, not this browser's.
+REJECTED_STATUSES = {401, 403}
 
 EMAIL_BODY = "{body}\n\nMirá todas tus alertas en {url}/alertas\n\nGaucho Weather"
 
@@ -101,7 +106,7 @@ def _send_push(event: AlertEvent) -> str:
         {"title": event.title, "body": event.body, "url": "/alertas", "tag": f"alert-{event.pk}"},
         ensure_ascii=False,
     )
-    sent, transient = 0, []
+    sent, rejected, transient = 0, 0, []
     for subscription in subscriptions:
         try:
             webpush(
@@ -116,10 +121,23 @@ def _send_push(event: AlertEvent) -> str:
                 timeout=PUSH_TIMEOUT_SECONDS,
             )
         except WebPushException as exc:
-            if exc.status_code in GONE_STATUSES:
+            status = getattr(exc.response, "status_code", None)
+            if status in GONE_STATUSES or status in BROKEN_STATUSES:
+                if status not in GONE_STATUSES:
+                    logger.warning(
+                        "Alert %s: dropping a broken subscription (%s)", event.pk, status
+                    )
                 subscription.delete()
                 continue
-            transient.append(f"push service answered {exc.status_code}")
+            if status in REJECTED_STATUSES:
+                rejected += 1
+                logger.error(
+                    "Alert %s: the push service rejected our VAPID credentials (%s)",
+                    event.pk,
+                    status,
+                )
+                continue
+            transient.append(f"push service answered {status}")
         except requests.RequestException as exc:
             transient.append(f"network error {type(exc).__name__}")
         else:
@@ -127,7 +145,9 @@ def _send_push(event: AlertEvent) -> str:
     if transient:
         # Devices that already got it get it again on the retry; the tag replaces it in place.
         raise TransientFailure("; ".join(transient))
-    return DeliveryStatus.SENT if sent else DeliveryStatus.SKIPPED
+    if sent:
+        return DeliveryStatus.SENT
+    return DeliveryStatus.FAILED if rejected else DeliveryStatus.SKIPPED
 
 
 def _send_email(event: AlertEvent) -> str:

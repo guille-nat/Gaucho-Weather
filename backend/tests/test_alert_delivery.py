@@ -51,6 +51,8 @@ def webpush(monkeypatch):
 
 
 def push_error(status):
+    if status is None:  # what pywebpush raises for malformed subscription keys
+        return WebPushException("Push failed: bad subscription keys")
     response = requests.Response()
     response.status_code = status
     return WebPushException(f"Push failed: {status}", response=response)
@@ -218,6 +220,35 @@ def failing_smtp(monkeypatch):
         raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
 
     monkeypatch.setattr(delivery, "send_mail", refuse)
+
+
+class TestPermanentFailures:
+    @pytest.mark.parametrize("status", [None, 400, 413])
+    def test_a_broken_subscription_is_dropped_without_retrying_the_others(
+        self, productor, webpush, status
+    ):
+        good = subscribe(productor)
+        broken = subscribe(productor, endpoint="https://push.example.com/rota")
+        webpush.failures[broken.endpoint] = push_error(status)
+        event = make_event(productor)
+
+        delivery.deliver(event.pk)
+
+        assert statuses(event)[0] == "sent"
+        assert list(PushSubscription.objects.values_list("endpoint", flat=True)) == [good.endpoint]
+
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_rejected_credentials_fail_the_push_without_retrying(
+        self, productor, webpush, status, caplog
+    ):
+        webpush.failures[subscribe(productor).endpoint] = push_error(status)
+        event = make_event(productor)
+
+        delivery.deliver(event.pk)
+
+        assert statuses(event)[0] == "failed"
+        assert PushSubscription.objects.count() == 1  # our keys, not the browser, are at fault
+        assert "rejected our VAPID credentials" in caplog.text
 
 
 class TestTransientFailures:
