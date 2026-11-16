@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { BrandMark } from '../components/AppShell';
+import { BrandMark } from '../components/BrandMark';
 import { Icon } from '../components/Icon';
 
 export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
@@ -8,7 +8,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
     <main className="auth" id="contenido">
       <div className="auth-top">
         <p className="auth-brand">
-          <BrandMark size={24} />
+          <BrandMark size={36} motion="salute" />
           Gaucho Weather
         </p>
         <Link className="back-link" to="/">

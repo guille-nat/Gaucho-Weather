@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { useMe } from '../query/hooks';
+import { BrandMark } from './BrandMark';
 import { Icon, type IconName } from './Icon';
 
 const NAV: { to: string; label: string; icon: IconName; match: (path: string) => boolean }[] = [
@@ -21,7 +22,7 @@ export function AppShell() {
       </a>
       <nav className="tabbar" aria-label="Principal">
         <p className="tabbar-brand" aria-hidden="true">
-          <BrandMark />
+          <BrandMark size={28} />
           Gaucho Weather
         </p>
         <ul>
@@ -48,15 +49,5 @@ export function AppShell() {
         <Outlet />
       </main>
     </div>
-  );
-}
-
-/** The brand mark: the pampa sun on the horizon, in gold. */
-export function BrandMark({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-      <path d="M3.5 13a6.5 6.5 0 0 1 13 0Z" fill="#f2b705" />
-      <path d="M1 15.5h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
   );
 }

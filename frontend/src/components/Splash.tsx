@@ -1,10 +1,13 @@
-import { BrandMark } from './AppShell';
+import { BrandMark } from './BrandMark';
 import { Icon } from './Icon';
 
 export function Splash() {
   return (
     <div className="splash" aria-busy="true" aria-live="polite">
-      <BrandMark size={28} />
+      <BrandMark size={88} motion="loop" />
+      <p className="splash-name" aria-hidden="true">
+        Gaucho Weather
+      </p>
       <span className="sr-only">Cargando…</span>
     </div>
   );

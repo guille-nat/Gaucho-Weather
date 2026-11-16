@@ -72,6 +72,8 @@
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-sky: 1600ms;
+  --dur-salute: 1100ms;
+  --ease-salute: cubic-bezier(0.45, 0, 0.25, 1);
 
   --focus: 3px solid var(--gold);
   color-scheme: dark;

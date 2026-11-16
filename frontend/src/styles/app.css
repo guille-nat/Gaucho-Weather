@@ -2009,8 +2009,65 @@ input[type='date'].input {
 
 .splash {
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
   min-height: 60dvh;
+}
+
+.splash-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+/* The brand mark's one gesture: the gaucho lifts his chambergo in a salute. */
+.brand-mark {
+  flex: none;
+  overflow: visible;
+}
+
+.brand-mark__hat {
+  transform-box: fill-box;
+  transform-origin: 70% 100%;
+}
+
+.brand-mark--salute .brand-mark__hat {
+  animation: gaucho-salute var(--dur-salute) var(--ease-salute) 400ms both;
+}
+
+.brand-mark--loop .brand-mark__hat {
+  animation: gaucho-salute-loop calc(var(--dur-salute) * 2.4) var(--ease-salute) 200ms infinite;
+}
+
+@keyframes gaucho-salute {
+  0%,
+  100% {
+    transform: none;
+  }
+  38%,
+  62% {
+    transform: translate(1px, -7px) rotate(-12deg);
+  }
+}
+
+@keyframes gaucho-salute-loop {
+  0%,
+  42%,
+  100% {
+    transform: none;
+  }
+  16%,
+  26% {
+    transform: translate(1px, -7px) rotate(-12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark__hat {
+    animation: none !important;
+  }
 }
 
 .gate {
