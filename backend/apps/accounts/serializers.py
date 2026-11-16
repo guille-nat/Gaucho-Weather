@@ -93,15 +93,12 @@ class AccountUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"email": {"validators": []}}  # uniqueness checked case-insensitively below
 
     def validate_email(self, value: str) -> str:
-        value = value.strip().lower()
-        taken = User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk)
-        if taken.exists():
-            raise serializers.ValidationError(EMAIL_TAKEN)
-        return value
+        return value.strip().lower()
 
     def validate(self, attrs):
         email = attrs.get("email")
         if email is not None and email != self.instance.email:
+            # The password first: without it, nobody learns whether an address has an account.
             password = attrs.get("current_password")
             if not password:
                 raise serializers.ValidationError(
@@ -109,6 +106,8 @@ class AccountUpdateSerializer(serializers.ModelSerializer):
                 )
             if not self.instance.check_password(password):
                 raise serializers.ValidationError({"current_password": WRONG_PASSWORD})
+            if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+                raise serializers.ValidationError({"email": EMAIL_TAKEN})
         attrs.pop("current_password", None)
         return attrs
 

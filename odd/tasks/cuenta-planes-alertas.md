@@ -37,8 +37,8 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 |---|---|---|---|---|---|---|
 | T1 | S1 S2 S3 | Plans + founders + trial backend: models, migrations, backfill, signup, `/me`, `/api/planes/`, `expire_trials` | inline | item 1, 4 | done (verified) | see L9 |
 | T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | done | see L10 |
-| T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verifier pending, with T4) | see L11 |
-| T4 | S5 | Email settings + password reset | inline | item 2 | done (verifier pending, with T3) | see L12 |
+| T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verified) | see L11 |
+| T4 | S5 | Email settings + password reset | inline | item 2 | done (verified) | see L12 |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
@@ -85,3 +85,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - POST `/password/reset/confirm/` takes uid, token and new password. The link lasts 1 h (`PASSWORD_RESET_TIMEOUT`) and works once; a bad or expired link answers `{"detail": "El enlace no es válido o venció. Pedí uno nuevo."}`. A reset signs out every session.
   - A login also spends pending links (Django's token includes `last_login`), now pinned by a test.
   - Email settings were already added in T1. pytest 259 passed.
+- **L13** (2026-11-16): Independent verifier over T3 and T4: all S5 items and the S2 slot rule pass, no blockers.
+  - Fixed: a logged-in PATCH revealed whether an email had an account before checking the password. The password is now checked first, and both orders are pinned by tests.
+  - Fixed: name and preference PATCHes consumed the login throttle. Now only requests carrying a password count.
+  - Open advisories: no notice to the old address on an email change; a same-email race returns 500 (as in register); a broker outage returns 500 on a reset request.
+  - pytest 262 passed.

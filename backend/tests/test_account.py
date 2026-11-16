@@ -76,6 +76,28 @@ class TestEditAccount:
         assert response.status_code == 400
         assert response.json() == {"email": ["Ya existe una cuenta con este email."]}
 
+    def test_without_the_password_a_taken_email_is_not_revealed(self, auth_client, make_user):
+        make_user(email="beto@example.com")
+
+        taken = auth_client.patch(ME, {"email": "beto@example.com"}, format="json")
+        free = auth_client.patch(ME, {"email": "libre@example.com"}, format="json")
+
+        assert taken.status_code == free.status_code == 400
+        assert (
+            taken.json()
+            == free.json()
+            == {"current_password": ["Para cambiar el email confirmá tu contraseña."]}
+        )
+
+    def test_with_a_wrong_password_a_taken_email_is_not_revealed(self, auth_client, make_user):
+        make_user(email="beto@example.com")
+
+        response = auth_client.patch(
+            ME, {"email": "beto@example.com", "current_password": "nope"}, format="json"
+        )
+
+        assert response.json() == WRONG
+
     def test_keeping_the_same_email_needs_no_password(self, auth_client):
         response = auth_client.patch(ME, {"email": "ana@example.com", "name": "Ana"}, format="json")
 
@@ -198,6 +220,14 @@ class TestThrottle:
         response = auth_client.delete(ME, {"password": "nope"}, format="json")
 
         assert response.status_code == 429
+
+    def test_saving_name_and_preferences_is_not_throttled(self, auth_client):
+        codes = {
+            auth_client.patch(ME, {"notify_email": i % 2 == 0}, format="json").status_code
+            for i in range(12)
+        }
+
+        assert codes == {200}
 
     def test_reading_the_account_is_not_throttled(self, auth_client):
         codes = {auth_client.get(ME).status_code for _ in range(12)}

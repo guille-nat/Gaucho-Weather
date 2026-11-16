@@ -89,14 +89,17 @@ class LogoutView(CsrfProtectedView):
 
 
 class PasswordCheckThrottle(IPScopedRateThrottle):
-    """Throttles only the unsafe methods; reading the account stays free.
+    """Throttles only the requests that check the password, in the login bucket.
 
-    The scope comes from the view's `throttle_scope`: views that check the password use the
-    login bucket (10/min per IP).
+    Reading the account, renaming it or changing the notification choices stays free; a
+    PATCH counts only when it carries `current_password`. The scope comes from the view's
+    `throttle_scope`.
     """
 
     def allow_request(self, request, view):
         if request.method in ("GET", "HEAD", "OPTIONS"):
+            return True
+        if request.method == "PATCH" and "current_password" not in request.data:
             return True
         return super().allow_request(request, view)
 
