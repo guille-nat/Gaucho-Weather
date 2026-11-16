@@ -78,7 +78,8 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T15 | S13 | Founder badge + explanation | delegated (parallel) | none | pending | |
 | T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | pending | |
 | T17 | S14 | Subscription frontend page | delegated (parallel) | none | pending | |
-| T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | pending | |
+| T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
+| T19 | S7 S9 S11 S5 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | pending | |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -212,3 +213,16 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Needs the user's decision.
 - **L29** (2026-11-16, user, verbatim): "falta el ver el clima por lote tambien, falta el apartasdo de manejo de subsicripciones. si partelo en lo que necesites,  tambien el una insignea de cuando sos founder y explicarlo para que se sientan Importantes"
 - **L30** (decision): «Manejo de suscripciones» = «Mi suscripción (plan)», not push devices.
+- **L31** (2026-11-16): The user said "si partelo en lo que necesites". The slice ba985f9..3f68bb3 was reviewed as 4 detached worktree slices (ba985f9..d2b9c84, ..75db538, ..f43b999, ..3f68bb3), each consented, 12 reviewer runs in total.
+  - All 4 approved and acknowledged; the reviewed boundary is now `3f68bb3`.
+  - Warnings to fix (T19):
+    - Security:
+      - the Open-Meteo key can leak into logs through `HTTPStatusError` messages (archiver history tasks);
+      - push endpoint SSRF: any https host, including private ones, is accepted (needs a push-service allowlist).
+    - Resilience:
+      - an event queued while the broker is down is never delivered (needs a re-dispatch sweep);
+      - the reset cooldown is claimed before `send_mail`, so an SMTP failure blocks retries for 10 min;
+      - `run_evaluation` has no per-cell isolation;
+      - a WebPushException with status None or 413 can come from our side, so deleting the subscription there is wrong (only 400 should delete);
+      - every lote PATCH queues a backfill even without a move.
+    - Readability: `push.ts` uses `ready` vs `getRegistration` inconsistently; the mock duplicates the rule ranges without saying so.
