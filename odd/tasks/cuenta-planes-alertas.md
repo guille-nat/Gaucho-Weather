@@ -52,7 +52,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | done | see L16 |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | delegated (context backstop) | none | done | see L19 |
 | T8 | S7 | Delivery push/email + inbox and push APIs | delegated (parallel with T9, T13) | item 5 (pywebpush dependency) | done (verifier pending) | see L21 |
-| T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
+| T9 | S7 | Service worker → injectManifest + push handlers | delegated (parallel with T8, T13) | item 5, 6 | done (verifier pending) | see L22 |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | inline | none | pending | |
@@ -147,3 +147,12 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - New APIs: `/api/alertas/eventos/` (last 100 + `unread_count`), `eventos/leer/`, `push/clave/` (503 when VAPID is not set), and `push/` POST/DELETE (upsert by endpoint, https only, 402 on Básico).
   - New settings: `VAPID_*`.
   - Images need a rebuild for pywebpush; the running containers were synced as root.
+- **L22** (2026-11-16): T9 done by a bounded writer.
+  - `frontend/src/sw.ts` uses injectManifest. Its proof against the generateSW build:
+    - the same 19 precache entries;
+    - the same routes, strategies and caches (`api-lotes`, `api-publico`, `X-From-SW-Cache` stamp);
+    - in headless Chrome, both builds served the same offline responses.
+  - New: `/api/alertas/` is NetworkOnly and `/api/planes/` goes to `api-publico`.
+  - The push and notificationclick handlers were tested through CDP. A click opens same-origin URLs only.
+  - tsconfig is split into app and sw projects, plus workbox 7.4.1 devDependencies.
+  - Decision: no `skipWaiting`/`clientsClaim`. The old worker did not have them (injectRegister false), so update behaviour stays the same.

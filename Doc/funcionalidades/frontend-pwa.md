@@ -1,5 +1,5 @@
 # Frontend PWA
-> Última actualización: 2026-11-04
+> Última actualización: 2026-11-16
 
 ## Qué hace
 App web instalable (PWA), mobile first. Primero es una app del clima (S8): al abrirla
@@ -50,14 +50,25 @@ señal se siguen viendo los últimos datos.
     en hora argentina. La hora es la del servidor, nunca la de la descarga.
   - La barra superior dice "Pronóstico de las HH:MM": el `fetched_at` más nuevo de los
     resúmenes, igual que el "Pronóstico descargado a las …" del detalle.
-  - El service worker (vite-plugin-pwa / Workbox) precachea el app shell y las fuentes.
+  - El service worker es propio: `src/sw.ts`, armado por vite-plugin-pwa con
+    `strategies: 'injectManifest'` (el plugin solo inyecta la lista del precache; los
+    patrones del app shell siguen en `vite.config.ts`, bloque `injectManifest`).
+    Precachea el app shell y las fuentes, y toda navegación que no sea `/api/` cae en
+    `index.html`.
   - Usa network-first para `/api/lotes/` (caché `api-lotes`, privado) y para
-    `/api/pronostico/` y `/api/lugares/` (caché `api-publico`, por URL). Nunca cachea
-    `/api/auth/`.
+    `/api/pronostico/`, `/api/lugares/` y `/api/planes/` (caché `api-publico`, por URL).
+    Nunca cachea `/api/auth/` ni `/api/alertas/`.
+  - También recibe los avisos push (S7): muestra la notificación con el JSON
+    `{title, body, url, tag}` (sin JSON, título "Gaucho Weather" y el texto como cuerpo) y
+    al tocarla enfoca la app abierta y la lleva a `url`, o abre una ventana nueva; por
+    defecto `/alertas`, y solo URLs del mismo origen.
+  - Una versión nueva espera a que se cierren las pestañas (o a un mensaje
+    `SKIP_WAITING`): igual que el worker generado de antes, que con `injectRegister: false`
+    nunca tuvo `skipWaiting` ni `clientsClaim`.
   - El pronóstico público también se persiste en IndexedDB (raíz `pronostico`), así
     Inicio abre sin señal con el último lugar.
   - Cuando responde desde su caché agrega el header `X-From-SW-Cache: 1` (plugin
-    `cachedResponseWillBeUsed` en `vite.config.ts`); la app lo trata como "sin conexión".
+    `cachedResponseWillBeUsed` en `src/sw.ts`); la app lo trata como "sin conexión".
   - Después de crear, editar o borrar un lote, el caché se escribe en IndexedDB antes de
     cambiar de pantalla (`flush`), para que una recarga inmediata no lo pierda.
 - **Fin de sesión** (`src/query/session.ts`, `AppProviders.tsx`):
@@ -137,6 +148,16 @@ señal se siguen viendo los últimos datos.
   datos eran nuevos: el aviso "Sin conexión" no aparecía y la hora era la de ahora.
   **Alternativas descartadas:** forzar `onlineManager` a offline; con señal mala el
   navegador no avisa cuando vuelve la red y la app quedaba trabada.
+- **Decisión (2026-11-16):** service worker propio con `injectManifest` en vez de
+  `generateSW`.
+  **Por qué:** Web Push necesita los eventos `push` y `notificationclick`, y el worker
+  generado no los admite. Las rutas, cachés, plugins y el precache se copiaron uno a uno;
+  se comparó el `sw.js` de antes y después (mismas 19 entradas del precache, mismas
+  rutas, estrategias y cachés) y se probó en Chrome sin red.
+  **Alternativas descartadas:** `importScripts` con un archivo suelto dentro de
+  `generateSW`: queda fuera de TypeScript y del bundle, y las rutas seguirían repartidas.
+  **Tipos:** `src/sw.ts` se chequea con la lib WebWorker en `tsconfig.sw.json`; la app
+  sigue con DOM en `tsconfig.app.json`, y `tsconfig.json` solo referencia a los dos.
 - **Decisión:** fuentes self-hosted con @fontsource (Atkinson Hyperlegible Next y Barlow
   Semi Condensed), solo el subset latin. (Barlow reemplazada el 2026-11-03 por Onest:
   grotesca moderna con cifras grandes para "Cielo vivo".)
@@ -253,6 +274,10 @@ señal se siguen viendo los últimos datos.
   `src/components/MapPicker.test.tsx` vigila los dos errores del mapa en blanco (worker
   y peso de la regla CSS); jsdom no aplica especificidad, así que la prueba real es un
   Chrome con WebGL (`--use-angle=swiftshader --enable-unsafe-swiftshader`).
+- **Service worker:** una ruta o caché nueva va en `src/sw.ts`. Si se renombra
+  `api-lotes` o `api-publico`, o el header `X-From-SW-Cache`, hay que cambiar también
+  `src/query/session.ts` y `src/api/client.ts`. Ningún test cubre el worker: después de
+  tocarlo, compará el `dist/sw.js` del build y probalo sin red en el navegador.
 - **Proxy de desarrollo:** `VITE_API_PROXY_TARGET`. Por defecto es
   `http://localhost:8001`; en compose es `http://backend:8000`.
 
@@ -270,3 +295,6 @@ señal se siguen viendo los últimos datos.
   satélite EOxCloudless 2016 con cambio a calles, dibujo del contorno con hectáreas
   automáticas y centroide como ubicación. Arreglo del mapa en blanco: worker de MapLibre
   sin URL válida y contenedor de 0 px por el orden del CSS.
+- 2026-11-16: service worker propio (`src/sw.ts`, `injectManifest`) con los mismos cachés
+  y rutas, más `/api/planes/` en el caché público, `/api/alertas/` sin caché y los
+  eventos de Web Push (T9, S7).

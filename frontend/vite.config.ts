@@ -7,28 +7,15 @@ import { defineConfig } from 'vitest/config';
 const SKY = '#1d68c4';
 const SKY_DEEP = '#124f9e';
 
-/**
- * Marks answers served from a runtime cache (no network, or slower than the timeout): the app
- * shows them as offline data with the server's own `Date`, never as fresh (src/api/client.ts,
- * apiGetServed). Serialized into sw.js, so it must stay self-contained.
- */
-const markFromCache = {
-  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) => {
-    if (!cachedResponse) return cachedResponse;
-    const headers = new Headers(cachedResponse.headers);
-    headers.set('X-From-SW-Cache', '1');
-    return new Response(cachedResponse.body, {
-      status: cachedResponse.status,
-      statusText: cachedResponse.statusText,
-      headers,
-    });
-  },
-};
-
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Our own worker (src/sw.ts): Web Push needs push and notificationclick handlers (S7).
+      // The runtime routes and the from-cache stamp live there now.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       injectRegister: false,
       manifest: {
@@ -50,49 +37,12 @@ export default defineConfig({
           { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
+      injectManifest: {
         // App shell: JS, CSS, HTML, icons and the self-hosted fonts.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // The map chunk and its worker are large and only needed when placing a lote.
         globIgnores: ['**/MapPicker-*', '**/maplibre-gl-worker-*'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            // Auth must always hit the network: never cache sessions or CSRF tokens.
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/auth/'),
-            handler: 'NetworkOnly',
-          },
-          {
-            // Private: lotes and their forecasts. Deleted when a session ends (query/session.ts).
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/lotes/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-lotes',
-              networkTimeoutSeconds: 6,
-              expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-              plugins: [markFromCache],
-            },
-          },
-          {
-            // Public forecast and places (S10), keyed by the full URL (lat/lon, q). Nobody's
-            // data, so it survives a logout and Inicio opens offline on the last place.
-            urlPattern: ({ url }) =>
-              url.pathname.startsWith('/api/pronostico/') ||
-              url.pathname.startsWith('/api/lugares/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-publico',
-              networkTimeoutSeconds: 6,
-              expiration: { maxEntries: 60, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-              plugins: [markFromCache],
-            },
-          },
-        ],
       },
     }),
   ],
