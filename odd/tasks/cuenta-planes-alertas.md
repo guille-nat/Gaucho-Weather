@@ -184,3 +184,6 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Structural readback and link check: 15 links resolve.
   - Dev environment: the backend image was rebuilt (pywebpush 2.5.0) and the worker registers all 8 tasks.
   - E2E on dev: a fresh forecast plus `evaluate_alerts` created 2 events (today and tomorrow); the worker emailed both and skipped push (no VAPID or subscription in dev). The smoke rule and its events were deleted afterwards.
+- **L28** (2026-11-16): RDD review of the slice ba985f9..acccc29 (79 files, 7534 lines; high risk, escalated item 5) was granted by the user, but START stopped with `lens_context_budget_exceeded`. No authority was created.
+  - Remaining options: split the slice into smaller reviewed ranges (ODD and RDD), or accept the independent verifiers that already passed T8 and T9 (the high-risk units).
+  - Needs the user's decision.
