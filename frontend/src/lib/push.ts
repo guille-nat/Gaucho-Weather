@@ -51,6 +51,8 @@ export function urlBase64ToUint8Array(base64url: string): Uint8Array<ArrayBuffer
 
 /** Subscribes this browser with the server's VAPID public key. */
 export async function subscribeBrowser(publicKey: string): Promise<PushSubscriptionInput> {
+  // `ready` here, unlike `subscription()`: subscribing needs an active worker, so waiting for
+  // it is right. The caller only gets here after `pushSupported()` on a tap.
   const registration = await navigator.serviceWorker.ready;
   const created = await registration.pushManager.subscribe({
     userVisibleOnly: true,

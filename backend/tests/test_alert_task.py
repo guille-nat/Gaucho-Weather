@@ -49,7 +49,14 @@ class TestEvaluateRules:
 
         stats = evaluate_rules()
 
-        assert stats == {"rules": 1, "cells": 1, "created": 1, "skipped_stale": 0}
+        assert stats == {
+            "rules": 1,
+            "cells": 1,
+            "created": 1,
+            "skipped_stale": 0,
+            "errors": 0,
+            "redispatched": 0,
+        }
         event = AlertEvent.objects.get()
         assert (event.rule, event.user, event.lote) == (rule, user, lote)
         assert event.target_date.isoformat() == "2026-11-04"
@@ -88,7 +95,14 @@ class TestEvaluateRules:
 
         stats = evaluate_rules()
 
-        assert stats == {"rules": 1, "cells": 1, "created": 0, "skipped_stale": 1}
+        assert stats == {
+            "rules": 1,
+            "cells": 1,
+            "created": 0,
+            "skipped_stale": 1,
+            "errors": 0,
+            "redispatched": 0,
+        }
         assert not AlertEvent.objects.exists()
 
     def test_the_maximum_age_comes_from_settings(self, user, settings):
@@ -105,14 +119,28 @@ class TestEvaluateRules:
 
         stats = evaluate_rules()
 
-        assert stats == {"rules": 2, "cells": 2, "created": 1, "skipped_stale": 1}
+        assert stats == {
+            "rules": 2,
+            "cells": 2,
+            "created": 1,
+            "skipped_stale": 1,
+            "errors": 0,
+            "redispatched": 0,
+        }
         assert AlertEvent.objects.get().lote.name == "Lote"
 
     def test_disabled_rules_are_ignored(self, user):
         make_rule(user, make_lote(user), enabled=False)
         archive()
 
-        assert evaluate_rules() == {"rules": 0, "cells": 0, "created": 0, "skipped_stale": 0}
+        assert evaluate_rules() == {
+            "rules": 0,
+            "cells": 0,
+            "created": 0,
+            "skipped_stale": 0,
+            "errors": 0,
+            "redispatched": 0,
+        }
         assert not AlertEvent.objects.exists()
 
     def test_rules_beyond_the_basico_cap_are_paused(self, user):
@@ -127,7 +155,14 @@ class TestEvaluateRules:
         assert {e.rule for e in AlertEvent.objects.all()} == set(rules[:3])
 
     def test_nothing_to_evaluate(self):
-        assert evaluate_rules() == {"rules": 0, "cells": 0, "created": 0, "skipped_stale": 0}
+        assert evaluate_rules() == {
+            "rules": 0,
+            "cells": 0,
+            "created": 0,
+            "skipped_stale": 0,
+            "errors": 0,
+            "redispatched": 0,
+        }
 
     def test_command_runs_the_evaluation_and_prints_the_stats(self, user):
         make_rule(user, make_lote(user))

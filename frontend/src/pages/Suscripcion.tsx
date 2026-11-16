@@ -211,6 +211,22 @@ function ChangePlan({
       {sub.pending_request ? (
         <p className="fine">Ya tenés un pedido pendiente: retiralo si querés pedir otro.</p>
       ) : null}
+      {sub.status === 'trial' ? (
+        <div className="sub-keep">
+          <p className="fine">
+            Cuando termine la prueba pasás a Básico. Si querés seguir con {sub.plan.name}, pedilo
+            ahora.
+          </p>
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={blocked}
+            onClick={() => ask({ kind: 'change', plan: sub.plan.code })}
+          >
+            Quedarme con {sub.plan.name}
+          </button>
+        </div>
+      ) : null}
       {others.length ? (
         <div className="sub-options">
           {others.map((plan) => (

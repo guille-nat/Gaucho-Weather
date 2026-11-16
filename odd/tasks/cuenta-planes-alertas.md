@@ -79,7 +79,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T16 | S14 | Subscription backend: PlanChange history, PlanRequest, API, admin apply action, data migration | delegated (parallel) | item 1 (data migration on existing users) | done | see L32 |
 | T17 | S14 | Subscription frontend page | delegated (parallel) | none | done | see L33 |
 | T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
-| T19 | S7 S9 S11 S5 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | pending | |
+| T19 | S7 S9 S11 S5 S14 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | done | see L34 |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -239,3 +239,15 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - T14: the lote page shows "Estamos buscando el pronóstico de este lote. Tarda unos segundos." and polls every 5 s, 12 times, then offers "Volver a intentar".
   - T15: FounderBadge (gold pill with a sun, "Founder n.º N") in the Perfil header with the explanation on tap, plus a gold sun on the Perfil tab. The explanation states only true facts.
   - T17: `/perfil/suscripcion` with the plan card (status, features, usage), the pending request with "Retirar pedido", other plans with "Pedir este plan", "Darme de baja" with its consequences, and the history. Plan features are shared in `lib/planFeatures.ts`.
+- **L34** (2026-11-16): T19 done test-first (RED: 15 failing, including an extra finding: httpx logs every request URL, apikey included, at INFO).
+  - Security:
+    - `openmeteo.describe_error` logs only the HTTP status, and the httpx and httpcore loggers are set to WARNING;
+    - push endpoints must match `PUSH_ALLOWED_HOSTS` (the browsers' push services), so internal hosts are refused.
+  - Resilience:
+    - push status None or 413 keeps the subscription and fails without a retry; only 400 deletes;
+    - `run_evaluation` re-queues events left pending for 10 min to 24 h, and isolates each cell in a savepoint (`errors`);
+    - the reset cooldown is freed when `send_mail` fails;
+    - only a moved lote refetches its weather.
+  - S14 gap: a trial can ask to keep Productor (backend: same plan during a trial; frontend: "Quedarme con Productor"). The mock now stores a cancel with plan `basico` like the backend.
+  - Readability comments added (`push.ts` ready vs getRegistration; mock ranges mirror `rules.py`).
+  - pytest 448, Vitest 147, tsc, lint and ruff clean.

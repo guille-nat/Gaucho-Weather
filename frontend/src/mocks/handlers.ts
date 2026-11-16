@@ -173,7 +173,9 @@ function planRequestError(input: PlanRequestInput, user: User, db: MockDb): stri
   const code = input.kind === 'cancel' ? 'basico' : input.plan;
   const plan = db.plans.find((p) => p.code === code);
   if (!plan) return 'Ese plan no existe.';
-  if (user.plan?.code === plan.code) return `Ya estás en el plan ${plan.name}.`;
+  // On a trial, asking for the same plan means keeping it after the trial (as the backend).
+  const onTrial = Boolean(user.plan_expires_at) && user.founder_number == null;
+  if (user.plan?.code === plan.code && !onTrial) return `Ya estás en el plan ${plan.name}.`;
   if (db.planRequest) return 'Ya tenés un pedido pendiente.';
   return null;
 }
@@ -298,6 +300,7 @@ function ruleErrors(rule: AlertRuleInput, db: MockDb): Record<string, string[]> 
   return errors;
 }
 
+// Mirrors backend/apps/alerts/rules.py SPECS (low, high); keep both in step.
 const RULE_RANGES: Record<Exclude<AlertVariable, 'spray_window'>, [number, number]> = {
   frost: [-15, 10],
   temp_min: [-30, 50],
@@ -468,7 +471,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       db.planRequest = {
         id: db.nextId++,
         kind: input.kind,
-        plan: input.kind === 'change' ? input.plan : null,
+        plan: input.kind === 'change' ? input.plan : 'basico', // like the backend
         created_at: new Date().toISOString(),
       };
       return HttpResponse.json(db.planRequest, { status: 201 });

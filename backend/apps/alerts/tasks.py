@@ -13,6 +13,7 @@ from functools import partial
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from kombu.exceptions import OperationalError
 
@@ -22,7 +23,7 @@ from apps.archiver.forecast import forecasts
 
 from . import delivery
 from .evaluate import evaluate
-from .models import AlertEvent, AlertRule
+from .models import AlertEvent, AlertRule, DeliveryStatus
 
 logger = logging.getLogger(__name__)
 
@@ -45,37 +46,74 @@ def run_evaluation(now: datetime | None = None) -> dict[str, int]:
         by_cell[grid_cell(rule.lote.latitude, rule.lote.longitude)].append(rule)
 
     max_age = timedelta(hours=settings.ALERTS_MAX_FORECAST_AGE_HOURS)
-    stats = {"rules": len(rules), "cells": len(by_cell), "created": 0, "skipped_stale": 0}
+    stats = {
+        "rules": len(rules),
+        "cells": len(by_cell),
+        "created": 0,
+        "skipped_stale": 0,
+        "errors": 0,
+        "redispatched": _redispatch_stuck(now),
+    }
     for cell, forecast in _fresh_or_none(forecasts(by_cell, now), by_cell, now, max_age):
         if forecast is None:
             stats["skipped_stale"] += 1
             continue
-        for rule in by_cell[cell]:
-            for trigger in evaluate(rule, forecast.payload, now):
-                event, created = AlertEvent.objects.get_or_create(
-                    rule=rule,
-                    target_date=trigger.target_date,
-                    defaults={
-                        "user": rule.user,
-                        "lote": rule.lote,
-                        "title": trigger.title,
-                        "body": trigger.body,
-                        "data": {
-                            "value": trigger.value,
-                            "threshold": (
-                                None if rule.threshold is None else float(rule.threshold)
-                            ),
-                            "comparator": rule.comparator,
-                            "variable": rule.variable,
-                            "at": trigger.at,
-                        },
-                    },
-                )
-                stats["created"] += created
-                if created:
-                    transaction.on_commit(partial(_queue_delivery, event.pk))
+        try:
+            # One cell's bad payload must not stop every other cell's alerts.
+            with transaction.atomic():
+                stats["created"] += _evaluate_cell(by_cell[cell], forecast, now)
+        except Exception:
+            stats["errors"] += 1
+            logger.exception("Alert evaluation failed for cell %s", cell)
     logger.info("Alert evaluation run: %s", stats)
     return stats
+
+
+# An event whose delivery could not be queued (broker down) is sent by a later run. Younger
+# than this it may still be in flight; older, the alert is no longer useful.
+REDISPATCH_AFTER = timedelta(minutes=10)
+REDISPATCH_UNTIL = timedelta(hours=24)
+
+
+def _redispatch_stuck(now) -> int:
+    pending = Q(push_status=DeliveryStatus.PENDING) | Q(email_status=DeliveryStatus.PENDING)
+    stuck = AlertEvent.objects.filter(
+        pending,
+        created_at__lte=now - REDISPATCH_AFTER,
+        created_at__gte=now - REDISPATCH_UNTIL,
+    ).values_list("pk", flat=True)
+    count = 0
+    for pk in stuck:
+        transaction.on_commit(partial(_queue_delivery, pk))
+        count += 1
+    return count
+
+
+def _evaluate_cell(rules, forecast, now) -> int:
+    created_count = 0
+    for rule in rules:
+        for trigger in evaluate(rule, forecast.payload, now):
+            event, created = AlertEvent.objects.get_or_create(
+                rule=rule,
+                target_date=trigger.target_date,
+                defaults={
+                    "user": rule.user,
+                    "lote": rule.lote,
+                    "title": trigger.title,
+                    "body": trigger.body,
+                    "data": {
+                        "value": trigger.value,
+                        "threshold": (None if rule.threshold is None else float(rule.threshold)),
+                        "comparator": rule.comparator,
+                        "variable": rule.variable,
+                        "at": trigger.at,
+                    },
+                },
+            )
+            created_count += created
+            if created:
+                transaction.on_commit(partial(_queue_delivery, event.pk))
+    return created_count
 
 
 def _fresh_or_none(by_forecast, cells, now, max_age):

@@ -207,6 +207,12 @@ SMN_LOOKBACK_DAYS = env_int("SMN_LOOKBACK_DAYS", 3)
 ALERTS_MAX_FORECAST_AGE_HOURS = env_int("ALERTS_MAX_FORECAST_AGE_HOURS", 12)
 # Web Push (S7). Without both keys push is skipped (inbox and email still work). The private
 # key is a secret; the public one is handed to the browser to subscribe.
+# Push endpoints the worker may call: the browsers' push services, nothing else (no SSRF).
+# A host matches itself or any subdomain of it.
+PUSH_ALLOWED_HOSTS = env_list(
+    "PUSH_ALLOWED_HOSTS",
+    "fcm.googleapis.com,push.services.mozilla.com,push.apple.com,notify.windows.com",
+)
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY")
 VAPID_SUBJECT = env("VAPID_SUBJECT") or "mailto:soporte@example.com"
@@ -221,4 +227,6 @@ LOGGING = {
     "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
     "root": {"handlers": ["console"], "level": "INFO"},
+    # httpx logs every request URL at INFO, and Open-Meteo URLs carry the commercial apikey.
+    "loggers": {"httpx": {"level": "WARNING"}, "httpcore": {"level": "WARNING"}},
 }

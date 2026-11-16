@@ -223,19 +223,42 @@ def failing_smtp(monkeypatch):
 
 
 class TestPermanentFailures:
-    @pytest.mark.parametrize("status", [None, 400, 413])
-    def test_a_broken_subscription_is_dropped_without_retrying_the_others(
-        self, productor, webpush, status
-    ):
+    def test_a_subscription_the_service_calls_invalid_is_dropped(self, productor, webpush):
         good = subscribe(productor)
         broken = subscribe(productor, endpoint="https://push.example.com/rota")
-        webpush.failures[broken.endpoint] = push_error(status)
+        webpush.failures[broken.endpoint] = push_error(400)
         event = make_event(productor)
 
         delivery.deliver(event.pk)
 
         assert statuses(event)[0] == "sent"
         assert list(PushSubscription.objects.values_list("endpoint", flat=True)) == [good.endpoint]
+
+    @pytest.mark.parametrize("status", [None, 413])
+    def test_errors_that_may_be_ours_keep_the_subscription_and_do_not_retry(
+        self, productor, webpush, status, caplog
+    ):
+        # None: pywebpush failed before any answer (our keys, encryption); 413: our payload.
+        good = subscribe(productor)
+        other = subscribe(productor, endpoint="https://push.example.com/otra")
+        webpush.failures[other.endpoint] = push_error(status)
+        event = make_event(productor)
+
+        delivery.deliver(event.pk)
+
+        assert statuses(event)[0] == "sent"
+        assert PushSubscription.objects.count() == 2
+        assert "could not be sent" in caplog.text
+        assert good.endpoint in [c["subscription_info"]["endpoint"] for c in webpush.calls]
+
+    def test_errors_that_may_be_ours_fail_the_push_when_nothing_went_out(self, productor, webpush):
+        webpush.failures[subscribe(productor).endpoint] = push_error(None)
+        event = make_event(productor)
+
+        delivery.deliver(event.pk)
+
+        assert statuses(event)[0] == "failed"
+        assert PushSubscription.objects.count() == 1
 
     @pytest.mark.parametrize("status", [401, 403])
     def test_rejected_credentials_fail_the_push_without_retrying(

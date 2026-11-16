@@ -166,3 +166,5 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - 2026-11-16: suscripción (S14): historial de cambios de plan, pedidos de
   cambio o baja, API `/api/auth/suscripcion/`, acciones del admin y migración
   que siembra el historial de las cuentas existentes.
+
+- 2026-11-16 — Quien está en la prueba puede pedir quedarse con Productor ("Quedarme con Productor" en `/perfil/suscripcion`): pedir el mismo plan en una prueba significa conservarlo; al aplicarlo se borra el vencimiento y queda en el historial como pedido aplicado.

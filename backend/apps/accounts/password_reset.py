@@ -41,10 +41,16 @@ def send_reset_email(email: str) -> bool:
     if user is None:
         return False
     # add() is atomic: of two concurrent requests only one gets to send.
-    if not cache.add(f"password-reset:{user.pk}", True, timeout=EMAIL_COOLDOWN):
+    key = f"password-reset:{user.pk}"
+    if not cache.add(key, True, timeout=EMAIL_COOLDOWN):
         return False
     body = BODY.format(name=user.name, link=reset_link(user))
-    send_mail(SUBJECT, body, None, [user.email])
+    try:
+        send_mail(SUBJECT, body, None, [user.email])
+    except Exception:
+        # Nothing went out: free the cooldown so the retry (or the next request) can send.
+        cache.delete(key)
+        raise
     return True
 
 

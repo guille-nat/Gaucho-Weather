@@ -62,7 +62,9 @@ def archive_cell(
             payload = openmeteo.fetch(client, kind, model, cell)
         except (httpx.HTTPError, ValueError) as exc:
             stats["failed"] += 1
-            logger.warning("Open-Meteo %s %s %s failed: %s", kind, model, cell, exc)
+            logger.warning(
+                "Open-Meteo %s %s %s failed: %s", kind, model, cell, openmeteo.describe_error(exc)
+            )
             continue
         _, created = ForecastSnapshot.objects.get_or_create(
             **key, defaults={"payload": payload, "fetched_at": now}
@@ -198,7 +200,7 @@ def fetch_history() -> dict[str, int]:
                 stats["stored"] += history.store_history(client, cell, start, end)
             except (httpx.HTTPError, ValueError) as exc:
                 stats["failed"] += 1
-                logger.warning("History %s failed: %s", cell, exc)
+                logger.warning("History %s failed: %s", cell, openmeteo.describe_error(exc))
     logger.info("History run: %s", stats)
     return stats
 
@@ -221,5 +223,5 @@ def backfill_history(latitude: str, longitude: str) -> int:
         with httpx.Client(timeout=HTTP_TIMEOUT) as client:
             return history.store_history(client, cell, start, end)
     except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("History backfill %s failed: %s", cell, exc)
+        logger.warning("History backfill %s failed: %s", cell, openmeteo.describe_error(exc))
         return 0

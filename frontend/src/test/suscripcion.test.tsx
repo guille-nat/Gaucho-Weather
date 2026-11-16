@@ -108,6 +108,24 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     expect(screen.queryByRole('button', { name: 'Darme de baja' })).toBeNull();
   });
 
+  it('lets a trial ask to keep Productor after the trial', async () => {
+    const db = dbFor(trialUser);
+    const { user } = renderApp(ROUTE, db);
+
+    const change = await region('Cambiar de plan');
+    await user.click(await within(change).findByRole('button', { name: 'Quedarme con Productor' }));
+
+    expect(await region('Pedido pendiente')).toBeInTheDocument();
+    expect(db.planRequest).toMatchObject({ kind: 'change', plan: 'productor' });
+  });
+
+  it('offers no "keep" option outside a trial', async () => {
+    renderApp(ROUTE, dbFor(demoUser));
+
+    const change = await region('Cambiar de plan');
+    expect(within(change).queryByRole('button', { name: /Quedarme con/ })).toBeNull();
+  });
+
   it('asks for another plan and shows the request as pending', async () => {
     const db = dbFor(demoUser);
     const { user } = renderApp(ROUTE, db);
@@ -181,7 +199,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
 
     const pending = await region('Pedido pendiente');
     expect(within(pending).getByText('Pediste pasar al plan Básico.')).toBeInTheDocument();
-    expect(db.planRequest).toMatchObject({ kind: 'cancel', plan: null });
+    expect(db.planRequest).toMatchObject({ kind: 'cancel', plan: 'basico' });
   });
 
   it('shows the API’s reason when a request is refused', async () => {

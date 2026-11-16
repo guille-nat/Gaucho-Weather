@@ -63,9 +63,11 @@ class LoteViewSet(viewsets.ModelViewSet):
             _load_weather_later(lote)
 
     def perform_update(self, serializer):
+        before = (serializer.instance.latitude, serializer.instance.longitude)
         with transaction.atomic():
             lote = serializer.save()
-            _load_weather_later(lote)  # a moved lote may sit in another cell
+            if (lote.latitude, lote.longitude) != before:
+                _load_weather_later(lote)  # a moved lote may sit in another cell
 
     def list(self, request, *args, **kwargs):
         lotes = list(self.get_queryset())

@@ -98,3 +98,5 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
 - 2026-11-16: tareas `fetch_history` y `backfill_history` con la tabla
   `WeatherHour`, y la evaluación de alertas al final de `fetch_forecasts`
   (feature `cuenta-planes-alertas`).
+
+- 2026-11-16 — Los logs de los pedidos fallidos a Open-Meteo muestran sólo el código HTTP (`openmeteo.describe_error`), y los loggers `httpx`/`httpcore` quedan en WARNING: las URLs llevan la `apikey` comercial y no deben aparecer en los logs. Editar un lote sin moverlo ya no vuelve a pedir su pronóstico ni su historial.

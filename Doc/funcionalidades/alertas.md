@@ -153,3 +153,5 @@ pending ──claim──> sending ──> sent | skipped | failed
 
 ## Historial
 - 2026-11-16: versión inicial (feature `cuenta-planes-alertas`, T6 a T10).
+
+- 2026-11-16 — Correcciones de la revisión: el endpoint push sólo acepta los servicios de push de los navegadores (`PUSH_ALLOWED_HOSTS`), para que el worker nunca haga pedidos a hosts internos (SSRF). Un 400 del servicio borra la suscripción; un error sin respuesta (claves, cifrado) o un 413 (nuestro payload) la conservan y marcan el push `failed` sin reintentar. Cada corrida de la evaluación reenvía los eventos que quedaron `pending` entre 10 minutos y 24 horas (por ejemplo, con el broker caído) y una celda con un pronóstico roto ya no frena a las demás (`errors` en las estadísticas).

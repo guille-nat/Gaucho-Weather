@@ -92,7 +92,12 @@ def _switch(
     Only a trial keeps an expiry: any other change is for good until the next one.
     """
     from_plan = user.plan_id
-    if from_plan == plan_code:
+    keeps_trial_plan = (
+        from_plan == plan_code
+        and user.plan_expires_at is not None
+        and reason != PlanChange.Reason.TRIAL
+    )
+    if from_plan == plan_code and not keeps_trial_plan:
         return None
     user.plan_id = plan_code
     if reason != PlanChange.Reason.TRIAL:
@@ -267,7 +272,9 @@ def request_plan(user: User, kind: str, plan_code: str | None = None) -> PlanReq
         # Locking the account serializes two requests sent at once; the conditional unique
         # constraint on PlanRequest backs it up.
         locked = User.objects.select_for_update().get(pk=user.pk)
-        if locked.plan_id == plan.code:
+        # On a trial, asking for the same plan means "keep it after the trial".
+        on_trial = locked.plan_expires_at is not None and locked.founder_number is None
+        if locked.plan_id == plan.code and not on_trial:
             raise PlanRequestError(ALREADY_ON_PLAN.format(name=plan.name))
         if locked.plan_requests.filter(status=PlanRequest.Status.PENDING).exists():
             raise PlanRequestError(REQUEST_PENDING)

@@ -30,9 +30,10 @@ MAX_RETRIES = 3
 PUSH_TTL_SECONDS = 12 * 60 * 60  # a notice older than this is not worth showing
 PUSH_TIMEOUT_SECONDS = 10
 GONE_STATUSES = {404, 410}  # the browser dropped the subscription: delete it, not an error
-# The subscription itself is unusable (bad keys, refused payload): drop it, never retry it.
-# None is what pywebpush raises with for malformed keys, before any push service answers.
-BROKEN_STATUSES = {None, 400, 413}
+BROKEN_STATUSES = {400}  # the push service says this subscription is invalid
+# No answer (pywebpush failed on our side: keys, encryption) or 413 (our payload): the
+# subscription may be fine, so keep it; retrying would fail the same way.
+OUR_SIDE_STATUSES = {None, 413}
 # The push service refused our VAPID credentials: a configuration problem, not this browser's.
 REJECTED_STATUSES = {401, 403}
 
@@ -128,6 +129,10 @@ def _send_push(event: AlertEvent) -> str:
                         "Alert %s: dropping a broken subscription (%s)", event.pk, status
                     )
                 subscription.delete()
+                continue
+            if status in OUR_SIDE_STATUSES:
+                rejected += 1
+                logger.error("Alert %s: the push could not be sent (%s): %s", event.pk, status, exc)
                 continue
             if status in REJECTED_STATUSES:
                 rejected += 1

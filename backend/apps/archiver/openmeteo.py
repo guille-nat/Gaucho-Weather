@@ -107,3 +107,12 @@ def fetch(client: httpx.Client, kind: str, model: str, cell: Cell) -> dict:
     if not isinstance(payload, dict) or "hourly" not in payload:
         raise ValueError(f"Unexpected Open-Meteo response: {str(payload)[:200]}")
     return payload
+
+
+def describe_error(exc: Exception) -> str:
+    """A log line for a failed request without its URL: Open-Meteo URLs carry the apikey."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"HTTP {exc.response.status_code}"
+    if isinstance(exc, httpx.HTTPError):
+        return type(exc).__name__
+    return f"invalid response ({type(exc).__name__})"
