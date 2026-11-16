@@ -51,7 +51,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | done | see L14 |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | done | see L16 |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | delegated (context backstop) | none | done | see L19 |
-| T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
+| T8 | S7 | Delivery push/email + inbox and push APIs | delegated (parallel with T9, T13) | item 5 (pywebpush dependency) | done (verifier pending) | see L21 |
 | T9 | S7 | Service worker → injectManifest (no push yet) | inline | item 5, 6 | pending | |
 | T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
@@ -139,3 +139,11 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Test-first was partial: the module and API tests failed before the settings existed (RED observed for fetch); the task tests were written alongside the code.
   - Real call on dev: lote 1's cell stored 2179 hours in one request.
   - Note: commercial use of the historical API needs the Open-Meteo Professional plan (memory #2061).
+- **L21** (2026-11-16): T8 done by a bounded writer, run in parallel with T9 and T13 on disjoint surfaces. Parent spot check: pytest 390 passed. RED was an ImportError, then 25 failing tests.
+  - `alerts.deliver_event` claims each channel atomically (`pending→sending→sent|skipped|failed`).
+  - Push uses pywebpush 2.5.0: 404/410 deletes the subscription, and there is no push on plans without `allows_push` or with `notify_push` off. Email goes through `send_mail` with a link to /alertas.
+  - Transient errors retry 3 times (1, 4 and 16 min), then the channel is `failed`.
+  - `run_evaluation` queues delivery on commit for new events only.
+  - New APIs: `/api/alertas/eventos/` (last 100 + `unread_count`), `eventos/leer/`, `push/clave/` (503 when VAPID is not set), and `push/` POST/DELETE (upsert by endpoint, https only, 402 on Básico).
+  - New settings: `VAPID_*`.
+  - Images need a rebuild for pywebpush; the running containers were synced as root.

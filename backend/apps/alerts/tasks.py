@@ -1,22 +1,26 @@
 """Alert evaluation (odd/tasks/cuenta-planes-alertas.md S6).
 
-Runs after each forecast archive run. It only records AlertEvent rows; delivery by push and
-email is a separate step. The (rule, target_date) unique constraint is the dedup, so running
-it again creates nothing new.
+Runs after each forecast archive run. It records AlertEvent rows first; each new one is then
+queued for delivery by push and email (S7) once the row is committed. The (rule, target_date)
+unique constraint is the dedup, so running it again creates and sends nothing new.
 """
 
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
+from functools import partial
 
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
+from kombu.exceptions import OperationalError
 
 from apps.accounts.plans import rule_ids_within_plan
 from apps.archiver.cells import grid_cell
 from apps.archiver.forecast import forecasts
 
+from . import delivery
 from .evaluate import evaluate
 from .models import AlertEvent, AlertRule
 
@@ -48,7 +52,7 @@ def run_evaluation(now: datetime | None = None) -> dict[str, int]:
             continue
         for rule in by_cell[cell]:
             for trigger in evaluate(rule, forecast.payload, now):
-                _, created = AlertEvent.objects.get_or_create(
+                event, created = AlertEvent.objects.get_or_create(
                     rule=rule,
                     target_date=trigger.target_date,
                     defaults={
@@ -68,6 +72,8 @@ def run_evaluation(now: datetime | None = None) -> dict[str, int]:
                     },
                 )
                 stats["created"] += created
+                if created:
+                    transaction.on_commit(partial(_queue_delivery, event.pk))
     logger.info("Alert evaluation run: %s", stats)
     return stats
 
@@ -86,3 +92,21 @@ def _fresh_or_none(by_forecast, cells, now, max_age):
 @shared_task(name="alerts.evaluate_rules")
 def evaluate_rules() -> dict[str, int]:
     return run_evaluation()
+
+
+def _queue_delivery(event_id: int) -> None:
+    """A broker outage must not fail the evaluation: the event stays pending in the inbox."""
+    try:
+        deliver_event.delay(event_id)
+    except OperationalError as exc:
+        logger.warning("Could not queue the delivery of alert %s: %s", event_id, exc)
+
+
+@shared_task(bind=True, name="alerts.deliver_event", max_retries=delivery.MAX_RETRIES)
+def deliver_event(self, event_id: int) -> dict[str, str]:
+    """Send the event's pending channels; transient failures retry with backoff."""
+    final = self.request.retries >= self.max_retries
+    try:
+        return delivery.deliver(event_id, final=final)
+    except delivery.RetryLater as exc:
+        raise self.retry(exc=exc, countdown=delivery.retry_countdown(self.request.retries)) from exc

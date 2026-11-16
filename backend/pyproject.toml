@@ -11,6 +11,7 @@ dependencies = [
     "httpx>=0.28",
     "gunicorn>=23",
     "whitenoise>=6.9",
+    "pywebpush>=2.5.0",
 ]
 
 [dependency-groups]

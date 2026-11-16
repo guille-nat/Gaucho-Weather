@@ -203,6 +203,11 @@ SMN_LOOKBACK_DAYS = env_int("SMN_LOOKBACK_DAYS", 3)
 # --- Custom alerts (S6) ---
 # A cell whose latest forecast is older than this is not evaluated (stale data, no alerts).
 ALERTS_MAX_FORECAST_AGE_HOURS = env_int("ALERTS_MAX_FORECAST_AGE_HOURS", 12)
+# Web Push (S7). Without both keys push is skipped (inbox and email still work). The private
+# key is a secret; the public one is handed to the browser to subscribe.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY")
+VAPID_SUBJECT = env("VAPID_SUBJECT") or "mailto:soporte@example.com"
 
 # --- Places (S10): Georef AR, CC BY 4.0, commercial use allowed ---
 GEOREF_API_URL = env("GEOREF_API_URL", "https://apis.datos.gob.ar/georef/api")
