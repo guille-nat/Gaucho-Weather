@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { updateAccount, type AccountChanges } from '../api/account';
+import {
+  createAlertRule,
+  deleteAlertRule,
+  deletePushSubscription,
+  getAlertInbox,
+  getPushKey,
+  listAlertRules,
+  markAlertsRead,
+  savePushSubscription,
+  updateAlertRule,
+} from '../api/alerts';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { getLoteHistory } from '../api/historico';
@@ -12,7 +23,23 @@ import {
   reversePlace,
   searchPlaces,
 } from '../api/pronostico';
-import type { Lote, LoteInput, LotesSnapshot, User } from '../api/types';
+import type {
+  AlertInbox,
+  AlertRule,
+  AlertRuleInput,
+  Lote,
+  LoteInput,
+  LotesSnapshot,
+  User,
+} from '../api/types';
+import {
+  currentEndpoint,
+  permission,
+  pushSupported,
+  requestPermission,
+  subscribeBrowser,
+  unsubscribeBrowser,
+} from '../lib/push';
 import { queryKeys } from './keys';
 import { useLocalData } from './localData';
 
@@ -185,3 +212,147 @@ export const useLoteHistory = (id: number, from: string, to: string) =>
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === id ? previous : undefined,
   });
+
+/** The account's alert rules (cuenta-planes-alertas S6), oldest first. */
+export const useAlertRules = () =>
+  useQuery({ queryKey: queryKeys.alertRules, queryFn: listAlertRules });
+
+/** After a rule is added or removed: the list re-reads `paused_by_plan`, `me` the usage (S4). */
+function useRefreshRules() {
+  const queryClient = useQueryClient();
+  return (update: (list: AlertRule[]) => AlertRule[]) => {
+    queryClient.setQueryData<AlertRule[]>(queryKeys.alertRules, (list) =>
+      list ? update(list) : list,
+    );
+    void queryClient.invalidateQueries({ queryKey: queryKeys.alertRules });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.me });
+  };
+}
+
+export function useCreateAlertRule() {
+  const refresh = useRefreshRules();
+  return useMutation({
+    mutationFn: (input: AlertRuleInput) => createAlertRule(input),
+    onSuccess: (rule: AlertRule) => refresh((list) => [...list, rule]),
+  });
+}
+
+export function useUpdateAlertRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: number; changes: Partial<AlertRuleInput> }) =>
+      updateAlertRule(id, changes),
+    onSuccess: (rule: AlertRule) =>
+      queryClient.setQueryData<AlertRule[]>(queryKeys.alertRules, (list) =>
+        list?.map((r) => (r.id === rule.id ? rule : r)),
+      ),
+  });
+}
+
+export function useDeleteAlertRule() {
+  const refresh = useRefreshRules();
+  return useMutation({
+    mutationFn: (id: number) => deleteAlertRule(id),
+    onSuccess: (_: void, id: number) => refresh((list) => list.filter((r) => r.id !== id)),
+  });
+}
+
+/** The inbox (S7): the newest events and how many are unread. */
+export const useAlertInbox = () =>
+  useQuery({ queryKey: queryKeys.alertInbox, queryFn: getAlertInbox });
+
+/** Marks these events read, or all of them when `ids` is left out. */
+export function useMarkAlertsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids?: number[]) => markAlertsRead(ids),
+    onSuccess: (_: void, ids?: number[]) => {
+      const now = new Date().toISOString();
+      queryClient.setQueryData<AlertInbox>(queryKeys.alertInbox, (inbox) => {
+        if (!inbox) return inbox;
+        const results = inbox.results.map((e) =>
+          e.read_at === null && (!ids || ids.includes(e.id)) ? { ...e, read_at: now } : e,
+        );
+        return { results, unread_count: results.filter((e) => e.read_at === null).length };
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.alertInbox });
+    },
+  });
+}
+
+/** Push in this browser (S7): whether it can, what the person allowed, and its subscription. */
+export interface PushHere {
+  supported: boolean;
+  permission: NotificationPermission;
+  endpoint: string | null;
+}
+
+export const usePushHere = () =>
+  useQuery({
+    queryKey: queryKeys.pushHere,
+    queryFn: async (): Promise<PushHere> => ({
+      supported: pushSupported(),
+      permission: permission(),
+      endpoint: pushSupported() ? await currentEndpoint() : null,
+    }),
+    // It asks the browser, not the network.
+    networkMode: 'always',
+  });
+
+/**
+ * Asks the browser's permission (call it from a tap), subscribes this browser and tells the
+ * server. Resolves with the permission answer: anything but 'granted' subscribed nothing.
+ */
+export function useEnablePush() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<NotificationPermission> => {
+      const answer = await requestPermission();
+      if (answer !== 'granted') return answer;
+      const subscription = await subscribeBrowser(await getPushKey());
+      try {
+        await savePushSubscription(subscription);
+      } catch (error) {
+        // The server does not know this browser (402, no signal): do not leave it half on.
+        await unsubscribeBrowser().catch(() => undefined);
+        throw error;
+      }
+      return answer;
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.pushHere }),
+  });
+}
+
+/**
+ * Stops push in this browser and tells the server, best effort: once the browser unsubscribes,
+ * a subscription the server still holds fails with 410 and the backend drops it.
+ */
+export async function forgetPushHere(): Promise<void> {
+  const endpoint = await currentEndpoint().catch(() => null);
+  if (!endpoint) return;
+  await Promise.allSettled([deletePushSubscription(endpoint), unsubscribeBrowser()]);
+}
+
+export function useDisablePush() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: forgetPushHere,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.pushHere }),
+  });
+}
+
+/**
+ * Before a logout: the next person on a shared phone must not get this account's alerts. Never
+ * blocks the logout: errors are swallowed and a slow network gets `ms` at most.
+ */
+export async function forgetPushBeforeLogout(ms = 3000): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    await Promise.race([forgetPushHere().catch(() => undefined), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

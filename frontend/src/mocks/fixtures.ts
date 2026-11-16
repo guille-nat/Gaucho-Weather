@@ -1,4 +1,4 @@
-import type { Lote, Plan, PlanCode, User } from '../api/types';
+import type { AlertEvent, Lote, Plan, PlanCode, User } from '../api/types';
 
 /** The three plans as migration 0003 seeds them (prices still unset). */
 export const demoPlans: Plan[] = [
@@ -133,6 +133,42 @@ export function demoLotes(): Lote[] {
       summary: null,
       created_at: '2026-11-03T08:00:00Z',
       updated_at: '2026-11-03T08:00:00Z',
+    },
+  ];
+}
+
+/** Two unread alerts and an older read one, newest first, as the inbox lists them (S7). */
+export function demoAlertEvents(): AlertEvent[] {
+  return [
+    {
+      id: 3,
+      title: 'Mínima de 1,5 °C mañana en Lote 4',
+      body: 'Tu regla: Mínima menor a 2 °C en Lote 4. Se esperan 1,5 °C mañana a las 06:00.',
+      target_date: '2026-11-17',
+      created_at: '2026-11-16T21:05:00Z',
+      read_at: null,
+      lote: 4,
+      lote_name: 'Lote 4',
+    },
+    {
+      id: 2,
+      title: 'Ventana para pulverizar hoy en Lote 12',
+      body: 'Tu regla: Ventana para pulverizar en Lote 12. De 10 a 13 h el viento acompaña.',
+      target_date: '2026-11-16',
+      created_at: '2026-11-16T09:10:00Z',
+      read_at: null,
+      lote: 12,
+      lote_name: 'Lote 12',
+    },
+    {
+      id: 1,
+      title: 'Lluvia de 25 mm mañana en Lote 7',
+      body: 'Tu regla: Lluvia mayor a 20 mm en el día en Lote 7. Se esperan 25 mm mañana.',
+      target_date: '2026-11-15',
+      created_at: '2026-11-14T21:00:00Z',
+      read_at: '2026-11-15T07:00:00Z',
+      lote: 7,
+      lote_name: 'Lote 7',
     },
   ];
 }

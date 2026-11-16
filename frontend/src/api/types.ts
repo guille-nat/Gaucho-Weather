@@ -31,7 +31,8 @@ export interface User {
   /** ISO date; null when the plan does not expire (founders, paid plans). */
   plan_expires_at?: string | null;
   founder_number?: number | null;
-  usage?: { lotes: number };
+  /** `alert_rules` is absent in a `me` persisted before alert rules existed. */
+  usage?: { lotes: number; alert_rules?: number };
   notify_push?: boolean;
   notify_email?: boolean;
 }
@@ -234,4 +235,59 @@ export interface LoteHistory {
   complete: boolean;
   days: HistoryDay[];
   hours: HistoryHour[];
+}
+
+/** What an alert rule watches (cuenta-planes-alertas S6), mirroring backend/apps/alerts/rules.py. */
+export type AlertVariable = 'frost' | 'temp_min' | 'temp_max' | 'rain' | 'wind' | 'spray_window';
+export type AlertComparator = 'lt' | 'lte' | 'gt' | 'gte';
+
+/** One of `GET /api/alertas/reglas/` (S6). */
+export interface AlertRule {
+  id: number;
+  lote: number;
+  lote_name: string;
+  variable: AlertVariable;
+  /** null only for `spray_window`. */
+  comparator: AlertComparator | null;
+  threshold: number | null;
+  enabled: boolean;
+  /** Beyond the plan's cap after a downgrade: kept, but not evaluated (S4). */
+  paused_by_plan: boolean;
+  /** Already worded by the backend, e.g. "Mínima menor a 2,5 °C en Lote Norte". */
+  description: string;
+  created_at: string;
+}
+
+/** Writable fields of a rule on POST and PATCH. */
+export interface AlertRuleInput {
+  lote: number;
+  variable: AlertVariable;
+  comparator: AlertComparator | null;
+  threshold: number | null;
+  enabled?: boolean;
+}
+
+/** One message of the inbox (S7). */
+export interface AlertEvent {
+  id: number;
+  title: string;
+  body: string;
+  /** The local day the alert is about, YYYY-MM-DD. */
+  target_date: string;
+  created_at: string;
+  read_at: string | null;
+  lote: number | null;
+  lote_name: string | null;
+}
+
+/** `GET /api/alertas/eventos/`: the newest events and how many are unread. */
+export interface AlertInbox {
+  results: AlertEvent[];
+  unread_count: number;
+}
+
+/** The browser's `PushSubscription.toJSON()`, as `POST /api/alertas/push/` takes it. */
+export interface PushSubscriptionInput {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
 }

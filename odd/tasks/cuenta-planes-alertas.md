@@ -53,7 +53,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | delegated (context backstop) | none | done | see L19 |
 | T8 | S7 | Delivery push/email + inbox and push APIs | delegated (parallel with T9, T13) | item 5 (pywebpush dependency) | done (verified) | see L21 |
 | T9 | S7 | Service worker → injectManifest + push handlers | delegated (parallel with T8, T13) | item 5, 6 | done (verified) | see L22 |
-| T10 | S6 S7 | Frontend push + `/alertas` page | inline | none | pending | |
+| T10 | S6 S7 | Frontend push + `/alertas` page | delegated (context backstop) | none | done | see L26 |
 | T12 | S9 S10 S11 | History backend: own hourly table, Open-Meteo historical fetch, 90-day backfill on lote create, daily task, `GET /api/lotes/{id}/historico/` | inline | none after review: new table only, no existing data changed; shared engine code covered by its tests | done | see L20 |
 | T13 | S9 S10 | History frontend: lote "Histórico" view, daily summary and hourly wind with spray range | delegated (parallel with T8, T9) | none | done | see L23 |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas}.md` + updates | inline | none | pending | |
@@ -172,3 +172,9 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - In headless Chrome the offline results were identical except for `/api/planes/`.
   - The notificationclick guard kept all 12 hostile URLs on the app's origin.
   - Advisory: no automated SW test (manual check documented).
+- **L26** (2026-11-16): T10 done by a bounded writer (RED: 20 of 21 failing). Parent spot check: Vitest 127 passed, tsc and lint clean.
+  - `/alertas` sections: Avisos (inbox; tapping marks read, plus "marcar todo"), Tus reglas (toggle, delete with confirm, "Pausada por tu plan", usage), Nueva regla (comparators per variable mirror `rules.SPECS`, live preview, 402 with Ver planes), and Notificaciones en este teléfono (permission only on tap; subscribe and unsubscribe; iPhone install note; no push on Básico).
+  - Salir removes this phone's push subscription first, best effort with at most 3 s, so offline logout still works.
+  - Perfil hints when push is on but this phone is not subscribed.
+  - Parent moved the non-component helpers to `lib/formErrors.ts` and `lib/membership.ts`, which cleared 4 react-refresh lint warnings.
+  - Open: an expired cookie or a deleted account leaves the browser subscribed until another account subscribes it; the frontend copy of the rule wording must follow `rules.py`.

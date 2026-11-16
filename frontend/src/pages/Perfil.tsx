@@ -8,8 +8,15 @@ import type { User } from '../api/types';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { CREDITS } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
-import { useEndSession, useMe, useUpdateAccount } from '../query/hooks';
-import { membership } from './Planes';
+import {
+  forgetPushBeforeLogout,
+  useEndSession,
+  useMe,
+  usePushHere,
+  useUpdateAccount,
+} from '../query/hooks';
+import { fieldError, formError } from '../lib/formErrors';
+import { membership } from '../lib/membership';
 
 /** What the login screen tells someone who just left (see Login). */
 export interface SignedOutState {
@@ -18,14 +25,7 @@ export interface SignedOutState {
   passwordReset?: boolean;
 }
 
-const fieldError = (error: unknown, field: string) =>
-  error instanceof ApiError ? error.fieldErrors[field]?.[0] : undefined;
-
-/** A form-level message only when no field shows the error itself. */
-const formError = (error: unknown) =>
-  error instanceof ApiError && !Object.keys(error.fieldErrors).length ? error.message : null;
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   return (
     <section className="panel account-section" aria-labelledby={id}>
@@ -37,7 +37,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Saved({ message }: { message: string | null }) {
+export function Saved({ message }: { message: string | null }) {
   return (
     <p className="account-saved" role="status">
       {message ? (
@@ -137,7 +137,7 @@ function DatosSection({ me }: { me: User }) {
   );
 }
 
-function Toggle({
+export function Toggle({
   label,
   checked,
   disabled,
@@ -165,6 +165,7 @@ function Toggle({
 
 function AvisosSection({ me }: { me: User }) {
   const update = useUpdateAccount();
+  const here = usePushHere();
   const pushIncluded = me.plan?.allows_push ?? true;
   return (
     <Section title="Cómo te avisamos">
@@ -186,6 +187,12 @@ function AvisosSection({ me }: { me: User }) {
         <p className="fine">
           Tu plan {me.plan.name} no incluye notificaciones push.{' '}
           <Link to="/planes">Ver planes</Link>
+        </p>
+      ) : null}
+      {pushIncluded && (me.notify_push ?? true) && here.data?.supported && !here.data.endpoint ? (
+        <p className="fine">
+          Este teléfono todavía no recibe notificaciones.{' '}
+          <Link to="/alertas">Activalas en Alertas</Link>
         </p>
       ) : null}
       <FormAlert message={update.error?.message} />
@@ -296,7 +303,11 @@ export function Perfil() {
   }
 
   const exit = useMutation({
-    mutationFn: logout,
+    // A shared phone: drop this browser's push first, while the session can still say whose.
+    mutationFn: async () => {
+      await forgetPushBeforeLogout();
+      await logout();
+    },
     onSuccess: () => leave('server'),
     // No signal: the farmer still wants this phone clean, so sign out here and tell them.
     onError: (error) => (error instanceof ApiError && error.isNetwork ? leave('local') : undefined),

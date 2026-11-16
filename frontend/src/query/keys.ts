@@ -14,10 +14,18 @@ export const queryKeys = {
   places: (query: string) => ['lugares', query] as const,
   placeName: (lat: number, lon: number) => ['lugares', 'reverso', ...at(lat, lon)] as const,
   plans: ['planes'] as const,
+  /** Private to the account: persisted (readable offline) and cleared when the session ends. */
+  alertRules: ['alertas', 'reglas'] as const,
+  alertInbox: ['alertas', 'eventos'] as const,
+  /** Push state of this browser, not of the server: never persisted, cleared at session end. */
+  pushHere: ['push'] as const,
 };
 
-/** Only these survive a reload or a dead signal: the user, their lotes and the public forecast. */
-export const PERSISTED_ROOTS = new Set<string>(['me', 'lotes', 'pronostico']);
+/**
+ * Only these survive a reload or a dead signal: the user, their lotes and alerts, and the public
+ * forecast.
+ */
+export const PERSISTED_ROOTS = new Set<string>(['me', 'lotes', 'alertas', 'pronostico']);
 
 /** Public data (not of any account): it stays when a session ends (see query/session.ts). */
 export const PUBLIC_ROOTS = new Set<string>(['pronostico', 'lugares', 'planes']);

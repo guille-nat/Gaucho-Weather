@@ -2620,3 +2620,169 @@ input[type='date'].input {
     grid-column: auto;
   }
 }
+
+/* ───────── Alertas (cuenta-planes-alertas S6, S7) ───────── */
+
+.alert-inbox-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.alert-unread {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-inbox-head .btn {
+  min-height: 44px;
+  padding-inline: 14px;
+}
+
+.alert-events,
+.alert-rules {
+  display: grid;
+  list-style: none;
+}
+
+.alert-event + .alert-event,
+.alert-rule + .alert-rule {
+  border-top: 1px solid var(--line);
+}
+
+/* The whole alert is the tap target; unread ones are buttons, read ones plain text. */
+.alert-event-tap {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.alert-event-tap {
+  cursor: pointer;
+}
+
+button.alert-event-tap:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.alert-event-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.alert-event-title {
+  text-wrap: balance;
+}
+
+.alert-event--unread .alert-event-title {
+  font-weight: 700;
+}
+
+.alert-event-body {
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.alert-event-date {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-rule {
+  display: grid;
+  gap: 4px;
+  padding-block: 4px 12px;
+}
+
+.alert-rule .switch-row span {
+  text-wrap: pretty;
+}
+
+.alert-rule-paused {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.alert-rule-delete,
+.alert-rule-confirm .btn {
+  min-height: 44px;
+  padding-inline: 14px;
+}
+
+.alert-rule-delete {
+  justify-self: start;
+}
+
+.alert-rule-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-rule-confirm p {
+  flex-basis: 100%;
+  font-weight: 700;
+}
+
+/* Comparison and value share a row once a phone has room for both. */
+.alert-rule-row {
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 420px) {
+  .alert-rule-row {
+    grid-template-columns: 3fr 2fr;
+    align-items: start;
+  }
+}
+
+.alert-rule-row .input {
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-preview {
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background: var(--panel-deep);
+}
+
+.alert-preview-label {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+.alert-preview-text {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+}
+
+.push-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.push-state svg {
+  flex-shrink: 0;
+  color: var(--gold);
+}

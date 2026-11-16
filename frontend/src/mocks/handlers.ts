@@ -1,12 +1,19 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
 import type { AccountChanges } from '../api/account';
+import { ALERT_VARIABLES, COMPARATOR_WORDS, describeRule } from '../api/alerts';
 import type {
+  AlertComparator,
+  AlertEvent,
+  AlertRule,
+  AlertRuleInput,
+  AlertVariable,
   Forecast,
   Lote,
   LoteHistory,
   LoteInput,
   Plan,
   PublicForecast,
+  PushSubscriptionInput,
   User,
 } from '../api/types';
 import { account, demoPlans } from './fixtures';
@@ -43,6 +50,14 @@ export interface MockDb {
   loteHistory: (loteId: number, from: string, to: string) => LoteHistory;
   /** Every history asked for, with its raw `desde`/`hasta`, in order. */
   historyRequests: { id: number; desde: string | null; hasta: string | null }[];
+  /** The account's alert rules (cuenta-planes-alertas S6), oldest first like the API. */
+  alertRules: AlertRule[];
+  /** The inbox (S7), newest first. */
+  alertEvents: AlertEvent[];
+  /** Browsers subscribed to push for this account (S7). */
+  pushSubscriptions: PushSubscriptionInput[];
+  /** The VAPID public key; null answers 503 like a server without VAPID settings. */
+  pushPublicKey: string | null;
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -107,6 +122,11 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     resetLinks: {},
     loteHistory: (_id, from, to) => demoLoteHistory(from, to),
     historyRequests: [],
+    alertRules: [],
+    alertEvents: [],
+    pushSubscriptions: [],
+    pushPublicKey:
+      'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
     ...partial,
   };
 }
@@ -114,7 +134,7 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
 /** The account as the backend serialises it, with its usage counted from the mock's lotes. */
 const withUsage = (user: User, db: MockDb): User => ({
   ...user,
-  usage: { lotes: db.lotes.length },
+  usage: { lotes: db.lotes.length, alert_rules: db.alertRules.length },
 });
 
 /** Like plans.start_membership: a founder slot while any is left, else the Productor trial. */
@@ -211,6 +231,76 @@ function toLote(id: number, body: LoteInput, previous?: Lote): Lote {
 
 const byName = (a: Lote, b: Lote) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
+/** Like rules.validation_errors: field → its first problem, in the backend's Spanish. */
+function ruleErrors(rule: AlertRuleInput, db: MockDb): Record<string, string[]> {
+  if (!db.lotes.some((l) => l.id === rule.lote)) return { lote: ['Elegí uno de tus lotes.'] };
+  const spec = ALERT_VARIABLES[rule.variable];
+  if (!spec) return { variable: [`"${rule.variable}" no es una elección válida.`] };
+  const { comparator, threshold } = rule;
+  if (rule.variable === 'spray_window') {
+    if (threshold !== null) return { threshold: ['La ventana de pulverización no lleva valor.'] };
+    if (comparator !== null)
+      return { comparator: ['La ventana de pulverización no lleva comparación.'] };
+    return {};
+  }
+  const [low, high] = RULE_RANGES[rule.variable];
+  const errors: Record<string, string[]> = {};
+  if (comparator === null) errors.comparator = ['Elegí cómo comparar.'];
+  else if (!spec.comparators.includes(comparator)) {
+    const words = spec.comparators.map((c) => `«${COMPARATOR_WORDS[c]}»`).join(' o ');
+    errors.comparator = [`Para ${RULE_NOUNS[rule.variable]} usá ${words}.`];
+  }
+  if (threshold === null) errors.threshold = ['Poné un valor.'];
+  else if (threshold < low || threshold > high) {
+    errors.threshold = [`Usá un valor entre ${low} y ${high} ${spec.unit}.`];
+  }
+  return errors;
+}
+
+const RULE_RANGES: Record<Exclude<AlertVariable, 'spray_window'>, [number, number]> = {
+  frost: [-15, 10],
+  temp_min: [-30, 50],
+  temp_max: [-30, 50],
+  rain: [0, 500],
+  wind: [0, 200],
+};
+
+const RULE_NOUNS: Record<Exclude<AlertVariable, 'spray_window'>, string> = {
+  frost: 'helada',
+  temp_min: 'temperatura',
+  temp_max: 'temperatura',
+  rain: 'lluvia',
+  wind: 'viento',
+};
+
+/** A rule as the API serialises it: rules beyond the plan's cap pause (S4). */
+function serializeRules(db: MockDb): AlertRule[] {
+  const cap = db.user?.plan?.max_alert_rules ?? null;
+  return db.alertRules.map((rule, index) => ({
+    ...rule,
+    lote_name: db.lotes.find((l) => l.id === rule.lote)?.name ?? rule.lote_name,
+    paused_by_plan: cap !== null && index >= cap,
+  }));
+}
+
+function toRule(id: number, input: AlertRuleInput, db: MockDb, previous?: AlertRule): AlertRule {
+  const loteName = db.lotes.find((l) => l.id === input.lote)?.name ?? '';
+  const comparator: AlertComparator | null = input.comparator ?? null;
+  const threshold = input.threshold ?? null;
+  return {
+    id,
+    lote: input.lote,
+    lote_name: loteName,
+    variable: input.variable,
+    comparator,
+    threshold,
+    enabled: input.enabled ?? previous?.enabled ?? true,
+    paused_by_plan: false,
+    description: describeRule(input.variable, comparator, threshold, loteName),
+    created_at: previous?.created_at ?? new Date().toISOString(),
+  };
+}
+
 export function createHandlers(db: MockDb): HttpHandler[] {
   return [
     http.get('*/api/health/', () => HttpResponse.json({ status: 'ok' })),
@@ -274,6 +364,9 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       if (password !== entry?.password) return wrongPassword('password');
       db.accounts = db.accounts.filter((a) => a !== entry);
       db.lotes = [];
+      db.alertRules = [];
+      db.alertEvents = [];
+      db.pushSubscriptions = [];
       db.user = null;
       return new HttpResponse(null, { status: 204 });
     }),
@@ -496,9 +589,118 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       if (failed) return failed;
       const before = db.lotes.length;
       db.lotes = db.lotes.filter((l) => l.id !== Number(params.id));
+      db.alertRules = db.alertRules.filter((r) => r.lote !== Number(params.id));
       return before === db.lotes.length
         ? HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 })
         : new HttpResponse(null, { status: 204 });
+    }),
+
+    http.get('*/api/alertas/reglas/', () => {
+      if (!db.user) return forbidden();
+      return HttpResponse.json(serializeRules(db));
+    }),
+
+    http.post('*/api/alertas/reglas/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const body = (await request.json()) as AlertRuleInput;
+      const errors = ruleErrors(body, db);
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      const cap = db.user.plan?.max_alert_rules;
+      if (cap != null && db.alertRules.length >= cap) {
+        const detail = `Tu plan ${db.user.plan?.name} permite hasta ${cap} reglas de alerta. Mirá los planes para sumar más.`;
+        return HttpResponse.json({ detail, code: 'plan_limit' }, { status: 402 });
+      }
+      db.alertRules.push(toRule(db.nextId++, body, db));
+      return HttpResponse.json(serializeRules(db).at(-1), { status: 201 });
+    }),
+
+    http.patch('*/api/alertas/reglas/:id/', async ({ request, params }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const index = db.alertRules.findIndex((r) => r.id === Number(params.id));
+      const previous = db.alertRules[index];
+      if (!previous) return HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
+      const merged = { ...previous, ...((await request.json()) as Partial<AlertRuleInput>) };
+      const errors = ruleErrors(merged, db);
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      db.alertRules[index] = toRule(previous.id, merged, db, previous);
+      return HttpResponse.json(serializeRules(db)[index]);
+    }),
+
+    http.delete('*/api/alertas/reglas/:id/', ({ request, params }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const before = db.alertRules.length;
+      db.alertRules = db.alertRules.filter((r) => r.id !== Number(params.id));
+      return before === db.alertRules.length
+        ? HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 })
+        : new HttpResponse(null, { status: 204 });
+    }),
+
+    http.get('*/api/alertas/eventos/', () => {
+      if (!db.user) return forbidden();
+      return HttpResponse.json({
+        results: db.alertEvents,
+        unread_count: db.alertEvents.filter((e) => e.read_at === null).length,
+      });
+    }),
+
+    http.post('*/api/alertas/eventos/leer/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const { ids } = (await request.json()) as { ids?: number[] };
+      const now = new Date().toISOString();
+      db.alertEvents = db.alertEvents.map((e) =>
+        e.read_at === null && (!ids || ids.includes(e.id)) ? { ...e, read_at: now } : e,
+      );
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.get('*/api/alertas/push/clave/', () => {
+      if (!db.user) return forbidden();
+      return db.pushPublicKey
+        ? HttpResponse.json({ public_key: db.pushPublicKey })
+        : HttpResponse.json(
+            { detail: 'Las notificaciones push todavía no están configuradas.' },
+            { status: 503 },
+          );
+    }),
+
+    http.post('*/api/alertas/push/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      if (!db.user.plan?.allows_push) {
+        const detail = `Tu plan ${db.user.plan?.name} no incluye notificaciones push. Mirá los planes para sumar más.`;
+        return HttpResponse.json({ detail, code: 'plan_limit' }, { status: 402 });
+      }
+      const body = (await request.json()) as PushSubscriptionInput;
+      if (!body.endpoint?.startsWith('https://')) {
+        return HttpResponse.json(
+          { endpoint: ['La suscripción push no es válida.'] },
+          { status: 400 },
+        );
+      }
+      const existed = db.pushSubscriptions.some((s) => s.endpoint === body.endpoint);
+      db.pushSubscriptions = [
+        ...db.pushSubscriptions.filter((s) => s.endpoint !== body.endpoint),
+        body,
+      ];
+      return HttpResponse.json({ endpoint: body.endpoint }, { status: existed ? 200 : 201 });
+    }),
+
+    http.delete('*/api/alertas/push/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const { endpoint } = (await request.json()) as { endpoint: string };
+      db.pushSubscriptions = db.pushSubscriptions.filter((s) => s.endpoint !== endpoint);
+      return new HttpResponse(null, { status: 204 });
     }),
   ];
 }
