@@ -1,15 +1,284 @@
 import { useMutation } from '@tanstack/react-query';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { changePassword, deleteAccount } from '../api/account';
 import { logout } from '../api/auth';
 import { ApiError } from '../api/client';
-import { FormAlert } from '../components/Field';
+import type { User } from '../api/types';
+import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { CREDITS } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
-import { useEndSession, useMe } from '../query/hooks';
+import { useEndSession, useMe, useUpdateAccount } from '../query/hooks';
+import { membership } from './Planes';
 
 /** What the login screen tells someone who just left (see Login). */
 export interface SignedOutState {
-  signedOut?: 'server' | 'local';
+  signedOut?: 'server' | 'local' | 'deleted';
+  /** They just chose a new password from an emailed link. */
+  passwordReset?: boolean;
+}
+
+const fieldError = (error: unknown, field: string) =>
+  error instanceof ApiError ? error.fieldErrors[field]?.[0] : undefined;
+
+/** A form-level message only when no field shows the error itself. */
+const formError = (error: unknown) =>
+  error instanceof ApiError && !Object.keys(error.fieldErrors).length ? error.message : null;
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section className="panel account-section" aria-labelledby={id}>
+      <h2 className="panel-title" id={id}>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Saved({ message }: { message: string | null }) {
+  return (
+    <p className="account-saved" role="status">
+      {message ? (
+        <>
+          <Icon name="check" size={18} strokeWidth={2.6} />
+          {message}
+        </>
+      ) : null}
+    </p>
+  );
+}
+
+function PlanSection({ me }: { me: User }) {
+  if (!me.plan) return null;
+  const lotes = me.usage?.lotes ?? 0;
+  const line = membership(me);
+  return (
+    <Section title="Tu plan">
+      <p className="account-plan">{me.plan.name}</p>
+      {line ? <p className="fine">{line}</p> : null}
+      <p className="account-usage">
+        {me.plan.max_lotes === null ? `${lotes} lotes` : `${lotes} de ${me.plan.max_lotes} lotes`}
+      </p>
+      <Link className="account-link" to="/planes">
+        Ver planes
+      </Link>
+    </Section>
+  );
+}
+
+function DatosSection({ me }: { me: User }) {
+  const [name, setName] = useState(me.name);
+  const [email, setEmail] = useState(me.email);
+  const [password, setPassword] = useState('');
+  const rename = useUpdateAccount();
+  const reEmail = useUpdateAccount();
+
+  function saveName(event: FormEvent) {
+    event.preventDefault();
+    rename.mutate({ name: name.trim() });
+  }
+
+  function saveEmail(event: FormEvent) {
+    event.preventDefault();
+    reEmail.mutate(
+      { email: email.trim(), current_password: password },
+      { onSuccess: () => setPassword('') },
+    );
+  }
+
+  return (
+    <Section title="Tus datos">
+      <form className="form account-form" onSubmit={saveName} noValidate>
+        <TextField
+          label="Nombre"
+          name="name"
+          autoComplete="name"
+          value={name}
+          error={fieldError(rename.error, 'name')}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <FormAlert message={formError(rename.error)} />
+        <button type="submit" className="btn btn--secondary" disabled={rename.isPending}>
+          Guardar nombre
+        </button>
+        <Saved message={rename.isSuccess ? 'Nombre guardado.' : null} />
+      </form>
+      <form className="form account-form" onSubmit={saveEmail} noValidate>
+        <TextField
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={email}
+          error={fieldError(reEmail.error, 'email')}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <PasswordField
+          label="Contraseña actual"
+          name="current_password"
+          autoComplete="current-password"
+          hint="Para cambiar el email confirmá que sos vos."
+          value={password}
+          error={fieldError(reEmail.error, 'current_password')}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <FormAlert message={formError(reEmail.error)} />
+        <button type="submit" className="btn btn--secondary" disabled={reEmail.isPending}>
+          Cambiar email
+        </button>
+        <Saved message={reEmail.isSuccess ? 'Email cambiado.' : null} />
+      </form>
+    </Section>
+  );
+}
+
+function Toggle({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="switch-row">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        className="switch"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
+  );
+}
+
+function AvisosSection({ me }: { me: User }) {
+  const update = useUpdateAccount();
+  const pushIncluded = me.plan?.allows_push ?? true;
+  return (
+    <Section title="Cómo te avisamos">
+      <div className="switches">
+        <Toggle
+          label="Notificaciones push"
+          checked={pushIncluded && (me.notify_push ?? true)}
+          disabled={!pushIncluded || update.isPending}
+          onChange={(notify_push) => update.mutate({ notify_push })}
+        />
+        <Toggle
+          label="Alertas por email"
+          checked={me.notify_email ?? true}
+          disabled={update.isPending}
+          onChange={(notify_email) => update.mutate({ notify_email })}
+        />
+      </div>
+      {!pushIncluded && me.plan ? (
+        <p className="fine">
+          Tu plan {me.plan.name} no incluye notificaciones push.{' '}
+          <Link to="/planes">Ver planes</Link>
+        </p>
+      ) : null}
+      <FormAlert message={update.error?.message} />
+      <Saved message={update.isSuccess ? 'Preferencias guardadas.' : null} />
+    </Section>
+  );
+}
+
+function ClaveSection() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const change = useMutation({
+    mutationFn: changePassword,
+    onSuccess: () => {
+      setCurrent('');
+      setNext('');
+    },
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    change.mutate({ current_password: current, new_password: next });
+  }
+
+  return (
+    <Section title="Contraseña">
+      <form className="form account-form" onSubmit={submit} noValidate>
+        <PasswordField
+          label="Contraseña actual"
+          name="current_password"
+          autoComplete="current-password"
+          value={current}
+          error={fieldError(change.error, 'current_password')}
+          onChange={(e) => setCurrent(e.target.value)}
+        />
+        <PasswordField
+          label="Contraseña nueva"
+          name="new_password"
+          autoComplete="new-password"
+          hint="Al menos 8 caracteres. Cerramos tus otras sesiones."
+          value={next}
+          error={fieldError(change.error, 'new_password')}
+          onChange={(e) => setNext(e.target.value)}
+        />
+        <FormAlert message={formError(change.error)} />
+        <button type="submit" className="btn btn--secondary" disabled={change.isPending}>
+          Cambiar contraseña
+        </button>
+        <Saved message={change.isSuccess ? 'Contraseña cambiada.' : null} />
+      </form>
+    </Section>
+  );
+}
+
+function BorrarSection({ onDeleted }: { onDeleted: () => void }) {
+  const [password, setPassword] = useState('');
+  const remove = useMutation({ mutationFn: deleteAccount, onSuccess: onDeleted });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    remove.mutate(password);
+  }
+
+  return (
+    <Section title="Borrar cuenta">
+      <details className="account-danger">
+        <summary>Quiero borrar mi cuenta</summary>
+        <p>
+          Borramos tu cuenta, tus lotes y tus alertas. No se puede deshacer. Si sos founder, tu
+          lugar no vuelve a quedar libre.
+        </p>
+        <form className="form account-form" onSubmit={submit} noValidate>
+          <PasswordField
+            label="Tu contraseña"
+            name="password"
+            autoComplete="current-password"
+            value={password}
+            error={fieldError(remove.error, 'password')}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <FormAlert message={formError(remove.error)} />
+          <button
+            type="submit"
+            className="btn btn--danger-solid btn--block"
+            disabled={remove.isPending}
+          >
+            <Icon name="trash" />
+            {remove.isPending ? 'Borrando…' : 'Borrar mi cuenta'}
+          </button>
+        </form>
+      </details>
+    </Section>
+  );
 }
 
 export function Perfil() {
@@ -17,20 +286,20 @@ export function Perfil() {
   const endSession = useEndSession();
   const navigate = useNavigate();
 
-  async function leave(localOnly: boolean) {
+  async function leave(signedOut: NonNullable<SignedOutState['signedOut']>) {
     // Ends the session at once (me = null), then moves in the same tick: had we waited for the
     // cleanup, the guard would redirect first and this screen, unmounted, could not say why.
-    const ending = endSession({ localOnly });
-    const state: SignedOutState = { signedOut: localOnly ? 'local' : 'server' };
+    const ending = endSession({ localOnly: signedOut === 'local' });
+    const state: SignedOutState = { signedOut };
     navigate('/ingresar', { replace: true, state });
     await ending;
   }
 
   const exit = useMutation({
     mutationFn: logout,
-    onSuccess: () => leave(false),
+    onSuccess: () => leave('server'),
     // No signal: the farmer still wants this phone clean, so sign out here and tell them.
-    onError: (error) => (error instanceof ApiError && error.isNetwork ? leave(true) : undefined),
+    onError: (error) => (error instanceof ApiError && error.isNetwork ? leave('local') : undefined),
   });
 
   return (
@@ -41,28 +310,12 @@ export function Perfil() {
         </div>
       </header>
       {me.data ? (
-        <dl className="facts panel">
-          <div className="facts-row">
-            <dt>Nombre</dt>
-            <dd>{me.data.name || '—'}</dd>
-          </div>
-          <div className="facts-row">
-            <dt>Email</dt>
-            <dd className="break">{me.data.email}</dd>
-          </div>
-          {me.data.plan ? (
-            <div className="facts-row">
-              <dt>Plan</dt>
-              <dd>
-                {me.data.plan.name}
-                {me.data.founder_number != null
-                  ? ` · founder n.º ${me.data.founder_number}`
-                  : ''}{' '}
-                <Link to="/planes">Ver planes</Link>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
+        <>
+          <PlanSection me={me.data} />
+          <DatosSection key={`datos-${me.data.id}`} me={me.data} />
+          <AvisosSection me={me.data} />
+          <ClaveSection />
+        </>
       ) : null}
       <FormAlert message={exit.error?.message} />
       <button
@@ -78,6 +331,7 @@ export function Perfil() {
         Al salir borramos de este teléfono los datos de tu cuenta guardados para usar sin conexión.
         El pronóstico de los lugares que buscaste queda.
       </p>
+      {me.data ? <BorrarSection onDeleted={() => leave('deleted')} /> : null}
       <p className="credits">{CREDITS}</p>
     </div>
   );

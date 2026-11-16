@@ -40,7 +40,8 @@ export function daysLeft(expiresAt: string, now = Date.now()): number {
   return Math.max(Math.ceil((Date.parse(expiresAt) - now) / DAY_MS), 0);
 }
 
-function membership(me: User): string | null {
+/** How the account holds its plan: founder for good, or a trial with days left. */
+export function membership(me: User): string | null {
   if (me.founder_number != null) return `Founder n.º ${me.founder_number} · gratis para siempre`;
   if (me.plan_expires_at) {
     const days = daysLeft(me.plan_expires_at);

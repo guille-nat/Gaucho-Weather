@@ -12,7 +12,8 @@ import type { SignedOutState } from './Perfil';
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const signedOut = (useLocation().state as SignedOutState | null)?.signedOut;
+  const arrival = useLocation().state as SignedOutState | null;
+  const signedOut = arrival?.signedOut;
   const startSession = useStartSession();
   const mutation = useMutation({ mutationFn: login, onSuccess: startSession });
 
@@ -25,6 +26,18 @@ export function Login() {
 
   return (
     <AuthLayout title="Ingresar">
+      {signedOut === 'deleted' ? (
+        <p className="form-notice" role="status">
+          <Icon name="check" />
+          <span>Borramos tu cuenta, sus lotes y sus alertas.</span>
+        </p>
+      ) : null}
+      {arrival?.passwordReset ? (
+        <p className="form-notice" role="status">
+          <Icon name="check" />
+          <span>Listo: ya podés entrar con tu contraseña nueva.</span>
+        </p>
+      ) : null}
       {signedOut === 'local' ? (
         <p className="form-notice" role="status">
           <Icon name="cloudOff" />
@@ -58,6 +71,9 @@ export function Login() {
           {mutation.isPending ? 'Ingresando…' : 'Ingresar'}
         </button>
       </form>
+      <p className="auth-switch">
+        <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
+      </p>
       <p className="auth-switch">
         ¿Es tu primera vez? <Link to="/crear-cuenta">Crear cuenta</Link>
       </p>

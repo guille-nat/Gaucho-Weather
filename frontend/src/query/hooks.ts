@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { updateAccount, type AccountChanges } from '../api/account';
 import { clearPendingLogout, fetchMe, markPendingLogout } from '../api/auth';
 import { ApiError } from '../api/client';
 import { createLote, deleteLote, getLote, listLotes, updateLote } from '../api/lotes';
@@ -15,6 +16,15 @@ import { queryKeys } from './keys';
 import { useLocalData } from './localData';
 
 export const useMe = () => useQuery({ queryKey: queryKeys.me, queryFn: fetchMe });
+
+/** PATCH /api/auth/me/; the answer is the whole account, so it replaces `me` as is. */
+export function useUpdateAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: AccountChanges) => updateAccount(changes),
+    onSuccess: (user: User) => queryClient.setQueryData(queryKeys.me, user),
+  });
+}
 
 export const useLotes = () => useQuery({ queryKey: queryKeys.lotes, queryFn: listLotes });
 

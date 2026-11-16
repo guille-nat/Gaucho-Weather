@@ -39,7 +39,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | done | see L10 |
 | T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verified) | see L11 |
 | T4 | S5 | Email settings + password reset | inline | item 2 | done (verified) | see L12 |
-| T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
+| T5 | S5 | Frontend account: Perfil, reset pages | inline | none | done | see L14 |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
 | T8 | S7 | Delivery push/email + inbox and push APIs | inline | item 3 | pending | |
@@ -90,3 +90,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - Fixed: name and preference PATCHes consumed the login throttle. Now only requests carrying a password count.
   - Open advisories: no notice to the old address on an email change; a same-email race returns 500 (as in register); a broker outage returns 500 on a reset request.
   - pytest 262 passed.
+- **L14** (2026-11-16): T5 done test-first (RED: 11 failing).
+  - Perfil is now the account page, with sections: Tu plan (usage, founder or trial line, Ver planes), Tus datos (name; email with the current password), Cómo te avisamos (push and email switches; push disabled on plans without it), Contraseña, and Borrar cuenta (inside a details element, password required, then login says "Borramos tu cuenta, sus lotes y sus alertas.").
+  - New pages: `/recuperar` (same answer either way) and `/restablecer/:uid/:token` (a bad link offers "Pedir otro enlace"). Login links "¿Olvidaste tu contraseña?".
+  - Vitest 97, tsc, eslint and prettier clean.
+  - E2E on the dev stack: the reset request answered 204 and the Celery worker emailed the /restablecer link. The worker and beat were not running in dev and were started.

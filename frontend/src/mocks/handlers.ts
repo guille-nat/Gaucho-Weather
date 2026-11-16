@@ -1,4 +1,5 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
+import type { AccountChanges } from '../api/account';
 import type { Forecast, Lote, LoteInput, Plan, PublicForecast, User } from '../api/types';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
@@ -25,6 +26,10 @@ export interface MockDb {
   plans: Plan[];
   founders: { limit: number; remaining: number };
   trialDays: number;
+  /** Emails a password reset was asked for, in order (S5). */
+  resetRequests: string[];
+  /** Valid reset links as `uid/token` → the account's email; a link works once. */
+  resetLinks: Record<string, string>;
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -85,6 +90,8 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     plans: demoPlans,
     founders: { limit: 100, remaining: 93 },
     trialDays: 30,
+    resetRequests: [],
+    resetLinks: {},
     ...partial,
   };
 }
@@ -105,6 +112,15 @@ function signUp(db: MockDb, identity: Pick<User, 'id' | 'email' | 'name'>): User
   const expires = new Date(Date.now() + db.trialDays * 86_400_000).toISOString();
   return account({ ...identity, plan_expires_at: expires });
 }
+
+const wrongPassword = (field: string) =>
+  HttpResponse.json({ [field]: ['La contraseña no es correcta.'] }, { status: 400 });
+
+const shortPassword = (field = 'new_password') =>
+  HttpResponse.json(
+    { [field]: ['Esta contraseña es demasiado corta. Debe contener al menos 8 caracteres.'] },
+    { status: 400 },
+  );
 
 const forbidden = () =>
   HttpResponse.json(
@@ -192,6 +208,98 @@ export function createHandlers(db: MockDb): HttpHandler[] {
     http.get('*/api/auth/me/', () =>
       db.user ? HttpResponse.json(withUsage(db.user, db)) : forbidden(),
     ),
+
+    http.patch('*/api/auth/me/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const body = (await request.json()) as AccountChanges;
+      const entry = db.accounts.find((a) => a.user.id === db.user?.id);
+      const email = body.email?.trim().toLowerCase();
+      if (email && email !== db.user.email) {
+        if (!body.current_password) {
+          return HttpResponse.json(
+            { current_password: ['Para cambiar el email confirmá tu contraseña.'] },
+            { status: 400 },
+          );
+        }
+        if (body.current_password !== entry?.password) return wrongPassword('current_password');
+        if (db.accounts.some((a) => a.email === email)) {
+          return HttpResponse.json(
+            { email: ['Ya existe una cuenta con este email.'] },
+            { status: 400 },
+          );
+        }
+      }
+      if (body.name !== undefined && !body.name.trim()) {
+        return HttpResponse.json(
+          { name: ['Este campo no puede estar en blanco.'] },
+          { status: 400 },
+        );
+      }
+      const { name, notify_push, notify_email } = body;
+      const user: User = {
+        ...db.user,
+        ...(name !== undefined && { name: name.trim() }),
+        ...(email && { email }),
+        ...(notify_push !== undefined && { notify_push }),
+        ...(notify_email !== undefined && { notify_email }),
+      };
+      db.user = user;
+      if (entry) Object.assign(entry, { email: user.email, user });
+      return HttpResponse.json(withUsage(user, db));
+    }),
+
+    http.delete('*/api/auth/me/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const { password } = (await request.json()) as { password?: string };
+      const entry = db.accounts.find((a) => a.user.id === db.user?.id);
+      if (password !== entry?.password) return wrongPassword('password');
+      db.accounts = db.accounts.filter((a) => a !== entry);
+      db.lotes = [];
+      db.user = null;
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.post('*/api/auth/password/change/', async ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const body = (await request.json()) as { current_password: string; new_password: string };
+      const entry = db.accounts.find((a) => a.user.id === db.user?.id);
+      if (body.current_password !== entry?.password) return wrongPassword('current_password');
+      if (body.new_password.length < 8) return shortPassword();
+      entry.password = body.new_password;
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.post('*/api/auth/password/reset/', async ({ request }) => {
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const { email } = (await request.json()) as { email: string };
+      db.resetRequests.push(email.trim().toLowerCase());
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.post('*/api/auth/password/reset/confirm/', async ({ request }) => {
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const body = (await request.json()) as { uid: string; token: string; new_password: string };
+      const key = `${body.uid}/${body.token}`;
+      const entry = db.accounts.find((a) => a.email === db.resetLinks[key]);
+      if (!entry) {
+        return HttpResponse.json(
+          { detail: 'El enlace no es válido o venció. Pedí uno nuevo.' },
+          { status: 400 },
+        );
+      }
+      if (body.new_password.length < 8) return shortPassword('new_password');
+      entry.password = body.new_password;
+      delete db.resetLinks[key];
+      return new HttpResponse(null, { status: 204 });
+    }),
 
     http.get('*/api/planes/', () =>
       HttpResponse.json({ plans: db.plans, founders: db.founders, trial_days: db.trialDays }),
