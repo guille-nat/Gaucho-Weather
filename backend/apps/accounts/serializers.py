@@ -137,3 +137,13 @@ class DeleteAccountSerializer(serializers.Serializer):
         if not self.context["user"].check_password(value):
             raise serializers.ValidationError(WRONG_PASSWORD)
         return value
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(max_length=64)
+    token = serializers.CharField(max_length=128)
+    new_password = serializers.CharField(max_length=128, trim_whitespace=False)

@@ -1,4 +1,11 @@
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth import (
+    authenticate,
+    login,
+    logout,
+    password_validation,
+    update_session_auth_hash,
+)
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.middleware.csrf import get_token
 from rest_framework import status
@@ -6,6 +13,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import password_reset
 from .authentication import enforce_csrf
 from .models import FounderProgram, Plan
 from .serializers import (
@@ -13,6 +21,8 @@ from .serializers import (
     DeleteAccountSerializer,
     LoginSerializer,
     PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     PlanSerializer,
     RegisterSerializer,
     UserSerializer,
@@ -20,6 +30,7 @@ from .serializers import (
 from .throttling import IPScopedRateThrottle
 
 BAD_CREDENTIALS_MESSAGE = "Email o contraseña incorrectos."
+BAD_RESET_LINK = "El enlace no es válido o venció. Pedí uno nuevo."
 
 
 class CsrfProtectedView(APIView):
@@ -143,3 +154,41 @@ class PlansView(APIView):
                 "trial_days": program.trial_days,
             }
         )
+
+
+class PasswordResetView(CsrfProtectedView):
+    """Always 204: the answer never tells whether the email has an account."""
+
+    throttle_classes = [IPScopedRateThrottle]
+    throttle_scope = "password_reset"
+
+    def post(self, request):
+        from .tasks import send_password_reset
+
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        send_password_reset.delay(serializer.validated_data["email"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetConfirmView(CsrfProtectedView):
+    throttle_classes = [IPScopedRateThrottle]
+    throttle_scope = "login"
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user = password_reset.user_for_link(data["uid"], data["token"])
+        if user is None:
+            return Response({"detail": BAD_RESET_LINK}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            password_validation.validate_password(data["new_password"], user=user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"new_password": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST
+            )
+        # Changing the password also ends every session and spends the link.
+        user.set_password(data["new_password"])
+        user.save(update_fields=["password"])
+        return Response(status=status.HTTP_204_NO_CONTENT)

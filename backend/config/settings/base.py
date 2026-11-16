@@ -132,6 +132,7 @@ REST_FRAMEWORK = {
         "public_forecast": env("THROTTLE_PUBLIC_FORECAST_RATE", "60/hour"),
         "places": env("THROTTLE_PLACES_RATE", "300/hour"),
         "plans": env("THROTTLE_PLANS_RATE", "300/hour"),
+        "password_reset": env("THROTTLE_PASSWORD_RESET_RATE", "5/hour"),
     },
     # Number of reverse proxies in front of Django; DRF reads the client IP for
     # throttling from X-Forwarded-For using this count. 0 = use REMOTE_ADDR.
@@ -170,6 +171,8 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = (env("EMAIL_USE_TLS") or "true").lower() == "true"
 EMAIL_TIMEOUT = 15
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL") or "Gaucho Weather <no-reply@localhost>"
+
+PASSWORD_RESET_TIMEOUT = 60 * 60  # reset links last 1 hour
 
 # Public origin of the SPA, for links inside emails (no trailing slash).
 PUBLIC_APP_URL = (env("PUBLIC_APP_URL") or "http://localhost:5173").rstrip("/")

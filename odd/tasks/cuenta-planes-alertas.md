@@ -38,7 +38,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T1 | S1 S2 S3 | Plans + founders + trial backend: models, migrations, backfill, signup, `/me`, `/api/planes/`, `expire_trials` | inline | item 1, 4 | done (verified) | see L9 |
 | T2 | S4 S8 | Lote limit (402) + LoteForm message + `/planes` page | inline | none | done | see L10 |
 | T3 | S5 | Account endpoints: PATCH/DELETE `/me`, password change, preferences | inline | item 1, 2 | done (verifier pending, with T4) | see L11 |
-| T4 | S5 | Email settings + password reset | inline | item 2 | pending | |
+| T4 | S5 | Email settings + password reset | inline | item 2 | done (verifier pending, with T3) | see L12 |
 | T5 | S5 | Frontend account: Perfil, reset pages | inline | none | pending | |
 | T6 | S6 S4 | Alert models + rules API + limit | inline | none | pending | |
 | T7 | S6 | Evaluator + `evaluate_rules` task + archiver hook | inline | none | pending | |
@@ -80,3 +80,8 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
   - DELETE `/me` (password, cascades lotes, logs out, founder slot not freed).
   - Password-checking methods share the login throttle bucket (10/min/IP); GET is never throttled. The throttle test caught a real bug: ScopedRateThrottle reads `view.throttle_scope`, not the class attribute.
   - pytest 248 passed. The independent verifier will run over T3 and T4 together (both item 2).
+- **L12** (2026-11-16): T4 done test-first (RED: 10 failing). Endpoints:
+  - POST `/password/reset/` always answers 204, needs CSRF, is throttled at 5/hour per IP, and sends the email from the Celery task `accounts.send_password_reset`.
+  - POST `/password/reset/confirm/` takes uid, token and new password. The link lasts 1 h (`PASSWORD_RESET_TIMEOUT`) and works once; a bad or expired link answers `{"detail": "El enlace no es válido o venció. Pedí uno nuevo."}`. A reset signs out every session.
+  - A login also spends pending links (Django's token includes `last_login`), now pinned by a test.
+  - Email settings were already added in T1. pytest 259 passed.
