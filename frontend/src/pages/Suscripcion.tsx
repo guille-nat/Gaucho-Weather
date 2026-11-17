@@ -317,8 +317,10 @@ export function Suscripcion() {
           <Section title="Historial">
             {data.history.length ? (
               <ol className="timeline" aria-label="Cambios de plan">
-                {data.history.map((change) => (
-                  <HistoryItem key={`${change.at}-${change.reason}`} change={change} />
+                {data.history.map((change, i) => (
+                  // The same reason can land twice in one second (two staff edits): the
+                  // position, newest first, keeps the key unique.
+                  <HistoryItem key={`${change.at}-${change.reason}-${i}`} change={change} />
                 ))}
               </ol>
             ) : (
@@ -326,8 +328,23 @@ export function Suscripcion() {
             )}
           </Section>
         </>
+      ) : sub.isError ? (
+        <div className="notice">
+          <p>{sub.error.message}</p>
+          <button type="button" className="btn btn--secondary" onClick={() => void sub.refetch()}>
+            <Icon name="refresh" />
+            Reintentar
+          </button>
+        </div>
       ) : (
-        <p className="notice">{sub.isError ? sub.error.message : 'Cargando tu suscripción…'}</p>
+        <div className="account-skeleton" aria-busy="true">
+          <p className="sr-only" role="status">
+            Cargando tu suscripción…
+          </p>
+          <span className="ghost ghost--panel" />
+          <span className="ghost ghost--pill" />
+          <span className="ghost ghost--panel" />
+        </div>
       )}
     </div>
   );

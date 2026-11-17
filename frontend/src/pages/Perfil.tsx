@@ -133,10 +133,17 @@ function NameForm({ me }: { me: User }) {
         autoComplete="name"
         value={name}
         error={fieldError(rename.error, 'name')}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          rename.reset();
+          setName(e.target.value);
+        }}
       />
       <FormAlert message={formError(rename.error)} />
-      <button type="submit" className="btn btn--secondary" disabled={rename.isPending}>
+      <button
+        type="submit"
+        className="btn btn--secondary"
+        disabled={rename.isPending || !name.trim() || name.trim() === me.name}
+      >
         Guardar nombre
       </button>
       <Saved message={rename.isSuccess ? 'Nombre guardado.' : null} />
@@ -169,7 +176,10 @@ function EmailForm({ me }: { me: User }) {
         spellCheck={false}
         value={email}
         error={fieldError(reEmail.error, 'email')}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(e) => {
+          reEmail.reset();
+          setEmail(e.target.value);
+        }}
       />
       <PasswordField
         label="Contraseña actual"
@@ -178,10 +188,17 @@ function EmailForm({ me }: { me: User }) {
         hint="Para cambiar el email confirmá que sos vos."
         value={password}
         error={fieldError(reEmail.error, 'current_password')}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => {
+          reEmail.reset();
+          setPassword(e.target.value);
+        }}
       />
       <FormAlert message={formError(reEmail.error)} />
-      <button type="submit" className="btn btn--secondary" disabled={reEmail.isPending}>
+      <button
+        type="submit"
+        className="btn btn--secondary"
+        disabled={reEmail.isPending || !password || !email.trim() || email.trim() === me.email}
+      >
         Cambiar email
       </button>
       <Saved message={reEmail.isSuccess ? 'Email cambiado.' : null} />
@@ -326,7 +343,10 @@ function PasswordForm() {
         autoComplete="current-password"
         value={current}
         error={fieldError(change.error, 'current_password')}
-        onChange={(e) => setCurrent(e.target.value)}
+        onChange={(e) => {
+          change.reset();
+          setCurrent(e.target.value);
+        }}
       />
       <PasswordField
         label="Contraseña nueva"
@@ -335,10 +355,17 @@ function PasswordForm() {
         hint="Al menos 8 caracteres. Cerramos tus otras sesiones."
         value={next}
         error={fieldError(change.error, 'new_password')}
-        onChange={(e) => setNext(e.target.value)}
+        onChange={(e) => {
+          change.reset();
+          setNext(e.target.value);
+        }}
       />
       <FormAlert message={formError(change.error)} />
-      <button type="submit" className="btn btn--secondary" disabled={change.isPending}>
+      <button
+        type="submit"
+        className="btn btn--secondary"
+        disabled={change.isPending || !current || !next}
+      >
         Cambiar contraseña
       </button>
       <Saved message={change.isSuccess ? 'Contraseña cambiada.' : null} />

@@ -2276,6 +2276,11 @@ input[type='date'].input {
   padding: 4px 0 16px;
 }
 
+.account-skeleton {
+  display: grid;
+  gap: 16px;
+}
+
 /* Tus datos: one row per thing the account holds; a row opens the one form that changes it. */
 .account-rows {
   display: grid;
