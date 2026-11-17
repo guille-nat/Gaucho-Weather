@@ -121,14 +121,106 @@ describe('Perfil: reliable alerts (perfil-ux S2)', () => {
 
     await user.click(push);
     await user.click(email);
-    await within(section).findByText('Preferencias guardadas.');
+    // The email answer is back but push is not: still saving, not "saved".
+    expect(await within(section).findByText('Guardando…')).toBeInTheDocument();
     release();
+    expect(await within(section).findByText('Preferencias guardadas.')).toBeInTheDocument();
     await within(section).findByText(NOTHING_OUTSIDE);
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(push).not.toBeChecked();
     expect(email).not.toBeChecked();
     expect(db.user).toMatchObject({ notify_push: false, notify_email: false });
+  });
+
+  describe('the same switch tapped twice (independent verification)', () => {
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+    function gates(n: number) {
+      const opens: Array<() => void> = [];
+      const waits = Array.from({ length: n }, () => new Promise<void>((r) => opens.push(r)));
+      return { waits, opens };
+    }
+
+    it('ends on the server value when both saves fail', async () => {
+      const db = withAccount();
+      const { user } = renderApp('/perfil', db);
+      const { waits, opens } = gates(2);
+      let call = 0;
+      server.use(
+        http.patch('*/api/auth/me/', async () => {
+          await waits[call++];
+          return HttpResponse.error();
+        }),
+      );
+      const push = within(await avisos()).getByRole('switch', { name: 'Notificaciones push' });
+
+      await user.click(push);
+      await user.click(push);
+      opens[0]!();
+      await settle();
+      opens[1]!();
+      await settle();
+
+      expect(db.user?.notify_push).toBe(true);
+      expect(push).toBeChecked();
+    });
+
+    it('ignores a stale answer that arrives after a newer one', async () => {
+      const db = withAccount();
+      const { user } = renderApp('/perfil', db);
+      const { waits, opens } = gates(1);
+      let call = 0;
+      server.use(
+        http.patch('*/api/auth/me/', async ({ request }) => {
+          const mine = call++;
+          const body = (await request.json()) as Record<string, boolean>;
+          db.user = { ...db.user!, ...body };
+          const answer = { ...db.user };
+          if (mine === 0) await waits[0];
+          return HttpResponse.json(answer);
+        }),
+      );
+      const push = within(await avisos()).getByRole('switch', { name: 'Notificaciones push' });
+
+      await user.click(push);
+      await user.click(push);
+      await settle();
+      opens[0]!();
+      await settle();
+
+      expect(db.user?.notify_push).toBe(true);
+      expect(push).toBeChecked();
+    });
+
+    it('says a save failed even when a later one succeeded', async () => {
+      const db = withAccount();
+      const { user } = renderApp('/perfil', db);
+      const { waits, opens } = gates(1);
+      server.use(
+        http.patch('*/api/auth/me/', async ({ request }) => {
+          const body = (await request.json()) as Record<string, boolean>;
+          if ('notify_push' in body) {
+            await waits[0];
+            return HttpResponse.error();
+          }
+          db.user = { ...db.user!, ...body };
+          return HttpResponse.json(db.user);
+        }),
+      );
+      const section = await avisos();
+      const push = within(section).getByRole('switch', { name: 'Notificaciones push' });
+
+      await user.click(push);
+      await user.click(within(section).getByRole('switch', { name: 'Alertas por email' }));
+      await settle();
+      opens[0]!();
+
+      expect(
+        await within(section).findByText('Sin conexión. Probá de nuevo cuando tengas señal.'),
+      ).toBeInTheDocument();
+      expect(within(section).queryByText('Preferencias guardadas.')).not.toBeInTheDocument();
+      expect(push).toBeChecked();
+    });
   });
 
   it('ties the disabled push switch to the reason it is disabled', async () => {

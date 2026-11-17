@@ -308,12 +308,10 @@ function AvisosSection({ me }: { me: User }) {
           <Link to="/alertas">Activalas en Alertas</Link>
         </p>
       ) : null}
-      <FormAlert message={update.error?.message} />
+      <FormAlert message={update.failure?.message} />
       <Saved
-        saving={update.isPending}
-        message={
-          update.isPending ? 'Guardando…' : update.isSuccess ? 'Preferencias guardadas.' : null
-        }
+        saving={update.saving}
+        message={update.saving ? 'Guardando…' : update.saved ? 'Preferencias guardadas.' : null}
       />
     </Section>
   );

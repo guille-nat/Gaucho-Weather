@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import { updateAccount, type AccountChanges } from '../api/account';
 import {
   createAlertRule,
@@ -60,40 +61,87 @@ export function useUpdateAccount() {
 
 export type Preferences = Pick<User, 'notify_push' | 'notify_email'>;
 
+const PREFERENCES = ['preferences'] as const;
+type PreferenceField = keyof Preferences;
+
+/** What the server last confirmed for one switch, and the saves of it still on the way. */
+interface FieldTrack {
+  confirmed: boolean | undefined;
+  confirmedSeq: number;
+  pending: number;
+  sent: number;
+}
+
 /**
- * PATCH /api/auth/me/ for the alert switches: they move at once, since on the farm's signal
- * waiting for the server reads as a broken switch, and only the field that failed goes back.
+ * PATCH /api/auth/me/ for the alert switches. They move at once, since on the farm's signal
+ * waiting for the server reads as a broken switch, so saves overlap and answers can arrive out
+ * of order. Each switch keeps the value the server last confirmed (from the newest save that
+ * answered) and shows it once none of its saves is pending; a failure stays reported even if a
+ * later save of another switch succeeds.
  */
 export function useUpdatePreferences() {
   const queryClient = useQueryClient();
-  return useMutation({
+  const tracks = useRef(new Map<PreferenceField, FieldTrack>());
+  const [failure, setFailure] = useState<Error | null>(null);
+  const saving = useIsMutating({ mutationKey: PREFERENCES }) > 0;
+
+  const track = (field: PreferenceField) => {
+    let t = tracks.current.get(field);
+    if (!t) {
+      t = { confirmed: undefined, confirmedSeq: 0, pending: 0, sent: 0 };
+      tracks.current.set(field, t);
+    }
+    return t;
+  };
+  const fieldsOf = (changes: Partial<Preferences>) => Object.keys(changes) as PreferenceField[];
+  const show = (values: Partial<Preferences>) =>
+    queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...values } : me));
+
+  const mutation = useMutation({
+    mutationKey: PREFERENCES,
     mutationFn: (changes: Partial<Preferences>) => updateAccount(changes),
     onMutate: async (changes) => {
+      setFailure(null);
       await queryClient.cancelQueries({ queryKey: queryKeys.me });
-      const before = queryClient.getQueryData<User | null>(queryKeys.me);
-      queryClient.setQueryData<User | null>(queryKeys.me, (me) =>
-        me ? { ...me, ...changes } : me,
-      );
-      return { before };
+      const me = queryClient.getQueryData<User | null>(queryKeys.me);
+      const seqs: Partial<Record<PreferenceField, number>> = {};
+      for (const field of fieldsOf(changes)) {
+        const t = track(field);
+        if (t.pending === 0) t.confirmed = me?.[field];
+        t.pending += 1;
+        t.sent += 1;
+        seqs[field] = t.sent;
+      }
+      show(changes);
+      return { seqs };
     },
-    onError: (_error, changes, context) => {
-      const before = context?.before;
-      if (!before) return;
-      // Field by field: another switch saved meanwhile keeps its new value.
-      const back = Object.fromEntries(
-        Object.keys(changes).map((key) => [key, before[key as keyof Preferences]]),
-      );
-      queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...back } : me));
+    onSuccess: (user: User, changes, context) => {
+      for (const field of fieldsOf(changes)) {
+        const t = track(field);
+        const seq = context?.seqs[field] ?? 0;
+        // An older save answering last was built before the newer one reached the server.
+        if (seq >= t.confirmedSeq) {
+          t.confirmed = user[field];
+          t.confirmedSeq = seq;
+        }
+      }
     },
-    // Only the field this request changed: two answers can arrive out of order, and the later
-    // one was built before the other change reached the server.
-    onSuccess: (user: User, changes) => {
-      const saved = Object.fromEntries(
-        Object.keys(changes).map((key) => [key, user[key as keyof Preferences]]),
-      );
-      queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...saved } : me));
+    onError: (error) => setFailure(error),
+    onSettled: (_user, _error, changes) => {
+      for (const field of fieldsOf(changes)) {
+        const t = track(field);
+        t.pending -= 1;
+        if (t.pending === 0 && t.confirmed !== undefined) show({ [field]: t.confirmed });
+      }
     },
   });
+
+  return {
+    mutate: mutation.mutate,
+    saving,
+    failure,
+    saved: mutation.isSuccess && !saving && failure === null,
+  };
 }
 
 export const useLotes = () => useQuery({ queryKey: queryKeys.lotes, queryFn: listLotes });
