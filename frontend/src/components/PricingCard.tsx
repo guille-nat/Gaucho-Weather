@@ -1,9 +1,48 @@
 import type { ReactNode } from 'react';
 import type { Plan, PlanCode } from '../api/types';
+import { setCurrency, useCurrency, type Currency } from '../lib/currency';
 import { planFeatures } from '../lib/planFeatures';
 import { Icon } from './Icon';
 
-const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
+// Argentine grouping for both currencies: "$ 14.900", "US$ 1.200".
+const amount = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
+
+/** Each currency's price field and symbol (precios-productor S5): fixed prices, no conversion. */
+const CURRENCIES: Record<
+  Currency,
+  { label: string; symbol: string; price: (plan: Plan) => number | null }
+> = {
+  ars: { label: 'Pesos', symbol: '$', price: (plan) => plan.price_ars_month },
+  usd: { label: 'Dólares', symbol: 'US$', price: (plan) => plan.price_usd_month },
+};
+
+/**
+ * Pesos or dollars for every card on the page, remembered on this device (precios-productor S5),
+ * with the line saying both are accepted.
+ */
+export function CurrencyChoice() {
+  const currency = useCurrency();
+  return (
+    <div className="pricing-currency">
+      <div className="segmented segmented--currency" role="group" aria-label="Moneda">
+        {(Object.keys(CURRENCIES) as Currency[]).map((code) => (
+          <button
+            key={code}
+            type="button"
+            className="segmented-option"
+            aria-pressed={currency === code}
+            onClick={() => setCurrency(code)}
+          >
+            {CURRENCIES[code].label}
+          </button>
+        ))}
+      </div>
+      <p className="fine">
+        Podés pagar en pesos o en dólares. Actualizamos los precios cada 3 meses.
+      </p>
+    </div>
+  );
+}
 
 /** Who each plan is for: one line under its name (precios-productor S2). */
 const FOR_WHOM: Record<PlanCode, string> = {
@@ -28,6 +67,8 @@ export function PlanFeatureList({ plan }: { plan: Plan }) {
 
 interface PricingCardProps {
   plan: Plan;
+  /** The currency chosen on the page, the same for every card. */
+  currency: Currency;
   /** h2 on Planes, h3 inside the subscription page's section. */
   headingLevel: 2 | 3;
   /** The account's plan: marked "Tu plan" instead of an action. */
@@ -50,6 +91,7 @@ interface PricingCardProps {
  */
 export function PricingCard({
   plan,
+  currency,
   headingLevel,
   current = false,
   perk,
@@ -58,6 +100,8 @@ export function PricingCard({
   note,
 }: PricingCardProps) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  const { symbol, price: priceOf } = CURRENCIES[currency];
+  const price = priceOf(plan);
   const classes = ['pricing-card'];
   if (plan.highlighted) classes.push('pricing-card--featured');
   if (current) classes.push('pricing-card--current');
@@ -67,17 +111,19 @@ export function PricingCard({
       <Heading className="pricing-name">{plan.name}</Heading>
       <p className="pricing-for">{FOR_WHOM[plan.code]}</p>
       <div className="pricing-price">
-        {plan.price_ars_month === null ? (
+        {price === null ? (
           <>
             <p className="pricing-tbd">Precio a confirmar</p>
             {priceNote ? <p className="pricing-tbd-note">{priceNote}</p> : null}
           </>
-        ) : plan.price_ars_month === 0 ? (
+        ) : price === 0 ? (
           // A free plan says so: "$ 0 / mes" reads like a price to pay.
           <p className="pricing-amount">Gratis</p>
         ) : (
           <p>
-            <span className="pricing-amount">$ {pesos.format(plan.price_ars_month)}</span>
+            <span className="pricing-amount">
+              {symbol} {amount.format(price)}
+            </span>
             <span className="pricing-period"> / mes</span>
           </p>
         )}

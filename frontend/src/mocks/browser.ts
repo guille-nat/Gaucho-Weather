@@ -54,9 +54,14 @@ export function startMockApi() {
   for (const [id, forecast] of Object.entries(db.loteForecasts)) {
     db.loteForecasts[Number(id)] = withWeather(forecast);
   }
-  // The prices decided on 2026-11-17 (precios-productor L8); the real ones live in the admin.
+  // The prices decided on 2026-11-17 (precios-productor L8, L9); the real ones live in the admin.
   const PRICES = { basico: 0, productor: 14900, empresa: 49900 } as const;
-  db.plans = db.plans.map((plan) => ({ ...plan, price_ars_month: PRICES[plan.code] }));
+  const USD_PRICES = { basico: 0, productor: 10, empresa: 35 } as const;
+  db.plans = db.plans.map((plan) => ({
+    ...plan,
+    price_ars_month: PRICES[plan.code],
+    price_usd_month: USD_PRICES[plan.code],
+  }));
   const handlers = createHandlers(db);
   const realFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {

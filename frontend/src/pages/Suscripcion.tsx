@@ -11,8 +11,9 @@ import type {
 import { FormAlert } from '../components/Field';
 import { FounderBadge, FounderStory } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
-import { PricingCard } from '../components/PricingCard';
+import { CurrencyChoice, PricingCard } from '../components/PricingCard';
 import { StatusChip } from '../components/StatusChip';
+import { useCurrency } from '../lib/currency';
 import { TIME_ZONE } from '../lib/format';
 import { trialLine } from '../lib/membership';
 import { featuredFirst, planFeatures } from '../lib/planFeatures';
@@ -285,6 +286,7 @@ function ChangePlan({
   onRequested: () => void;
 }) {
   const request = useRequestPlan();
+  const currency = useCurrency();
   const blocked = request.isPending || sub.pending_request !== null;
   const basico = plans?.find((p) => p.code === 'basico');
   const ask = (input: PlanRequestInput) => {
@@ -336,41 +338,45 @@ function ChangePlan({
         <p className="fine">Ya tenés un pedido pendiente: retiralo si querés pedir otro.</p>
       ) : null}
       {plans ? (
-        <div className="pricing">
-          {featuredFirst(plans).map((plan) => {
-            const current = plan.code === sub.plan.code;
-            const trial = current && sub.status === 'trial';
-            return (
-              <PricingCard
-                key={plan.code}
-                plan={plan}
-                headingLevel={3}
-                current={current && !trial}
-                // Decided by the user (perfil-ux L6): the team emails the price first.
-                priceNote="Te lo pasamos por email antes de aplicar el pedido."
-                perk={
-                  plan.highlighted && !current && sub.status !== 'founder' && foundersLeft > 0
-                    ? `Quedan ${foundersLeft} lugares de founder: gratis para siempre`
-                    : null
-                }
-                action={actionFor(plan)}
-                note={
-                  current && sub.status === 'founder' && sub.founder_number !== null ? (
-                    // The card shows the plan's price; a founder pays none of it.
-                    <p className="plan-membership">
-                      Gratis para siempre: sos founder n.º {sub.founder_number}
-                    </p>
-                  ) : trial ? (
-                    <p className="fine">
-                      Cuando termine la prueba pasás a Básico. Si querés seguir con {plan.name},
-                      pedilo ahora.
-                    </p>
-                  ) : null
-                }
-              />
-            );
-          })}
-        </div>
+        <>
+          <CurrencyChoice />
+          <div className="pricing">
+            {featuredFirst(plans).map((plan) => {
+              const current = plan.code === sub.plan.code;
+              const trial = current && sub.status === 'trial';
+              return (
+                <PricingCard
+                  key={plan.code}
+                  plan={plan}
+                  currency={currency}
+                  headingLevel={3}
+                  current={current && !trial}
+                  // Decided by the user (perfil-ux L6): the team emails the price first.
+                  priceNote="Te lo pasamos por email antes de aplicar el pedido."
+                  perk={
+                    plan.highlighted && !current && sub.status !== 'founder' && foundersLeft > 0
+                      ? `Quedan ${foundersLeft} lugares de founder: gratis para siempre`
+                      : null
+                  }
+                  action={actionFor(plan)}
+                  note={
+                    current && sub.status === 'founder' && sub.founder_number !== null ? (
+                      // The card shows the plan's price; a founder pays none of it.
+                      <p className="plan-membership">
+                        Gratis para siempre: sos founder n.º {sub.founder_number}
+                      </p>
+                    ) : trial ? (
+                      <p className="fine">
+                        Cuando termine la prueba pasás a Básico. Si querés seguir con {plan.name},
+                        pedilo ahora.
+                      </p>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </div>
+        </>
       ) : null}
       <FormAlert message={request.error?.message} />
       <Saved message={saved} />

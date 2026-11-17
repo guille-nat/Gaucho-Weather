@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { AlertRule, PlanChange, User } from '../api/types';
 import { createMockDb, type MockDb } from '../mocks/handlers';
-import { account, demoLotes, demoUser, planOf } from '../mocks/fixtures';
+import { account, demoLotes, demoPlans, demoUser, planOf } from '../mocks/fixtures';
 import { renderApp } from './renderApp';
 
 const ROUTE = '/perfil/suscripcion';
@@ -146,6 +146,28 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     // Going down to Básico is the cancel flow below, not a card button.
     expect(within(basico).queryByRole('button')).toBeNull();
     expect(within(basico).getByText('Es el plan al que pasás si te das de baja.')).toBeVisible();
+  });
+
+  it('offers the cards in pesos or dollars, with the payment line (precios-productor S5)', async () => {
+    const plans = demoPlans.map((p) =>
+      p.code === 'productor' ? { ...p, price_ars_month: 14900, price_usd_month: 10 } : p,
+    );
+    const { user } = renderApp(ROUTE, dbFor(basicoUser, { plans }));
+
+    const change = await region('Cambiar de plan');
+    expect(
+      within(change).getByText(
+        'Podés pagar en pesos o en dólares. Actualizamos los precios cada 3 meses.',
+      ),
+    ).toBeInTheDocument();
+    const productor = within(change).getByRole('article', { name: 'Plan Productor' });
+    expect(within(productor).getByText('$ 14.900')).toBeInTheDocument();
+
+    const choice = within(change).getByRole('group', { name: 'Moneda' });
+    await user.click(within(choice).getByRole('button', { name: 'Dólares' }));
+
+    expect(within(productor).getByText('US$ 10')).toBeInTheDocument();
+    expect(within(productor).queryByText('$ 14.900')).toBeNull();
   });
 
   it('invites a Básico account to Productor with the founder places left', async () => {

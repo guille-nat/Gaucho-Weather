@@ -2483,6 +2483,18 @@ input[type='date'].input {
  * it includes. Ordinary cards sit a step darker than their surroundings; the featured one a step
  * lighter, so it reads first at a glance.
  */
+/* Pesos or dollars above the cards (precios-productor S5): a short control, not a full-width bar. */
+.pricing-currency {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-bottom: 16px;
+}
+
+.segmented--currency {
+  inline-size: min(100%, 280px);
+}
+
 .pricing {
   display: grid;
   gap: 16px;

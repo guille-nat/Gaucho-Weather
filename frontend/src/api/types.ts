@@ -8,6 +8,8 @@ export interface Plan {
   name: string;
   /** ARS per month; null until it is set ("Precio a confirmar"). */
   price_ars_month: number | null;
+  /** USD per month, a fixed price beside the peso one (precios-productor S5); null = to confirm. */
+  price_usd_month: number | null;
   /** null = no limit. */
   max_lotes: number | null;
   max_alert_rules: number | null;

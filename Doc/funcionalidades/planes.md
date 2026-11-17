@@ -40,6 +40,24 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
     hectárea, con un mes de prueba) tiene montos desactualizados. Los precios se
     revisan con la inflación desde el admin, sin tocar código.
 
+### Moneda
+- Cada plan tiene dos precios fijos: `price_ars_month` (pesos) y `price_usd_month`
+  (dólares). Los dos se cargan en el admin y vacío significa "Precio a confirmar".
+- **Decisión:** precios fijos en cada moneda, sin convertir con el dólar oficial ni el
+  MEP. **Por qué:** el usuario decidió dar las dos opciones de pago y actualizar los
+  precios cada 3 meses (precios-productor L9), así que no hace falta una API de
+  cotización.
+- Planes y Suscripción muestran un selector "Pesos" / "Dólares" arriba de las
+  tarjetas. La elección se guarda en el dispositivo (`localStorage`, clave
+  `gw-currency-v1`, en `frontend/src/lib/currency.ts`) y arranca en pesos. Si el
+  navegador bloquea el almacenamiento, la elección dura solo esa visita.
+- Las tarjetas muestran "$ 14.900 / mes" o "US$ 10 / mes". Un precio de 0 se muestra
+  como "Gratis" en las dos monedas. Debajo del selector se lee: "Podés pagar en pesos o
+  en dólares. Actualizamos los precios cada 3 meses."
+- **Precios en dólares (2026-11-17):** Básico 0, Productor US$ 10 y Empresa US$ 35, en
+  línea con los precios en pesos. En desarrollo y en el mock ya están cargados; en
+  producción se cargan en el admin.
+
 ### Founders
 - `start_membership` corre dentro de la transacción del registro. Bloquea la
   fila de `FounderProgram` con `select_for_update`, así dos altas simultáneas
@@ -158,7 +176,7 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   [cuenta.md](cuenta.md).
 
 ## Cómo modificarlo
-- Límites, precio, push, soporte, destacado y orden se editan en el admin
+- Límites, precios (pesos y dólares), push, soporte, destacado y orden se editan en el admin
   (`/api/admin/`, Planes). El cupo de founders y los días de prueba, en
   "Programa founders". El plan y el vencimiento de cada usuario, en Usuarios.
 - Un plan nuevo con límite: sumar el campo en `Plan`, el caso en `LIMITS` y la
@@ -185,3 +203,6 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - 2026-11-17 — Precios: Básico gratis, Productor $ 14.900 y Empresa $ 49.900 por mes;
   "Gratis" en lugar de "$ 0"; tarjetas de precios con Productor como "El más elegido"
   (feature `precios-productor`).
+- 2026-11-17 — Moneda: precio fijo en dólares por plan (`price_usd_month`, migración
+  `0008_plan_price_usd`) y selector "Pesos" / "Dólares" en Planes y Suscripción
+  (feature `precios-productor`, S5).

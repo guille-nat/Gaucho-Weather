@@ -1,17 +1,20 @@
 import { Link } from 'react-router';
 import type { Plan, User } from '../api/types';
 import { Icon } from '../components/Icon';
-import { PricingCard } from '../components/PricingCard';
+import { CurrencyChoice, PricingCard } from '../components/PricingCard';
+import { useCurrency, type Currency } from '../lib/currency';
 import { membership } from '../lib/membership';
 import { featuredFirst } from '../lib/planFeatures';
 import { useMe, usePlans } from '../query/hooks';
 
 function PlanCard({
   plan,
+  currency,
   me,
   trialDays,
 }: {
   plan: Plan;
+  currency: Currency;
   me: User | null | undefined;
   trialDays: number;
 }) {
@@ -22,6 +25,7 @@ function PlanCard({
   return (
     <PricingCard
       plan={plan}
+      currency={currency}
       headingLevel={2}
       current={current && !!me}
       perk={perk}
@@ -47,6 +51,7 @@ function PlanCard({
 export function Planes() {
   const plans = usePlans();
   const me = useMe();
+  const currency = useCurrency();
 
   return (
     <div className="page page-plans">
@@ -70,11 +75,13 @@ export function Planes() {
               </span>
             </p>
           ) : null}
+          <CurrencyChoice />
           <div className="pricing">
             {featuredFirst(plans.data.plans).map((plan) => (
               <PlanCard
                 key={plan.code}
                 plan={plan}
+                currency={currency}
                 me={me.data}
                 trialDays={plans.data.trial_days}
               />
