@@ -1,9 +1,10 @@
 # Lotes
-> Última actualización: 2026-11-16
+> Última actualización: 2026-11-17
 
 ## Qué hace
-Cada usuario carga sus lotes con su ubicación exacta. Cultivo, fecha de siembra,
-superficie y contorno son opcionales. Cada lote muestra la mínima pronosticada
+Cada usuario carga sus lotes con su ubicación exacta. Superficie, contorno y
+cultivos son opcionales; un lote puede tener varios cultivos, cada uno con sus
+hectáreas y su fecha de siembra. Cada lote muestra la mínima pronosticada
 para esta noche y un titular con la decisión más urgente. El detalle del
 pronóstico está en [pronostico.md](pronostico.md).
 
@@ -12,10 +13,35 @@ pronóstico está en [pronostico.md](pronostico.md).
   ordenada por nombre, POST) y `/api/lotes/{id}/` (GET, PATCH, DELETE).
 - Cada usuario ve solo sus lotes: el de otro responde 404.
 - Validaciones: latitud −56 a −21, longitud −74 a −53 (Argentina), nombre de
-  hasta 80 caracteres, `crop` en `soja`, `maiz`, `trigo`, `girasol`, `cebada`,
-  `sorgo`, `otro` o null, y `boundary` como `Polygon` GeoJSON con anillos cerrados.
+  hasta 80 caracteres y `boundary` como `Polygon` GeoJSON con anillos cerrados.
 - Las coordenadas se guardan con 6 decimales; si llegan más, se redondean.
-- Los decimales (`latitude`, `longitude`, `area_ha`) salen como números JSON.
+- Los decimales del lote (`latitude`, `longitude`, `area_ha`) salen como números
+  JSON; el `area_ha` de cada cultivo sale como texto (`"12.50"`), como fija el
+  contrato de `plantings`.
+- Cultivos: modelo `Planting` (tabla `lotes_planting`, `related_name="plantings"`,
+  se borra con el lote). El lote ya no tiene `crop` ni `sowing_date`.
+
+  ```json
+  "plantings": [
+    {"id": 7, "crop": "soja", "area_ha": "12.50", "sowing_date": "2026-10-01"},
+    {"id": 8, "crop": "maiz", "area_ha": null, "sowing_date": null}
+  ]
+  ```
+
+  - Se leen ordenados por `id`; un lote sin cultivos devuelve `[]`.
+  - `crop` es obligatorio y va en `soja`, `maiz`, `trigo`, `girasol`, `cebada`,
+    `sorgo` u `otro` (`""` o null se rechazan). `area_ha` es opcional y mayor
+    que 0 (se redondea a 2 decimales, como la superficie del lote). `sowing_date`
+    es opcional.
+  - Al escribir (POST o PATCH) se manda la lista completa, sin `id`, y reemplaza
+    a la anterior dentro de una transacción. En un PATCH, si falta `plantings`,
+    los cultivos no cambian; en un POST, si falta, el lote queda sin cultivos.
+  - Hasta 8 cultivos: más devuelve `{"plantings": ["Hasta 8 cultivos por lote."]}`.
+  - Los errores por cultivo van en una lista con una entrada por cultivo enviado,
+    `{}` para los válidos: `{"plantings": [{}, {"crop": ["…"]}]}`.
+  - El mismo cultivo puede repetirse (dos siembras en el mismo lote).
+  - La lista de lotes trae los cultivos de todos los lotes en una sola consulta
+    (`prefetch_related_objects` en `LoteListSerializer`).
 - `summary` (solo lectura) sale de `backend/apps/archiver/summary.py`:
 
   ```json
@@ -58,6 +84,30 @@ pronóstico está en [pronostico.md](pronostico.md).
   **Por qué:** el motor de decisiones llega en la Fase 2.
   (Reemplazada el 2026-11-03: el motor v0 se adelantó y `summary` suma
   `headline`. Los campos de la Fase 1 no cambian.)
+- **Decisión:** cultivo y fecha de siembra en `Lote` (Fase 1).
+  (Reemplazada el 2026-11-17 por la lista `plantings`.)
+- **Decisión:** varios cultivos por lote, cada uno con hectáreas y fecha de
+  siembra opcionales.
+  **Por qué:** pedido del usuario: "puede ser que al lote lo dividan en varios
+  cultivos". Eligió "Lista con hectáreas": cada parte con su superficie, que
+  puede no saberse.
+  **Alternativas descartadas:** un solo cultivo por lote, como antes.
+- **Decisión:** si la suma de hectáreas pasa la superficie del lote, avisa la
+  app; la API lo acepta.
+  **Por qué:** la superficie del lote y las de cada cultivo suelen ser
+  estimaciones; bloquear impediría guardar datos reales con algo de error.
+- **Decisión:** la escritura reemplaza la lista entera en vez de editar cada
+  cultivo por `id`.
+  **Por qué:** el formulario siempre tiene la lista completa, y el máximo de 8
+  hace barato reescribirla.
+- **Decisión:** los errores por cultivo salen como lista, no como el diccionario
+  por índice que DRF 3.18 usa por defecto.
+  **Por qué:** es el contrato que usa el frontend para ubicar cada error en su
+  fila; se arma en `PlantingListSerializer` sin cambiar la configuración global.
+- **Decisión:** al migrar, cada lote con cultivo pasa a tener un `Planting` con
+  ese cultivo y su fecha de siembra, sin hectáreas.
+  **Por qué:** no se pierden datos existentes. La migración inversa devuelve al
+  lote el primer cultivo; los demás se pierden, porque el modelo viejo admite uno.
 - **Decisión:** redondear coordenadas en vez de rechazarlas.
   **Por qué:** el GPS del teléfono entrega más de 6 decimales, y 6 equivalen a ~10 cm.
 
@@ -83,11 +133,17 @@ pronóstico está en [pronostico.md](pronostico.md).
   trae del JSON solo `time` y `temperature_2m`. Los `headline` salen de dos
   consultas más para todas las celdas (`apps.archiver.forecast.forecasts`), así
   que la cantidad de consultas no crece con los lotes.
-- Tests: `backend/tests/test_lotes.py`, `test_pronostico.py` (`TestHeadline`)
-  y `test_lote_forecast_on_create.py`.
+- Migraciones de cultivos: `0002_planting` (tabla), `0003_copy_crops_to_plantings`
+  (copia los datos, reversible) y `0004_remove_lote_crop_sowing_date`.
+- Los cultivos son solo informativos: el motor de decisiones no los lee.
+- Tests: `backend/tests/test_lotes.py`, `test_plantings.py` (API de cultivos y
+  migración de datos ida y vuelta), `test_pronostico.py` (`TestHeadline`) y
+  `test_lote_forecast_on_create.py`.
 
 ## Historial
 - 2026-11-03: versión inicial (Fase 1).
 - 2026-11-03: `summary.headline` y `GET /api/lotes/{id}/pronostico/`.
 - 2026-11-16: el lote pide su pronóstico al crearse o moverse (S12), en vez de
   esperar la corrida de cada 6 h.
+- 2026-11-17: varios cultivos por lote (`plantings`); `crop` y `sowing_date`
+  salen del lote y los datos existentes se migran.

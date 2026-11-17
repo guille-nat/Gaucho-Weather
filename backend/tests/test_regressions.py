@@ -135,18 +135,17 @@ def _login(user):
 
 
 @pytest.mark.parametrize("value", ["", None])
-def test_crop_empty_is_null(user, value):
-    """S8: crop is `enum or null`; "" must not be stored or returned as ""."""
+def test_crop_empty_is_refused(user, value):
+    """A planting's crop is required; "" must never be stored as a crop."""
     c = _login(user)
     r = c.post(
         "/api/lotes/",
-        {"name": "L", "latitude": -33, "longitude": -61, "crop": value},
+        {"name": "L", "latitude": -33, "longitude": -61, "plantings": [{"crop": value}]},
         format="json",
     )
-    assert r.status_code in (201, 400)
-    if r.status_code == 201:
-        assert r.json()["crop"] is None
-        assert Lote.objects.get().crop is None
+    assert r.status_code == 400
+    assert list(r.json()["plantings"][0]) == ["crop"]
+    assert not Lote.objects.exists()
 
 
 def test_huge_latitude_is_400_not_500(user):

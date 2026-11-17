@@ -36,8 +36,7 @@ class TestCrud:
             lote_payload(
                 establishment="Don Julio",
                 locality="Firmat",
-                crop="soja",
-                sowing_date="2026-10-20",
+                plantings=[{"crop": "soja", "sowing_date": "2026-10-20"}],
                 area_ha="120.5",
                 boundary=SQUARE,
             ),
@@ -54,8 +53,10 @@ class TestCrud:
         assert body["locality"] == "Firmat"
         assert body["latitude"] == -33.04
         assert body["longitude"] == -61.06
-        assert body["crop"] == "soja"
-        assert body["sowing_date"] == "2026-10-20"
+        planting = lote.plantings.get()
+        assert body["plantings"] == [
+            {"id": planting.id, "crop": "soja", "area_ha": None, "sowing_date": "2026-10-20"}
+        ]
         assert body["area_ha"] == 120.5
         assert body["boundary"] == SQUARE
         assert body["summary"] is None
@@ -68,8 +69,7 @@ class TestCrud:
         body = response.json()
         assert body["establishment"] == ""
         assert body["locality"] == ""
-        assert body["crop"] is None
-        assert body["sowing_date"] is None
+        assert body["plantings"] == []
         assert body["area_ha"] is None
         assert body["boundary"] is None
 
@@ -97,11 +97,12 @@ class TestCrud:
 
         assert auth_client.get(f"{URL}{lote.id}/").json()["name"] == "Lote"
 
-        patched = auth_client.patch(f"{URL}{lote.id}/", {"crop": "maiz"}, format="json")
+        patched = auth_client.patch(
+            f"{URL}{lote.id}/", {"plantings": [{"crop": "maiz"}]}, format="json"
+        )
         assert patched.status_code == 200
-        assert patched.json()["crop"] == "maiz"
-        lote.refresh_from_db()
-        assert lote.crop == "maiz"
+        assert [p["crop"] for p in patched.json()["plantings"]] == ["maiz"]
+        assert list(lote.plantings.values_list("crop", flat=True)) == ["maiz"]
 
         assert auth_client.delete(f"{URL}{lote.id}/").status_code == 204
         assert not Lote.objects.exists()
@@ -139,7 +140,7 @@ class TestValidation:
             ({"longitude": -74.1}, "longitude"),
             ({"name": "x" * 81}, "name"),
             ({"name": ""}, "name"),
-            ({"crop": "papa"}, "crop"),
+            ({"plantings": [{"crop": "papa"}]}, "plantings"),
             ({"area_ha": -1}, "area_ha"),
             ({"boundary": {"type": "Point", "coordinates": [-61, -33]}}, "boundary"),
             (
