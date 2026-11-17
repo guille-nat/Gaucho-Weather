@@ -233,3 +233,37 @@ class TestThrottle:
         codes = {auth_client.get(ME).status_code for _ in range(12)}
 
         assert codes == {200}
+
+
+class TestConcurrentEdits:
+    """perfil-ux S2: the alert switches save at once, so two PATCHes can overlap."""
+
+    def test_two_overlapping_edits_keep_both_fields(self, user):
+        from apps.accounts.serializers import AccountUpdateSerializer
+
+        # Two requests that loaded the account before either one saved.
+        first = User.objects.get(pk=user.pk)
+        second = User.objects.get(pk=user.pk)
+        for stale, data in ((first, {"notify_push": False}), (second, {"notify_email": False})):
+            serializer = AccountUpdateSerializer(stale, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+        user.refresh_from_db()
+        assert user.notify_push is False
+        assert user.notify_email is False
+
+    def test_a_rename_does_not_write_back_fields_it_did_not_touch(self, user):
+        from apps.accounts.serializers import AccountUpdateSerializer
+
+        stale = User.objects.get(pk=user.pk)
+        assert stale.notify_email is True
+        # Meanwhile another request (or staff in the admin) changed the account.
+        User.objects.filter(pk=user.pk).update(notify_email=False)
+        serializer = AccountUpdateSerializer(stale, data={"name": "Ana"}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        user.refresh_from_db()
+        assert user.name == "Ana"
+        assert user.notify_email is False

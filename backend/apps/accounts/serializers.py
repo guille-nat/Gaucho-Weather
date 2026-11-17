@@ -185,6 +185,15 @@ class AccountUpdateSerializer(serializers.ModelSerializer):
         attrs.pop("current_password", None)
         return attrs
 
+    def update(self, instance, validated_data):
+        # Only the fields sent: the alert switches save at once, so two PATCHes can overlap,
+        # and a full save() would write the other request's field back with its stale value.
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if validated_data:
+            instance.save(update_fields=list(validated_data))
+        return instance
+
 
 class PasswordChangeSerializer(serializers.Serializer):
     current_password = serializers.CharField(max_length=128, trim_whitespace=False)
