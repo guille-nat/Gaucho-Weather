@@ -23,6 +23,12 @@ Branch: `feat/perfil-ux` (stacked on `feat/cuenta-planes-alertas`) · Delivery: 
 - **S10 — Trial deadline on Perfil** (P2): during a trial Perfil says what happens at the end ("Cuando termine pasás a Básico."), and the link to the subscription page is named like the page ("Tu suscripción").
 - **S11 — One list of limits on Suscripción** (P2): each limit appears once, with its usage; push and email stay as checks. Plus the delete-account minors: its button stays off without a password, a stale error clears while typing, and its summary shows that it opens.
 
+- **S12 — Modern web guidance** (L12): apply the `modern-web-guidance` guides to these screens:
+  - `dialog`: the plan cancel confirm is a native modal `<dialog>` opened with `showModal()`, named by its heading, with `autofocus` on the safe action ("Mejor no") and no hand-written focus return;
+  - `accordion`: "Tus datos" rows are `<details>`/`<summary>` (exclusive with `name`, as S3 requires one form at a time; the guide's fallback where `name` is unsupported), with the marker right before the label;
+  - `accessible-error-announcement`: these `noValidate` forms move focus to the first invalid field after a failed submit;
+  - `switch`: kept as `role="switch"` (what the guide's polyfill does) without the native `switch` attribute or a new dependency.
+
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
 |---|---|---|---|---|---|---|
@@ -37,6 +43,9 @@ Branch: `feat/perfil-ux` (stacked on `feat/cuenta-planes-alertas`) · Delivery: 
 | T9 | S9 | Cancel during a trial | inline | none | done (RED 2) | d4d8ee6 |
 | T10 | S10 | Trial deadline on Perfil | inline | none | done (RED 2) | 3f07af5 |
 | T11 | S11 | One list of limits + delete minors | inline | none | done (RED 4) | 884699a |
+| T12 | S12 | Cancel confirm as a native modal dialog | inline | none | done (RED 6) | 4876ed2 |
+| T13 | S12 | Tus datos rows as details/summary | inline | none | done (RED 2) | 6d4956f |
+| T14 | S12 | Focus the first invalid field after a failed submit | inline | none | done (RED 2) | b6c16cc |
 
 Route evidence: T1 is the skill's shipped documenter agent with a disjoint surface (DESIGN.md, `.impeccable/design.*`); T2–T6 share Perfil.tsx and app.css, so they run inline one after another.
 
@@ -59,4 +68,10 @@ Route evidence: T1 is the skill's shipped documenter agent with a disjoint surfa
 - **L11** (2026-11-17): second batch T7–T11 done test-first (Vitest 183 passed, eslint clean; tsc only the 12 `src/sw.ts` errors). Commits ac9c4e8, d4d8ee6, 3f07af5, 884699a. Screenshots checked: push on this phone from Perfil, trial chip and "Cuando termine pasás a Básico.", one plan list, trial cancel confirm, delete disabled without password.
   - `planFeatures` gained an optional `limit` tag; /planes is unchanged (its tests pass).
   - Environment, not this change: the host `frontend/node_modules` lacks the `workbox-*` packages declared in package.json, so `vite build` fails on `src/sw.ts` and tsc reports its 12 errors; the container has them. A stale Vite HMR graph broke the dev app once ("does not provide an export named 'Alertas'"); restarting the frontend container fixed it.
+- **L12** (2026-11-17, user, verbatim, invoking `/modern-web-guidance`): "utiliza esta skill"
+- **L13** (2026-11-17): S12 done with the `modern-web-guidance` guides `dialog`, `accordion`, `accessible-error-announcement` and `switch` (retrieved, not from memory). Vitest 186 passed; tsc and eslint clean apart from `src/sw.ts`.
+  - T12 (4876ed2): native modal `<dialog>`; checked in Chrome over CDP: closed = display none, `:modal` on open, focus on "Mejor no", Tab stays inside, Esc closes and focus returns to the button. jsdom has no `showModal`, so `src/test/setup.ts` stubs open/close only.
+  - T13 (6d4956f): rows as `details name="account-data"`; jsdom lacks `name` on details, so the guide's toggle fallback runs there; forms mount only while open (one "Contraseña actual" at a time). Screenshot shows the chevron by the label.
+  - T14 (b6c16cc): focus the first `[aria-invalid="true"]` after a refused submit on the four Perfil forms.
+  - `switch` not applied: native `switch` is Safari-only and the guide's fallback is a polyfill dependency; `role="switch"` already gives what the polyfill sets.
 
