@@ -62,6 +62,20 @@ async function rawFetch(path: string, init: RequestInit): Promise<Response> {
   }
 }
 
+/**
+ * One entry of a field's error list. A list field (e.g. a lote's plantings) answers one object per
+ * item, empty when that item is fine: its messages come out as "[index] message" so the screen can
+ * name the item, instead of "[object Object]".
+ */
+function fieldMessages(entry: unknown, index: number): string[] {
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    return Object.values(entry)
+      .flat()
+      .map((message) => `[${index}] ${String(message)}`);
+  }
+  return [String(entry)];
+}
+
 async function toApiError(response: Response): Promise<ApiError> {
   let body: unknown = null;
   try {
@@ -77,7 +91,7 @@ async function toApiError(response: Response): Promise<ApiError> {
     }
     const fields: Record<string, string[]> = {};
     for (const [key, value] of Object.entries(record)) {
-      if (Array.isArray(value)) fields[key] = value.map(String);
+      if (Array.isArray(value)) fields[key] = value.flatMap(fieldMessages);
     }
     if (Object.keys(fields).length) {
       const first = fields.non_field_errors?.[0] ?? 'Revisá los datos marcados.';

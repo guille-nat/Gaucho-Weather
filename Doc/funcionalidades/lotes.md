@@ -76,6 +76,25 @@ pronóstico está en [pronostico.md](pronostico.md).
   algo nuevo, encola `alerts.evaluate_rules`, como la corrida programada.
 - Se apaga con `LOTE_FORECAST_ON_CREATE=false` (ver [entorno](../entorno.md)).
 
+### Cultivos en la pantalla del lote
+- El formulario del lote tiene una lista "Cultivos": cada fila pide el cultivo
+  (obligatorio), las hectáreas (opcionales, mayores que 0) y la fecha de
+  siembra (opcional). La lista puede quedar vacía, repetir un cultivo y tener
+  hasta 8 filas.
+- Si se conocen la superficie del lote y las hectáreas de los cultivos, y los
+  cultivos suman más, el formulario avisa pero deja guardar: el productor
+  puede no tener el dato exacto y no queremos frenarlo.
+- En la página del lote, "Cambiar cultivos" abre el mismo editor en un
+  `<dialog>` modal y guarda solo `plantings` con PATCH, para cambiar el
+  cultivo en el campo sin pasar por todo el formulario. Esc o Cancelar
+  descartan el cambio.
+- Los datos del lote se agrupan en Cultivos, Campo y Lugar, con un ícono por
+  dato. Cada cultivo es un chip con una marca de color y su nombre: el color
+  ayuda a distinguirlos, pero nunca es lo único que dice qué cultivo es.
+- La línea de la tarjeta nombra cada cultivo una vez ("Soja · Maíz").
+- Un error del servidor sobre una fila llega como `"[índice] mensaje"`
+  (`api/client.ts`) y se muestra como "Cultivo N: mensaje".
+
 ## Decisiones y por qué
 - **Decisión:** `boundary` en un `JSONField` común, sin PostGIS.
   **Por qué:** en la Fase 1 el contorno solo se guarda y se dibuja. PostGIS

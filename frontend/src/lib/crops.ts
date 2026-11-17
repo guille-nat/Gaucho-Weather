@@ -87,5 +87,9 @@ export function plantingsError(error: unknown): string | undefined {
   if (!(error instanceof ApiError)) return undefined;
   const messages = error.fieldErrors.plantings;
   if (!messages?.length) return undefined;
-  return messages.find((m) => !m.startsWith('[object')) ?? 'Revisá los cultivos.';
+  // Per-row errors arrive as "[index] message" (api/client.ts): name the row as the form does.
+  const [first] = messages;
+  const row = /^\[(\d+)\] (.*)$/.exec(first ?? '');
+  if (row) return `Cultivo ${Number(row[1]) + 1}: ${row[2]}`;
+  return first ?? 'Revisá los cultivos.';
 }

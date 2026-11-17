@@ -204,6 +204,28 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
     expect(dialog).toHaveAttribute('open');
   });
 
+  it('names the crop row the server refused', async () => {
+    const db = createMockDb({ user: demoUser, lotes: demoLotes() });
+    const { user } = renderApp('/lotes/4', db);
+    server.use(
+      http.patch('*/api/lotes/4/', () =>
+        HttpResponse.json(
+          { plantings: [{}, { area_ha: ['Tiene que ser mayor que 0.'] }] },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Cambiar cultivos' }));
+    const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar cultivos' }));
+
+    expect(
+      await within(dialog).findByText('Cultivo 2: Tiene que ser mayor que 0.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/object Object/)).toBeNull();
+  });
+
   it('checks the rows in the dialog before sending anything', async () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
     const { user } = renderApp('/lotes/4', db);

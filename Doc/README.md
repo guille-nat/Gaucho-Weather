@@ -20,8 +20,9 @@
   por lote, su evaluación y el envío por push, email y bandeja.
 - [funcionalidades/historico.md](funcionalidades/historico.md): histórico de
   clima y viento por lote, guardado en una tabla propia.
-- [funcionalidades/lotes.md](funcionalidades/lotes.md): API de lotes, cómo se
-  validan y el resumen de la mínima de la noche.
+- [funcionalidades/lotes.md](funcionalidades/lotes.md): API de lotes, sus
+  cultivos (varios por lote), cómo se validan y el resumen de la mínima de la
+  noche.
 - [funcionalidades/archivador.md](funcionalidades/archivador.md): cómo se
   archivan los pronósticos y las observaciones del SMN para el backtesting.
 - [funcionalidades/frontend-pwa.md](funcionalidades/frontend-pwa.md): la PWA
