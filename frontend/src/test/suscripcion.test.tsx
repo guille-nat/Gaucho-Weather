@@ -140,6 +140,8 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     ]);
     const [productor, basico] = cards as [HTMLElement, HTMLElement];
     expect(within(productor).getByText('El más elegido')).toBeInTheDocument();
+    // A founder's card says they pay nothing, whatever the plan's price.
+    expect(within(productor).getByText('Gratis para siempre: sos founder n.º 7')).toBeVisible();
     expect(within(basico).queryByText('El más elegido')).toBeNull();
     // Going down to Básico is the cancel flow below, not a card button.
     expect(within(basico).queryByRole('button')).toBeNull();

@@ -35,6 +35,16 @@ describe('Planes (S1, S8)', () => {
     expect(within(card('Empresa')).getByText('Soporte prioritario')).toBeInTheDocument();
   });
 
+  it('shows a plan priced at zero as free, not as $ 0 a month', async () => {
+    const plans = demoPlans.map((p) => (p.code === 'basico' ? { ...p, price_ars_month: 0 } : p));
+    renderApp('/planes', createMockDb({ plans }));
+
+    const basico = await screen.findByRole('article', { name: 'Plan Básico' });
+    expect(within(basico).getByText('Gratis')).toBeInTheDocument();
+    expect(within(basico).queryByText(/\$ 0/)).toBeNull();
+    expect(within(basico).queryByText(/mes/)).toBeNull();
+  });
+
   it('says the price is to be confirmed until it is set, and formats it when it is', async () => {
     const plans = demoPlans.map((p) =>
       p.code === 'productor' ? { ...p, price_ars_month: 4500 } : p,

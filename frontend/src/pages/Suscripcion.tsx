@@ -355,7 +355,12 @@ function ChangePlan({
                 }
                 action={actionFor(plan)}
                 note={
-                  trial ? (
+                  current && sub.status === 'founder' && sub.founder_number !== null ? (
+                    // The card shows the plan's price; a founder pays none of it.
+                    <p className="plan-membership">
+                      Gratis para siempre: sos founder n.º {sub.founder_number}
+                    </p>
+                  ) : trial ? (
                     <p className="fine">
                       Cuando termine la prueba pasás a Básico. Si querés seguir con {plan.name},
                       pedilo ahora.

@@ -72,6 +72,9 @@ export function PricingCard({
             <p className="pricing-tbd">Precio a confirmar</p>
             {priceNote ? <p className="pricing-tbd-note">{priceNote}</p> : null}
           </>
+        ) : plan.price_ars_month === 0 ? (
+          // A free plan says so: "$ 0 / mes" reads like a price to pay.
+          <p className="pricing-amount">Gratis</p>
         ) : (
           <p>
             <span className="pricing-amount">$ {pesos.format(plan.price_ars_month)}</span>

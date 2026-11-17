@@ -24,7 +24,21 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - Lógica en `backend/apps/accounts/plans.py`. Los valores por defecto están en
   `DEFAULT_PLANS` y los siembra la migración `0003_seed_plans` (hay que
   mantener los dos iguales).
-- El precio arranca vacío y la página muestra "Precio a confirmar".
+- El precio arranca vacío y la página muestra "Precio a confirmar". Un precio de 0 se
+  muestra como "Gratis", sin "/ mes".
+- **Precios decididos (2026-11-17):** Básico gratis, Productor $ 14.900 / mes y Empresa
+  $ 49.900 / mes. Se cargan en el admin (Planes → precio mensual); en desarrollo ya
+  están cargados y el mock (`dev:mock`) usa los mismos. El modelo es freemium:
+  - **Básico gratis** compite con las apps de clima agro gratuitas y es donde cae quien
+    termina la prueba. Así nadie pierde el pronóstico ni sus 2 lotes.
+  - **Productor** sale unos $ 1.000 por lote al mes con 15 lotes. Una sola helada o
+    pulverización bien decidida lo paga muchas veces.
+  - **Empresa** cuesta más de 3 veces Productor, así que Productor queda como la opción
+    obvia. Es para contratistas y empresas con muchos lotes.
+  - Referencia de mercado: casi todas las apps de clima agro en Argentina son gratis o
+    no publican su precio. La única con precios en pesos (ClimaVista Agro, por
+    hectárea, con un mes de prueba) tiene montos desactualizados. Los precios se
+    revisan con la inflación desde el admin, sin tocar código.
 
 ### Founders
 - `start_membership` corre dentro de la transacción del registro. Bloquea la
@@ -168,3 +182,6 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   que siembra el historial de las cuentas existentes.
 
 - 2026-11-16 — Quien está en la prueba puede pedir quedarse con Productor ("Quedarme con Productor" en `/perfil/suscripcion`): pedir el mismo plan en una prueba significa conservarlo; al aplicarlo se borra el vencimiento y queda en el historial como pedido aplicado.
+- 2026-11-17 — Precios: Básico gratis, Productor $ 14.900 y Empresa $ 49.900 por mes;
+  "Gratis" en lugar de "$ 0"; tarjetas de precios con Productor como "El más elegido"
+  (feature `precios-productor`).

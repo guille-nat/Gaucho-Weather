@@ -45,3 +45,8 @@ Route evidence: no Writer trigger (one shared component and two pages, sequentia
     - the ribbon now reads "El más elegido";
     - perfilCopy: the price note is split into two levels with the same words;
     - suscripción: the current plan is now a marked card.
+- **L8** (2026-11-17, user, verbatim): "ponles precios a los planes", then "decidelos tu en cuanto me beneficien y ayuden al productor".
+  - Decided: Básico 0 (shown as "Gratis"), Productor 14 900 ARS per month, Empresa 49 900 ARS per month. The model is freemium; the rationale is in `Doc/funcionalidades/planes.md`.
+  - Set in the dev DB through the Plan model (the same as the admin); the API returns them. The mock uses the same prices.
+  - Production: set them in the admin; prices stay data, not code.
+  - Test: "shows a plan priced at zero as free" RED ("Unable to find … Gratis") → GREEN.
