@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "apps.weather",
     "apps.alerts",
     "apps.places",
+    "apps.payments",
+    "apps.backoffice",
 ]
 
 MIDDLEWARE = [
