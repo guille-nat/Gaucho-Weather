@@ -2298,6 +2298,28 @@ input[type='date'].input {
   display: none;
 }
 
+.account-saved--saving {
+  color: var(--ink-2);
+}
+
+/* Every outside channel off: said in the alert's own words, with an icon, never colour alone. */
+.account-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-input);
+  background: var(--crit-fill);
+  color: var(--crit-ink);
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+.account-warning > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .switches {
   display: grid;
 }
@@ -2324,7 +2346,8 @@ input[type='date'].input {
   margin: 0;
   border-radius: 999px;
   background: var(--track);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, var(--panel));
+  /* 60% white: the off track's edge reaches 3:1 on the panel of every sky (WCAG 1.4.11). */
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 60%, var(--panel));
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out);
 }

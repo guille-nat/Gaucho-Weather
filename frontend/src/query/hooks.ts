@@ -58,6 +58,37 @@ export function useUpdateAccount() {
   });
 }
 
+export type Preferences = Pick<User, 'notify_push' | 'notify_email'>;
+
+/**
+ * PATCH /api/auth/me/ for the alert switches: they move at once, since on the farm's signal
+ * waiting for the server reads as a broken switch, and only the field that failed goes back.
+ */
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: Partial<Preferences>) => updateAccount(changes),
+    onMutate: async (changes) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.me });
+      const before = queryClient.getQueryData<User | null>(queryKeys.me);
+      queryClient.setQueryData<User | null>(queryKeys.me, (me) =>
+        me ? { ...me, ...changes } : me,
+      );
+      return { before };
+    },
+    onError: (_error, changes, context) => {
+      const before = context?.before;
+      if (!before) return;
+      // Field by field: another switch saved meanwhile keeps its new value.
+      const back = Object.fromEntries(
+        Object.keys(changes).map((key) => [key, before[key as keyof Preferences]]),
+      );
+      queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...back } : me));
+    },
+    onSuccess: (user: User) => queryClient.setQueryData(queryKeys.me, user),
+  });
+}
+
 export const useLotes = () => useQuery({ queryKey: queryKeys.lotes, queryFn: listLotes });
 
 /** The public price table; it changes only when staff edit a plan. */

@@ -15,6 +15,7 @@ import {
   useMe,
   usePushHere,
   useUpdateAccount,
+  useUpdatePreferences,
 } from '../query/hooks';
 import { fieldError, formError } from '../lib/formErrors';
 import { membership } from '../lib/membership';
@@ -38,12 +39,13 @@ export function Section({ title, children }: { title: string; children: ReactNod
   );
 }
 
-export function Saved({ message }: { message: string | null }) {
+/** Always mounted, so screen readers hear each change; `saving` shows the wait, not the tick. */
+export function Saved({ message, saving = false }: { message: string | null; saving?: boolean }) {
   return (
-    <p className="account-saved" role="status">
+    <p className={saving ? 'account-saved account-saved--saving' : 'account-saved'} role="status">
       {message ? (
         <>
-          <Icon name="check" size={18} strokeWidth={2.6} />
+          <Icon name={saving ? 'clock' : 'check'} size={18} strokeWidth={2.6} />
           {message}
         </>
       ) : null}
@@ -147,11 +149,14 @@ export function Toggle({
   label,
   checked,
   disabled,
+  describedBy,
   onChange,
 }: {
   label: string;
   checked: boolean;
   disabled?: boolean;
+  /** The id of the sentence that explains the switch, e.g. why it is disabled. */
+  describedBy?: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -163,6 +168,7 @@ export function Toggle({
         className="switch"
         checked={checked}
         disabled={disabled}
+        aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.checked)}
       />
     </label>
@@ -170,39 +176,54 @@ export function Toggle({
 }
 
 function AvisosSection({ me }: { me: User }) {
-  const update = useUpdateAccount();
+  const update = useUpdatePreferences();
   const here = usePushHere();
+  const noPushId = useId();
   const pushIncluded = me.plan?.allows_push ?? true;
+  const push = pushIncluded && (me.notify_push ?? true);
+  const email = me.notify_email ?? true;
   return (
     <Section title="Cómo te avisamos">
+      <p className="fine">Las alertas siempre quedan en Alertas, en la app.</p>
       <div className="switches">
         <Toggle
           label="Notificaciones push"
-          checked={pushIncluded && (me.notify_push ?? true)}
-          disabled={!pushIncluded || update.isPending}
+          checked={push}
+          disabled={!pushIncluded}
+          describedBy={pushIncluded ? undefined : noPushId}
           onChange={(notify_push) => update.mutate({ notify_push })}
         />
         <Toggle
           label="Alertas por email"
-          checked={me.notify_email ?? true}
-          disabled={update.isPending}
+          checked={email}
           onChange={(notify_email) => update.mutate({ notify_email })}
         />
       </div>
+      {!push && !email ? (
+        <p className="account-warning">
+          <Icon name="alert" size={20} strokeWidth={2.4} />
+          Así no te llega ningún aviso al teléfono ni al email: las alertas quedan solo en Alertas.
+        </p>
+      ) : null}
       {!pushIncluded && me.plan ? (
-        <p className="fine">
+        <p className="fine" id={noPushId}>
           Tu plan {me.plan.name} no incluye notificaciones push.{' '}
           <Link to="/planes">Ver planes</Link>
         </p>
       ) : null}
-      {pushIncluded && (me.notify_push ?? true) && here.data?.supported && !here.data.endpoint ? (
+      {push && here.data?.supported && !here.data.endpoint ? (
         <p className="fine">
           Este teléfono todavía no recibe notificaciones.{' '}
           <Link to="/alertas">Activalas en Alertas</Link>
         </p>
       ) : null}
       <FormAlert message={update.error?.message} />
-      <Saved message={update.isSuccess ? 'Preferencias guardadas.' : null} />
+      <Saved
+        saving={update.isPending}
+        message={
+          update.isPending ? 'Guardando…' : update.isSuccess ? 'Preferencias guardadas.' : null
+        }
+      />
     </Section>
   );
 }
