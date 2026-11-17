@@ -62,6 +62,17 @@ describe('Founder and plan copy (perfil-ux S5)', () => {
     expect(within(confirm).queryByText(/founder/)).not.toBeInTheDocument();
   });
 
+  it('says the price comes by email before the request is applied when a plan has none', async () => {
+    renderApp('/perfil/suscripcion', dbFor(notFounder));
+    const empresa = await screen.findByRole('article', { name: 'Plan Empresa' });
+
+    expect(
+      within(empresa).getByText(
+        'Precio a confirmar: te lo pasamos por email antes de aplicar el pedido.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('names the two plan links by what each one does', async () => {
     renderApp('/perfil', dbFor(demoUser));
     const plan = await screen.findByRole('region', { name: 'Tu plan' });

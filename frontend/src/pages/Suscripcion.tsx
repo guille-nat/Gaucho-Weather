@@ -246,7 +246,8 @@ function ChangePlan({
                 <h3 className="sub-option-name">{plan.name}</h3>
                 <p className="sub-option-price">
                   {plan.price_ars_month === null
-                    ? 'Precio a confirmar'
+                    ? // Decided by the user (perfil-ux L6): the team emails the price first.
+                      'Precio a confirmar: te lo pasamos por email antes de aplicar el pedido.'
                     : `$ ${pesos.format(plan.price_ars_month)} / mes`}
                 </p>
                 <p className="fine">
