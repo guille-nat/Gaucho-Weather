@@ -3644,8 +3644,15 @@ button.alert-event-tap:focus-visible {
  * or with reduced motion, things simply appear. Durations come from the shared tokens.
  */
 
-/* Page changes: a short cross-fade of the page, while the glass lens travels to the new tab and a
-   starred place travels between lists. Named groups glide; snapshots fade. */
+/*
+ * Page changes. The root takes no part in the view transition: a cross-fade of the whole page
+ * read as an abrupt swap, and it froze the glass tab bar into a snapshot. Only named elements
+ * travel (the tab lens, a starred place); the new page enters by sections, below.
+ */
+:root {
+  view-transition-name: none;
+}
+
 ::view-transition-group(*) {
   animation-duration: var(--dur-base);
   animation-timing-function: var(--ease-glide);
@@ -3668,12 +3675,22 @@ button.alert-event-tap:focus-visible {
   }
 }
 
-/* The forecast, when it replaces the loading state, enters in three steps. */
-@keyframes forecast-in {
+/*
+ * Every page enters by sections on every navigation, tab or not: each section fades and rises
+ * 12 px, 45 ms after the one above it, so the eye follows the page down instead of taking it in
+ * at once. It runs when a section is inserted, so content that replaces a loading state (the
+ * forecast blocks after the skeleton) enters the same way. Loaded list items only fade.
+ */
+@keyframes section-in {
   from {
     opacity: 0;
-    translate: 0 8px;
-    filter: blur(2px);
+    translate: 0 12px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
 }
 
@@ -3684,19 +3701,39 @@ button.alert-event-tap:focus-visible {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .forecast[data-reveal] > :not(.forecast-head) {
-    animation: forecast-in 420ms var(--ease-glide) both;
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *) {
+    animation: section-in 380ms var(--ease-glide) both;
   }
 
-  .forecast[data-reveal] > .forecast-data {
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *):nth-child(2) {
+    animation-delay: 45ms;
+  }
+
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *):nth-child(3) {
     animation-delay: 90ms;
   }
 
-  .forecast[data-reveal] > :is(.forecast-details, .forecast-credits) {
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *):nth-child(4) {
+    animation-delay: 135ms;
+  }
+
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *):nth-child(n + 5) {
     animation-delay: 180ms;
   }
 
-  /* Each rain bar grows from zero to its millimetres, one day after another. */
+  :is(.lote-list, .alert-events, .alert-rules) > li {
+    animation: fade-in 280ms var(--ease-out) both;
+  }
+
+  :is(.lote-list, .alert-events, .alert-rules) > li:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  :is(.lote-list, .alert-events, .alert-rules) > li:nth-child(n + 3) {
+    animation-delay: 80ms;
+  }
+
+  /* After a wait the farmer saw, each rain bar grows to its millimetres, one day after another. */
   .forecast[data-reveal] .rain-fill {
     transform-origin: left center;
     animation: rain-grow 520ms var(--ease-glide) both;
@@ -3705,14 +3742,8 @@ button.alert-event-tap:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .forecast[data-reveal] > :not(.forecast-head) {
-    animation: fade-in var(--dur-base) var(--ease-out) both;
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
+  :is(.shell-main > * > :not(.forecast, .ghost), .forecast > *) {
+    animation: fade-in 160ms var(--ease-out) both;
   }
 }
 

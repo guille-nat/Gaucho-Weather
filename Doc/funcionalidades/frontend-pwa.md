@@ -54,13 +54,18 @@ señal se siguen viendo los últimos datos.
   - Mock: `?ahora=sol|parcial|nublado|lluvia|tormenta` fuerza el cielo de esta hora.
     `?cielo=noche&ahora=sol` es una noche estrellada.
 - **Motion** (feature `motion-pass`; reglas completas en `DESIGN.md` › Motion):
+  - Cada página entra por secciones en toda navegación: cada sección aparece con un
+    fundido, sube 12 px y arranca 45 ms después de la anterior. Lo que llega después de
+    cargar (bloques del pronóstico, tarjetas de lotes, avisos) entra igual. Es CSS que corre
+    al insertarse cada elemento, así que funciona también sin View Transitions.
   - Al cambiar de pestaña, la lente de vidrio viaja a la pestaña nueva (`<ViewTransition
-    name="tab-lens">` en `AppShell.tsx`) y la página hace un fundido. Funciona porque
-    `BrowserRouter` envuelve cada navegación en `React.startTransition`. La prop
-    `viewTransition` de `Link` no se usa: está deprecada y no anda con `BrowserRouter`.
-  - El pronóstico entra escalonado solo si la espera se llegó a ver (≥ 120 ms,
-    `REVEAL_AFTER_MS` en `ForecastView.tsx`). Si viene de la caché aparece de una, así que
-    volver a Clima no repite la animación.
+    name="tab-lens">` en `AppShell.tsx`). Funciona porque `BrowserRouter` envuelve cada
+    navegación en `React.startTransition`. La raíz tiene `view-transition-name: none`: un
+    fundido de toda la página se leía como un cambio de golpe y congelaba el blur de la
+    barra. La prop `viewTransition` de `Link` no se usa: está deprecada y no anda con
+    `BrowserRouter`.
+  - Las barras de lluvia crecen solo si la espera del pronóstico se llegó a ver (≥ 120 ms,
+    `REVEAL_AFTER_MS` en `ForecastView.tsx`).
   - Buscar: al marcar la estrella, la fila viaja a "Guardados"
     (`document.startViewTransition` y `flushSync`).
   - Diálogos y `details` animados solo con CSS; sin soporte, cambian de golpe.

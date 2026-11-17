@@ -55,7 +55,7 @@ interface ForecastViewProps {
   updating?: boolean;
 }
 
-/** The shortest wait for the forecast that earns an entrance: below it, nobody saw a wait. */
+/** The shortest wait that earns the rain bars growing: below it, nobody saw a wait. */
 const REVEAL_AFTER_MS = 120;
 
 export function ForecastView({
@@ -69,7 +69,8 @@ export function ForecastView({
 }: ForecastViewProps) {
   const root = useRef<HTMLDivElement>(null);
   const waitingSince = useRef<number | null>(null);
-  // A forecast that arrives after a wait the farmer could see enters in steps (motion-pass S2).
+  // A forecast that arrives after a wait the farmer could see grows its rain bars (motion-pass).
+  // The blocks themselves enter by sections on every insertion (app.css, Motion).
   // A wait too short to notice (a cached forecast while the phone finds itself) shows at once, so
   // returning to Clima does not replay the entrance. Set before paint, outside React's attributes.
   useLayoutEffect(() => {

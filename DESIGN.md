@@ -284,13 +284,13 @@ A 52 by 32 px pill on Rain Track with the Control Ring and a white thumb. When o
 
 Motion explains a change of state and never decorates. Without support, or with reduced motion, every change simply happens. The tokens are `--dur-fast` (120 ms) for press and hover, `--dur-base` (200 ms) for state changes and page cross-fades, and `--dur-sky` (1600 ms) for the sky. Easing is `--ease-out` for state changes and `--ease-glide` (`cubic-bezier(0.22, 1, 0.36, 1)`) for anything that travels or enters.
 
-- **Tab change** (the focal moment): the glass lens under the active tab is one shared `<ViewTransition name="tab-lens">`. It travels to the new tab in 320 ms while the page cross-fades as the root. The router runs each navigation as a React transition, which is what lets React start the view transition.
-- **Forecast arrival:** when the forecast replaces a loading state the farmer could see (120 ms or more), it enters in three steps 90 ms apart: fade, 8 px rise and 2 px blur. The 7-day rain bars then grow from zero, one day after another, 40 ms apart. A forecast from the cache shows at once, so returning to Clima never replays it.
+- **Navigation** (the focal moment): each page enters by sections on every navigation, whether between tabs or within one (Lotes to a lote, back, Perfil to Suscripción). Each section fades in and rises 12 px over 380 ms (`--ease-glide`), 45 ms after the one above it, capped at 180 ms. Content that replaces a loading state (the forecast blocks, the lote cards, alert items) enters the same way when it is inserted. On a tab change, the glass lens also travels to the new tab as a shared `<ViewTransition name="tab-lens">` (320 ms). The root takes no part in the view transition: a whole-page cross-fade read as an abrupt swap, and it froze the glass tab bar into a snapshot.
+- **Rain bars:** after a wait the farmer saw (120 ms or more), the 7-day rain bars grow from zero, one day after another, 40 ms apart.
 - **Saved place:** starring a place moves its row from "Recientes" to "Guardados" with a view transition, one name per row.
 - **Icon swap:** the sky pause keeps both icons in the slot and cross-fades them (opacity, scale 0.25 to 1, blur 4 px).
 - **Dialogs:** they open in 240 ms from 96 % scale with a fade, close in 160 ms, and the backdrop fades with them (`@starting-style`, `allow-discrete`).
 - **Disclosures:** the Perfil rows, the account-danger block and "Ver modelos" grow and shrink by height where `::details-content` and `interpolate-size` exist.
-- **Reduced motion:** view transitions are off, the forecast only fades, icons only cross-fade and dialogs only fade.
+- **Reduced motion:** view transitions are off, sections only fade in (160 ms), icons only cross-fade and dialogs only fade.
 
 ## Do's and Don'ts
 

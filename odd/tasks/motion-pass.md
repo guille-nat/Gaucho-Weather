@@ -9,6 +9,10 @@ Branch: `feat/cielo-animado` (continues; the user has not pushed it yet) · Deli
   - Feedback: a saved place travels from "Recientes" to "Guardados" (View Transition per row); the sky pause cross-fades its icons; the crops and cancel dialogs open and close with fade and scale.
   - Data: when the forecast replaces the loading state, it enters in three staggered steps and the 7-day rain bars grow one after another. A forecast already in the cache appears at once.
   - Disclosure: the Perfil rows, the account-danger block and "models-more" open and close by height where `::details-content` is supported.
+- **S4 — Smooth navigation** (L5 verbatim): "se renderizan de golpe todos los elementos al navegar deberia de ser mas suave".
+  - Every page enters by sections on every navigation, staggered.
+  - Content that replaces a loading state enters the same way.
+  - The root takes no part in the view transition.
 - **S3 — Rules for every effect:**
   - every effect has a `prefers-reduced-motion` path: fade only or nothing spatial;
   - transitions list exact properties, never `all`;
@@ -21,6 +25,7 @@ Branch: `feat/cielo-animado` (continues; the user has not pushed it yet) · Deli
 |---|---|---|---|---|
 | T1 | S2 focal, S3 | inline | done | lens test RED (0 lenses) → GREEN; browser: `-ua-view-transition-group-anim-tab-lens` |
 | T2 | S2 feedback, S3 | inline | done | browser: dialog `opacity`, `scale`; icon swap CSS; row travel via startViewTransition |
+| T4 | S4 | inline | done | browser: `section-in` on Lotes→detail and on a tab change; mid-frame screenshots show staggered sections |
 | T3 | S2 data and disclosure, S3 | inline | done | bars and reveal tests RED → GREEN; browser: `forecast-in`, `rain-grow`, details `height` |
 
 Route evidence: no Writer trigger (CSS and small TSX hooks, sequential and small), so the parent writes inline. Forecast ~300 authored lines.
@@ -45,3 +50,11 @@ Route evidence: no Writer trigger (CSS and small TSX hooks, sequential and small
     - Perfil details: `height` and `content-visibility`;
     - crops dialog: `opacity` and `scale`.
   - Checks: Vitest 235 passed; eslint, prettier and tsc clean (only the known `src/sw.ts` errors).
+- **L5** (2026-11-17, user, verbatim): "se renderizan de golpe todos los elementos al navegar deberia de ser mas suave"
+  - Reproduced: the view transition did run on tab and in-tab navigation, but the 60 ms frame already showed the whole new page. The 200 ms root cross-fade read as a swap, and the skeleton and then the content popped in after it.
+  - Fix:
+    - `:root { view-transition-name: none }`, so the lens alone travels and the glass bar stays live;
+    - a CSS section entrance on insertion (`section-in`, 12 px rise, 45 ms stagger capped at 180 ms) for `.shell-main > * > *` and `.forecast > *`;
+    - fades for loaded list items;
+    - the rain bars keep the visible-wait gate.
+  - Browser: `section-in` started on Lotes→detail and on Lotes→Alertas, and the 60 ms frames show sections mid-entrance. Vitest 235 passed; eslint, prettier and tsc clean.
