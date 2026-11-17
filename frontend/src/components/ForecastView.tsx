@@ -26,6 +26,7 @@ import {
 } from '../lib/format';
 import { conditionLabel, currentSky, dayPhase } from '../lib/sky';
 import { Icon, type IconName } from './Icon';
+import { SkyMotion, SkyPause } from './SkyMotion';
 
 /**
  * The forecast screen of a place (S1, S8, S9): Inicio and each lote share it. Big reading first,
@@ -79,6 +80,7 @@ function ForecastBody({
 }: Pick<ForecastViewProps, 'decisions' | 'frostModels'> & { forecast: Forecast }) {
   return (
     <>
+      <SkyMotion forecast={forecast} />
       <div className="forecast-main">
         <Hero forecast={forecast} />
         {decisions === 'pill' ? (
@@ -117,6 +119,7 @@ function Hero({ forecast }: { forecast: Forecast }) {
   const night = dayPhase(forecast) === 'night';
   return (
     <section className="hero" aria-label="Ahora">
+      <SkyPause forecast={forecast} />
       <p className="hero-temp">
         <span className="sr-only">Temperatura ahora: </span>
         <span>{formatDegrees(forecast.now.temperature_c)}</span>

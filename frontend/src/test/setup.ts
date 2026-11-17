@@ -23,6 +23,11 @@ if (!('showModal' in HTMLDialogElement.prototype)) {
   });
 }
 
+// jsdom draws nothing and logs "not implemented" for every canvas: answer like a browser
+// without a 2D context, which the animated sky already handles by drawing nothing.
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 
 afterEach(async () => {

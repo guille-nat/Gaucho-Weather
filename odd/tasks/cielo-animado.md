@@ -25,9 +25,9 @@ Branch: `feat/cielo-animado` (from `main`) · Delivery: ask-on-risk · Runners: 
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2 | inline | pending | |
-| T2 | S3 | inline | pending | |
-| T3 | S4, S5 | inline | pending | |
+| T1 | S2 | inline | done | 7fd7bcd; RED 4 failed (KeyError 'sky'), GREEN pytest 474 passed, ruff clean |
+| T2 | S3 | inline | done | 60d80f5; RED "Unable to find … Lluvia", GREEN Vitest 209 |
+| T3 | S4, S5 | inline | done | this commit; RED missing ./atmosphere and canvas, GREEN Vitest 232 |
 
 Route evidence: no Writer trigger (the frontend depends on the backend contract and each unit is small or sequential), so the parent writes inline. Risk forecast: item 3 does not fire, because the payload change only adds fields. Forecast ~600 authored lines.
 
@@ -38,3 +38,9 @@ Route evidence: no Writer trigger (the frontend depends on the backend contract 
   - `hourly` had no cloud or weather code, although the archive holds both per model.
   - PRODUCT.md rejects "animaciones de nubes que no informan nada", so every effect maps to a datum.
   - Motion runs only on the forecast screens, with a pause control, per WCAG 2.2.2 and 2.3.1.
+- **L3** (2026-11-17): T1–T3 done.
+  - Contrast budget, per theme, of white over the sky with secondary ink still at 4.5:1: `dia` 1.5 %, `alba` 2.5 %, `noche` 28 %. White clouds would break AA on day skies. Clouds are therefore the sky veiled toward grey at its own luminance (`cloudTone`). A first version in pure grey read as stains on the blue, as the screenshots showed.
+  - Pre-existing defect: the opaque `body` background painted over the z-index −1 sky field. The "Cielo vivo" gradient and glow had never shown, and neither did the canvas. `body` is now transparent and `html` keeps the colour.
+  - Cloud sprite: the radial gradients were cut by the sprite edges into straight lines, as the screenshots showed. Puffs now fade inside the sprite.
+  - Verified in headless Chrome over CDP in real time, at 390×844 and 2x. Captured: rain, storm, partly cloudy day, starry night, reduced motion (still frame, no pause) and Lotes (gradient, no canvas). Virtual-time screenshots do not advance CSS transitions, and each capture needs a fresh profile because the forecast persists in IndexedDB.
+  - Checks: pytest 474 passed; Vitest 232 passed (one full run lost the known flaky `cuenta.test.tsx` "deletes the account…" at 1210 ms, as in cultivos L6; it passed 3/3 alone and in the next full run); eslint and prettier clean; tsc only the known `src/sw.ts` errors.

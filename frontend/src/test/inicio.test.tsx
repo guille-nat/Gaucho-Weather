@@ -125,8 +125,9 @@ describe('Inicio: the weather first, no account needed', () => {
   it('falls back to the day sky for a cached forecast without the hour sky', async () => {
     stubGeolocation(CASILDA);
     const forecast = demoPublicForecast('sol');
-    const { sky: _sky, cloud_cover_pct: _cloud, rain_mm: _rain, ...older } = forecast.now;
-    forecast.now = older;
+    delete forecast.now.sky;
+    delete forecast.now.cloud_cover_pct;
+    delete forecast.now.rain_mm;
     renderApp('/', createMockDb({ user: null, publicForecast: () => forecast }));
 
     const now = await screen.findByRole('region', { name: 'Ahora' });

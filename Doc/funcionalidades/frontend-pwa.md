@@ -32,6 +32,27 @@ señal se siguen viendo los últimos datos.
   guarda el lugar. Los guardados aparecen en "Guardados", arriba de "Recientes", y una
   búsqueda nueva nunca los desplaza, porque el productor vuelve siempre a los mismos
   pueblos. No hay tope de guardados, porque cada lugar ocupa unos pocos bytes.
+- **Cielo animado** (`components/SkyMotion.tsx`, `lib/atmosphere.ts`, `lib/skyMotion.ts`):
+  - El color del cielo y la condición del bloque "Ahora" siguen `now.sky`, el cielo de
+    esta hora. Un pronóstico guardado antes por el service worker usa el del día.
+  - Solo en Inicio y en el detalle del lote, un canvas fijo detrás del contenido dibuja
+    la lluvia, las nubes, los relámpagos y las estrellas. Cada efecto sale de un dato:
+    los mm de la hora, la nubosidad y el viento. Un día despejado y calmo no se mueve.
+    `PRODUCT.md` rechaza las "animaciones de nubes que no informan nada".
+  - Accesibilidad: el canvas es `aria-hidden` y no recibe toques. Hay un botón "Pausar
+    el cielo" junto a la temperatura (WCAG 2.2.2) que este teléfono recuerda en
+    `gw-sky-motion`. Con `prefers-reduced-motion` se dibuja un cuadro quieto y no hay
+    botón. El relámpago cae cada 6 a 14 s (WCAG 2.3.1).
+  - Contraste: el blanco que agrega la capa se limita al presupuesto de cada tema
+    (`whiteBudget`). Las nubes usan el tono del cielo velado con su misma luminancia
+    (`cloudTone`), así nunca le bajan el contraste al texto.
+  - Costo: unos 30 cuadros por segundo, densidad de píxeles hasta 2 y nada mientras la
+    pestaña está oculta.
+  - `body` no tiene fondo: uno opaco tapaba el canvas y también el degradado de
+    `body::before`, que no se veía desde el rediseño "Cielo vivo". El color de respaldo
+    está en `html`.
+  - Mock: `?ahora=sol|parcial|nublado|lluvia|tormenta` fuerza el cielo de esta hora.
+    `?cielo=noche&ahora=sol` es una noche estrellada.
 - **Errores del pronóstico:** se muestra el `detail` del servidor tal cual (400 "Por
   ahora solo cubrimos Argentina." con botón de búsqueda; 503 con "Reintentar").
 - **Probabilidad de lluvia:** un lugar nuevo no tiene ensamble y llega `null`; se
@@ -304,3 +325,6 @@ señal se siguen viendo los últimos datos.
   eventos de Web Push (T9, S7).
 - 2026-11-17: lugares guardados con estrella en Buscar; cierra el pendiente de S8 de
   clima-y-fileteado.
+- 2026-11-17: cielo animado según el clima de esta hora, con pausa y presupuesto de
+  contraste; el cuerpo de la página pasa a ser transparente para que se vea el campo
+  del cielo (feature `cielo-animado`).

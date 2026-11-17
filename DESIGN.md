@@ -145,7 +145,7 @@ components:
 
 **Creative North Star: "Cielo vivo"**
 
-The app is painted in the sky over the place on screen. A full-bleed field, drawn from a pair of sky colours and a soft radial glow where the sun stands, sits behind everything. Its colour follows today's condition and the time of day: deep sky blue for a clear day, slate for cloud, deep teal for rain, violet for storm, navy at night and warm coral at dawn and dusk. When the forecast changes, the whole interface cross-fades to the new sky over 1600 ms. Every panel, line and secondary ink is mixed from the sky, so the screen changes as one surface instead of being repainted piece by piece.
+The app is painted in the sky over the place on screen. A full-bleed field, drawn from a pair of sky colours and a soft radial glow where the sun stands, sits behind everything. Its colour follows the condition of this hour and the time of day: deep sky blue for a clear day, slate for cloud, deep teal for rain, violet for storm, navy at night and warm coral at dawn and dusk. When the forecast changes, the whole interface cross-fades to the new sky over 1600 ms. On the forecast screens the weather of this hour also moves in that field: rain falls as hard as the millimetres say and leans with the wind, clouds drift at the wind's speed and direction, a storm brightens now and then, and a clear night shows its stars. A clear, calm day stays still. Every panel, line and secondary ink is mixed from the sky, so the screen changes as one surface instead of being repainted piece by piece.
 
 On that field the type is white, the numbers are large and confident, and a few solid tinted panels answer the field questions. The personality is trustworthy, plain-spoken and direct, with life in it. Colour gives the mood, and a single warm accent, pampa gold, marks what matters for the field: the day's verdict, a lote's decisions, the active tab, a switch that is on, the founder seal. The world rejects both the empty minimal screen and the decorated one. There is no glassmorphism, no blur and no ornament over a number.
 
@@ -153,6 +153,7 @@ Legibility in full sun is a hard rule here, not a polish step. Every sky pair is
 
 **Key Characteristics:**
 - A full-bleed sky field whose colour follows the forecast condition and time of day, and cross-fades between skies (static with reduced motion).
+- An animated weather layer on the forecast screens, drawn from the data of this hour, with a pause beside the temperature (one still frame with reduced motion).
 - White type on the sky. Dark ink appears only on light fills: white controls, gold, and the status fills.
 - Solid panels mixed from the sky toward a deep navy. No translucency and no backdrop blur.
 - One warm accent, pampa gold, reserved for field verdicts, decisions, the active state and the founder seal.
@@ -185,6 +186,8 @@ The sky supplies the field and every neutral, and the gold is the only colour th
 **The Sky Is the Palette Rule.** A new surface colour is mixed from `--sky-a` (or from white into `--panel`), never written as a fixed hex, so it cross-fades with the sky. A fixed fill is allowed only when it carries its own dark ink, as gold and the status pairs do.
 
 **The One Warm Thing Rule.** Gold marks field verdicts, decisions, the active state, focus and the founder seal. It is never a decorative fill and never a second brand colour on a panel.
+
+**The Contrast Budget Rule.** Anything drawn over the sky (the animated layer, a flash) may add only as much white as keeps secondary ink at 4.5:1 on that sky, with a 10 % margin (`whiteBudget` in `frontend/src/lib/atmosphere.ts`). A bright day leaves about 1.5 % and a night about 25 %. Clouds therefore use the sky veiled toward grey at its own luminance (`cloudTone`): they desaturate the field and never brighten it.
 
 **The Paired Ink Rule.** Every light fill names its ink (`gold`/`gold-ink`, `ok-fill`/`ok-ink`, `crit-fill`/`crit-ink`, `offline-fill`/`offline-ink`, white/`ink-deep`). White text never sits on a light fill.
 
@@ -287,6 +290,7 @@ A 52 by 32 px pill on Rain Track with the Control Ring and a white thumb. When o
 - **Do** keep targets at 44 px or more, growing the hit area with a pseudo-element when the drawn shape is smaller (switch, founder badge).
 - **Do** use tabular numerals for every figure that is compared.
 - **Do** let the sky cross-fade over `--dur-sky` (1600 ms) and keep it static under `prefers-reduced-motion`.
+- **Do** draw every moving effect from a datum of this hour, keep it under the contrast budget, and keep lightning at most once a second.
 
 ### Don't:
 - **Don't** use glassmorphism, `backdrop-filter` or translucent white panels. Panels are solid.
