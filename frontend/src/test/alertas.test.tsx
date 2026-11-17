@@ -413,16 +413,41 @@ describe('Logout forgets this phone (S7)', () => {
     expect(browser.unsubscribeBrowser).toHaveBeenCalled();
   });
 
-  it('offers to turn push on in this phone from Perfil', async () => {
-    renderApp('/perfil', withAccount());
+  it('turns push on in this phone right from Perfil (perfil-ux S7)', async () => {
+    const db = withAccount();
+    const { user } = renderApp('/perfil', db);
 
     const avisos = await screen.findByRole('region', { name: 'Cómo te avisamos' });
     expect(
       await within(avisos).findByText('Este teléfono todavía no recibe notificaciones.'),
     ).toBeInTheDocument();
-    expect(within(avisos).getByRole('link', { name: 'Activalas en Alertas' })).toHaveAttribute(
-      'href',
-      '/alertas',
-    );
+    expect(browser.requestPermission).not.toHaveBeenCalled();
+
+    await user.click(within(avisos).getByRole('button', { name: 'Activar en este teléfono' }));
+
+    expect(await within(avisos).findByText('Activadas en este teléfono.')).toBeInTheDocument();
+    expect(browser.requestPermission).toHaveBeenCalledTimes(1);
+    expect(db.pushSubscriptions).toEqual([SUBSCRIPTION]);
+    expect(within(avisos).queryByRole('button', { name: 'Activar en este teléfono' })).toBeNull();
+  });
+
+  it('tells Perfil how to unblock notifications the browser blocks (perfil-ux S7)', async () => {
+    browser.permission.mockReturnValue('denied');
+    renderApp('/perfil', withAccount());
+
+    const avisos = await screen.findByRole('region', { name: 'Cómo te avisamos' });
+    expect(
+      await within(avisos).findByText(
+        'Las notificaciones están bloqueadas en el navegador. Habilitalas en los permisos del sitio y volvé a probar.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(avisos).queryByRole('button', { name: 'Activar en este teléfono' })).toBeNull();
+  });
+
+  it('says nothing about this phone in Perfil when push is off (perfil-ux S7)', async () => {
+    renderApp('/perfil', withAccount({ user: { ...demoUser, notify_push: false } }));
+
+    const avisos = await screen.findByRole('region', { name: 'Cómo te avisamos' });
+    expect(within(avisos).queryByText(/este teléfono/)).not.toBeInTheDocument();
   });
 });

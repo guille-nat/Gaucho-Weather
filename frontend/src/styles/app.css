@@ -2862,6 +2862,12 @@ button.alert-event-tap:focus-visible {
   font-weight: 700;
 }
 
+/* Perfil: whether this phone gets push, and the way to turn it on here. */
+.push-here {
+  display: grid;
+  gap: 10px;
+}
+
 .push-state svg {
   flex-shrink: 0;
   color: var(--gold);

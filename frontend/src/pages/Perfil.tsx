@@ -11,6 +11,7 @@ import { FounderBadge } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
 import {
   forgetPushBeforeLogout,
+  useEnablePush,
   useEndSession,
   useMe,
   usePushHere,
@@ -266,9 +267,56 @@ export function Toggle({
   );
 }
 
+/** Shared with Alertas, so both screens explain a block the same way. */
+export const PUSH_BLOCKED =
+  'Las notificaciones están bloqueadas en el navegador. Habilitalas en los permisos del sitio y volvé a probar.';
+
+/**
+ * The account preference says push; this says whether this phone gets it, and turns it on with
+ * the same flow as Alertas (perfil-ux S7): a gold switch must not promise a phone that is silent.
+ */
+function PushHere() {
+  const here = usePushHere();
+  const enable = useEnablePush();
+  const [answer, setAnswer] = useState<NotificationPermission | null>(null);
+  if (!here.data?.supported) return null;
+
+  if (here.data.endpoint !== null) {
+    return (
+      <p className="push-state">
+        <Icon name="bell" size={20} />
+        Activadas en este teléfono.
+      </p>
+    );
+  }
+  if (answer === 'denied' || here.data.permission === 'denied') {
+    return <p className="fine">{PUSH_BLOCKED}</p>;
+  }
+  return (
+    <div className="push-here">
+      <p className="fine">Este teléfono todavía no recibe notificaciones.</p>
+      {answer === 'default' ? (
+        <p className="fine">Hace falta tu permiso para avisarte en este teléfono.</p>
+      ) : null}
+      <FormAlert message={enable.error?.message} />
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={enable.isPending}
+        onClick={() => {
+          setAnswer(null);
+          enable.mutate(undefined, { onSuccess: setAnswer });
+        }}
+      >
+        <Icon name="bell" />
+        {enable.isPending ? 'Activando…' : 'Activar en este teléfono'}
+      </button>
+    </div>
+  );
+}
+
 function AvisosSection({ me }: { me: User }) {
   const update = useUpdatePreferences();
-  const here = usePushHere();
   const noPushId = useId();
   const pushIncluded = me.plan?.allows_push ?? true;
   const push = pushIncluded && (me.notify_push ?? true);
@@ -302,12 +350,7 @@ function AvisosSection({ me }: { me: User }) {
           <Link to="/planes">Ver planes</Link>
         </p>
       ) : null}
-      {push && here.data?.supported && !here.data.endpoint ? (
-        <p className="fine">
-          Este teléfono todavía no recibe notificaciones.{' '}
-          <Link to="/alertas">Activalas en Alertas</Link>
-        </p>
-      ) : null}
+      {push ? <PushHere /> : null}
       <FormAlert message={update.failure?.message} />
       <Saved
         saving={update.saving}

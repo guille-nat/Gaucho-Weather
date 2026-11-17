@@ -21,7 +21,7 @@ import {
   useUpdateAlertRule,
 } from '../query/hooks';
 import { fieldError, formError } from '../lib/formErrors';
-import { Saved, Section, Toggle } from './Perfil';
+import { PUSH_BLOCKED, Saved, Section, Toggle } from './Perfil';
 
 /** Custom alerts (odd/tasks/cuenta-planes-alertas.md S6) and their channels (S7). */
 
@@ -366,12 +366,7 @@ function PushSection({ me }: { me: User }) {
         <Icon name={subscribed ? 'bell' : 'info'} size={20} />
         {state}
       </p>
-      {blocked ? (
-        <p className="fine">
-          Las notificaciones están bloqueadas en el navegador. Habilitalas en los permisos del sitio
-          y volvé a probar.
-        </p>
-      ) : null}
+      {blocked ? <p className="fine">{PUSH_BLOCKED}</p> : null}
       {answer === 'default' ? (
         <p className="fine">Hace falta tu permiso para avisarte en este teléfono.</p>
       ) : null}
