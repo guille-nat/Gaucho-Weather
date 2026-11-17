@@ -72,6 +72,10 @@ SKY_RAIN_MM = 1.0
 SKY_SUNNY_MAX_CLOUD_PCT = 30.0
 SKY_PARTLY_MAX_CLOUD_PCT = 70.0
 SKY_DAY_HOURS = (7, 19)  # local hours averaged for the daytime cloud cover
+# One hour's sky (the animated background): ≥ 0.2 mm in the hour is "lluvia",
+# twice the 0.1 mm resolution of the models, so a trace is not painted as rain.
+# Assumption, no source [I].
+SKY_RAIN_HOUR_MM = 0.2
 THUNDER_WEATHER_CODES = frozenset({95, 96, 99})  # WMO codes for thunderstorm
 
 
