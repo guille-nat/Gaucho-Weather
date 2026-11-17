@@ -109,6 +109,31 @@ describe('Inicio: the weather first, no account needed', () => {
     expect(within(recent).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
   });
 
+  it('paints the sky and names the condition of this hour, not of the whole day', async () => {
+    stubGeolocation(CASILDA);
+    const forecast = demoPublicForecast('sol');
+    forecast.now = { ...forecast.now, sky: 'lluvia', rain_mm: 2.4, cloud_cover_pct: 96 };
+    renderApp('/', createMockDb({ user: null, publicForecast: () => forecast }));
+
+    const now = await screen.findByRole('region', { name: 'Ahora' });
+    expect(within(now).getByText('Lluvia')).toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.dataset.sky).toBe('lluvia'));
+    // The week keeps each day's sky: today is still a sunny day.
+    expect(screen.getByRole('list', { name: 'Próximos 7 días' })).toHaveTextContent(/soleado/);
+  });
+
+  it('falls back to the day sky for a cached forecast without the hour sky', async () => {
+    stubGeolocation(CASILDA);
+    const forecast = demoPublicForecast('sol');
+    const { sky: _sky, cloud_cover_pct: _cloud, rain_mm: _rain, ...older } = forecast.now;
+    forecast.now = older;
+    renderApp('/', createMockDb({ user: null, publicForecast: () => forecast }));
+
+    const now = await screen.findByRole('region', { name: 'Ahora' });
+    expect(within(now).getByText('Soleado')).toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.dataset.sky).toBe('dia'));
+  });
+
   it('saves a recent place with its star and lists it under Guardados', async () => {
     stubGeolocation('denied');
     const { user } = renderApp('/', createMockDb({ user: null }));

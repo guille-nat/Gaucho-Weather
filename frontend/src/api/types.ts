@@ -127,6 +127,10 @@ export interface ForecastNow {
   wind_kmh: number | null;
   wind_dir_deg: number | null;
   gust_kmh: number | null;
+  /** The sky of this hour. Missing in a forecast cached before it existed. */
+  sky?: Sky;
+  cloud_cover_pct?: number | null;
+  rain_mm?: number | null;
 }
 
 export interface ForecastDay {
@@ -146,6 +150,8 @@ export interface ForecastHour {
   gust_kmh: number | null;
   rain_mm: number | null;
   rain_probability_pct: number | null;
+  sky?: Sky;
+  cloud_cover_pct?: number | null;
 }
 
 export interface FrostDecision {

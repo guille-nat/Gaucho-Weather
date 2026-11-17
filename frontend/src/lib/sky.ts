@@ -2,7 +2,8 @@ import type { Forecast, Sky } from '../api/types';
 import { TIME_ZONE } from './format';
 
 /**
- * The colour of the screen (S9, "Cielo vivo"): the sky of the place, by condition and time of day.
+ * The colour of the screen (S9, "Cielo vivo"): the sky of the place, by the condition of this
+ * hour and the time of day.
  * Each theme is a pair of colours in styles/tokens.css, checked for AA with white text.
  */
 export type SkyTheme =
@@ -42,8 +43,11 @@ export function dayPhase(forecast: Forecast): DayPhase {
 
 export const todaySky = (forecast: Forecast): Sky => forecast.daily[0]?.sky ?? 'parcial';
 
+/** The sky of this hour (S3 of cielo-animado); a forecast cached before it falls back to today. */
+export const currentSky = (forecast: Forecast): Sky => forecast.now.sky ?? todaySky(forecast);
+
 export function skyTheme(forecast: Forecast): SkyTheme {
-  const sky = todaySky(forecast);
+  const sky = currentSky(forecast);
   const phase = dayPhase(forecast);
   if (sky === 'tormenta') return 'tormenta';
   if (phase === 'night') {
@@ -56,7 +60,7 @@ export function skyTheme(forecast: Forecast): SkyTheme {
 }
 
 export function conditionLabel(forecast: Forecast): string {
-  const sky = todaySky(forecast);
+  const sky = currentSky(forecast);
   const night = dayPhase(forecast) === 'night';
   switch (sky) {
     case 'sol':

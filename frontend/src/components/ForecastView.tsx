@@ -24,7 +24,7 @@ import {
   MODEL_LABELS,
   windFrom,
 } from '../lib/format';
-import { conditionLabel, dayPhase, todaySky } from '../lib/sky';
+import { conditionLabel, currentSky, dayPhase } from '../lib/sky';
 import { Icon, type IconName } from './Icon';
 
 /**
@@ -122,7 +122,7 @@ function Hero({ forecast }: { forecast: Forecast }) {
         <span>{formatDegrees(forecast.now.temperature_c)}</span>
       </p>
       <p className="hero-cond">
-        <Icon name={skyIcon(todaySky(forecast), night)} size={28} strokeWidth={1.8} />
+        <Icon name={skyIcon(currentSky(forecast), night)} size={28} strokeWidth={1.8} />
         <span>{conditionLabel(forecast)}</span>
       </p>
       <p className="hero-range">
