@@ -66,10 +66,10 @@ describe('Founder and plan copy (perfil-ux S5)', () => {
     renderApp('/perfil/suscripcion', dbFor(notFounder));
     const empresa = await screen.findByRole('article', { name: 'Plan Empresa' });
 
+    // The same words, in two levels as on a pricing card (precios-productor S2).
+    expect(within(empresa).getByText('Precio a confirmar')).toBeInTheDocument();
     expect(
-      within(empresa).getByText(
-        'Precio a confirmar: te lo pasamos por email antes de aplicar el pedido.',
-      ),
+      within(empresa).getByText('Te lo pasamos por email antes de aplicar el pedido.'),
     ).toBeInTheDocument();
   });
 

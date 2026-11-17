@@ -35,3 +35,10 @@ export function planFeatures(plan: Plan): PlanFeature[] {
   if (plan.priority_support) list.push({ icon: 'check', text: 'Soporte prioritario' });
   return list;
 }
+
+/**
+ * The recommended plan first: phones show it before the others, and screen readers and the
+ * keyboard reach it first too. Wide screens place it in the middle column (app.css, .pricing).
+ */
+export const featuredFirst = (plans: Plan[]) =>
+  [...plans].sort((a, b) => Number(b.highlighted) - Number(a.highlighted));

@@ -51,8 +51,10 @@ señal se siguen viendo los últimos datos.
   - `body` no tiene fondo: uno opaco tapaba el canvas y también el degradado de
     `body::before`, que no se veía desde el rediseño "Cielo vivo". El color de respaldo
     está en `html`.
-  - Mock: `?ahora=sol|parcial|nublado|lluvia|tormenta` fuerza el cielo de esta hora.
-    `?cielo=noche&ahora=sol` es una noche estrellada.
+  - Mock: `?cielo=sol|lluvia|noche` elige el clima y `?ahora=sol|parcial|nublado|lluvia|tormenta`
+    fuerza el cielo de esta hora, en Inicio **y en cada lote** (cada lote conserva sus
+    decisiones). `?cielo=noche&ahora=sol` es una noche estrellada. Antes solo cambiaba
+    Inicio, y por eso los lotes parecían no reaccionar.
 - **Motion** (feature `motion-pass`; reglas completas en `DESIGN.md` › Motion):
   - Cada página entra por secciones en toda navegación: cada sección aparece con un
     fundido, sube 12 px y arranca 45 ms después de la anterior. Lo que llega después de

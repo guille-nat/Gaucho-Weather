@@ -215,7 +215,7 @@ The sky supplies the field and every neutral, and the gold is the only colour th
 
 ## Layout
 
-The layout is mobile-first and single-column at 390 px. Content lives in a centred column (max 1180 px) with a gutter that grows from 16 px to 24 px at 600 px and to 40 px at 960 px. Below 960 px a fixed four-tab bar (Clima, Lotes, Alertas, Perfil, 68 px plus the safe area) sits at the bottom, and the main column reserves its height plus 32 px. At 960 px and above the tab bar becomes a sticky, transparent top bar with the brand mark, and the forecast splits into two columns (5fr / 7fr). Grids of cards go to two columns at 760 px, and to three for plans.
+The layout is mobile-first and single-column at 390 px. Content lives in a centred column (max 1180 px) with a gutter that grows from 16 px to 24 px at 600 px and to 40 px at 960 px. Below 960 px a fixed four-tab bar (Clima, Lotes, Alertas, Perfil, 68 px plus the safe area) sits at the bottom, and the main column reserves its height plus 32 px. At 960 px and above the tab bar becomes a sticky, transparent top bar with the brand mark, and the forecast splits into two columns (5fr / 7fr). Grids of cards go to two columns at 760 px, and to three for plans. From 960 px the account screens use the width in two ordered columns (`.page-columns` > `.page-col`): Alertas puts what you read (inbox, rules) on a 7fr left and what you do (new rule, notifications) on a 5fr right; Perfil and Suscripción split evenly, with what you have on the left and what you can change on the right. Phones stack the columns in the same DOM order. The lote form puts its fields on the left and holds the map sticky on the right. The desktop glass bar is as wide as the content column, so it lines up with the content at every width.
 
 The rhythm is 16 px: panel padding, gaps between forecast blocks and the 16 px gutter. Sections are separated by 24 px. Plan cards use 20 px padding. The hour strip scrolls horizontally inside its panel rather than widening the page.
 
@@ -251,6 +251,15 @@ Big, quiet and thumb-sized.
 
 ### Field Verdict Pill (signature)
 The "Para el campo" pill is the one gold object on the sky. It is a full-width button with 20 px corners, a gold fill and Gold Ink text. Its head is in Onest 600 at 16 px and its verdict sentence in Atkinson 700 at 18 px (for example "Jueves llueve 12 mm: no entres con la sembradora"). It casts the Float shadow and has a chevron that rotates on expand. Its focus outline turns white so it stays visible against gold. When expanded, a Sky Panel opens below with the other decisions and the reasons behind them, revealed in 200 ms.
+
+### Pricing Card (Planes, Suscripción)
+The plans read like a hosting pricing page, inside the sky world. Three cards side by side from 760 px. Productor comes first in the DOM, so phones, screen readers and the keyboard meet it first, and the grid places it in the middle column on wide screens. An ordinary card is Deep Sky Panel, a step darker than its surroundings. The featured card is Lifted Sky Panel, a step lighter: it stands 16 px taller above and below the row, carries a full-width gold band ("El más elegido", Gold Ink), a 2 px gold ring and a deeper shadow, and holds the one bright white action. Each card, top to bottom:
+- the name (Onest 600, 1.5rem) and who the plan is for;
+- the price (Onest 600, 2.75rem, tabular, with " / mes" in Sky Ink), or "Precio a confirmar" with its note;
+- a perk on Rain Track with a gold sun, only when true: the trial days for a visitor, or the founder places left on Suscripción;
+- the action;
+- what it includes, below a hairline. Limitations stay muted with a cross, never struck through.
+There is no struck-through reference price and no discount without a real previous price.
 
 ### Level Chips and Chips
 - **Level chips:** a pill with an icon and a word on a light fill: `ok-fill`/`ok-ink`, gold/`gold-ink` for caution, and `crit-fill`/`crit-ink` for critical. Atkinson 700 at 16 px. The word and the icon carry the meaning, and the fill confirms it.

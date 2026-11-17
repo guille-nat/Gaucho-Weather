@@ -7,17 +7,18 @@ import { renderApp } from './renderApp';
 const card = (name: string) => screen.getByRole('article', { name: `Plan ${name}` });
 
 describe('Planes (S1, S8)', () => {
-  it('shows the three plans with Productor in the middle, recommended', async () => {
+  it('shows the three plans with Productor first, the most chosen', async () => {
     renderApp('/planes', createMockDb());
 
     expect(await screen.findByRole('heading', { name: 'Planes' })).toBeInTheDocument();
     const names = (await screen.findAllByRole('article')).map((el) =>
       el.getAttribute('aria-label'),
     );
-    expect(names).toEqual(['Plan Básico', 'Plan Productor', 'Plan Empresa']);
-    expect(within(card('Productor')).getByText('Recomendado')).toBeInTheDocument();
-    expect(within(card('Básico')).queryByText('Recomendado')).toBeNull();
-    expect(within(card('Empresa')).queryByText('Recomendado')).toBeNull();
+    // The most chosen first (phones show it first); wide screens put it in the middle column.
+    expect(names).toEqual(['Plan Productor', 'Plan Básico', 'Plan Empresa']);
+    expect(within(card('Productor')).getByText('El más elegido')).toBeInTheDocument();
+    expect(within(card('Básico')).queryByText('El más elegido')).toBeNull();
+    expect(within(card('Empresa')).queryByText('El más elegido')).toBeNull();
   });
 
   it('lists what each plan includes, with Básico showing it has no push', async () => {
@@ -46,6 +47,14 @@ describe('Planes (S1, S8)', () => {
       ),
     ).toBeInTheDocument();
     expect(within(card('Básico')).getByText('Precio a confirmar')).toBeInTheDocument();
+  });
+
+  it('invites a visitor to try Productor free for the trial days', async () => {
+    renderApp('/planes', createMockDb({ user: null }));
+
+    const productor = await screen.findByRole('article', { name: 'Plan Productor' });
+    expect(within(productor).getByText('Probalo 30 días gratis')).toBeInTheDocument();
+    expect(within(productor).getByRole('link', { name: 'Crear cuenta gratis' })).toBeVisible();
   });
 
   it('counts the founder slots left', async () => {
