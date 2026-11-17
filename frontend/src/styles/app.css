@@ -2253,6 +2253,11 @@ input[type='date'].input {
   margin-bottom: 4px;
 }
 
+/* A chip in the grid section keeps its own width, like on Suscripción. */
+.account-section > .chip {
+  justify-self: start;
+}
+
 .account-plan {
   font-family: var(--font-display);
   font-size: 1.5rem;

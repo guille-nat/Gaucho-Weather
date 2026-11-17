@@ -9,6 +9,7 @@ import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { CREDITS } from '../components/ForecastView';
 import { FounderBadge } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
+import { StatusChip } from '../components/StatusChip';
 import {
   forgetPushBeforeLogout,
   useEnablePush,
@@ -19,7 +20,7 @@ import {
   useUpdatePreferences,
 } from '../query/hooks';
 import { fieldError, formError } from '../lib/formErrors';
-import { membership } from '../lib/membership';
+import { membership, trialLine } from '../lib/membership';
 
 /** What the login screen tells someone who just left (see Login). */
 export interface SignedOutState {
@@ -58,16 +59,25 @@ function PlanSection({ me }: { me: User }) {
   if (!me.plan) return null;
   const lotes = me.usage?.lotes ?? 0;
   const line = membership(me);
+  const trialEnds = me.founder_number == null ? me.plan_expires_at : null;
   return (
     <Section title="Tu plan">
       <p className="account-plan">{me.plan.name}</p>
-      {line ? <p className="fine">{line}</p> : null}
+      {trialEnds ? (
+        // The deadline is the fact that matters most here, so it is not fine print (S10).
+        <>
+          <StatusChip tone="pending">{trialLine(trialEnds)}</StatusChip>
+          <p>Cuando termine pasás a Básico.</p>
+        </>
+      ) : line ? (
+        <p className="fine">{line}</p>
+      ) : null}
       <p className="account-usage">
         {me.plan.max_lotes === null ? `${lotes} lotes` : `${lotes} de ${me.plan.max_lotes} lotes`}
       </p>
       <div className="account-links">
         <Link className="account-link" to="/perfil/suscripcion">
-          Cambiar de plan
+          Tu suscripción
         </Link>
         <Link className="account-link" to="/planes">
           Comparar planes

@@ -39,7 +39,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     const { user } = renderApp('/perfil', dbFor(demoUser));
 
     const plan = await region('Tu plan');
-    await user.click(within(plan).getByRole('link', { name: 'Cambiar de plan' }));
+    await user.click(within(plan).getByRole('link', { name: 'Tu suscripción' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Tu suscripción' })).toBeVisible();
   });
 
