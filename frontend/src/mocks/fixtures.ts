@@ -72,8 +72,7 @@ export function demoLotes(): Lote[] {
       locality: 'Casilda',
       latitude: -33.0441,
       longitude: -61.1683,
-      crop: 'trigo',
-      sowing_date: '2026-06-14',
+      plantings: [{ id: 1, crop: 'trigo', area_ha: null, sowing_date: '2026-06-14' }],
       area_ha: 85,
       boundary: null,
       summary: {
@@ -92,8 +91,11 @@ export function demoLotes(): Lote[] {
       locality: 'Firmat',
       latitude: -33.4592,
       longitude: -61.4831,
-      crop: 'soja',
-      sowing_date: '2026-10-20',
+      // Split in two: the plantings add up to the whole lote.
+      plantings: [
+        { id: 2, crop: 'soja', area_ha: '70.00', sowing_date: '2026-10-20' },
+        { id: 3, crop: 'maiz', area_ha: '50.00', sowing_date: null },
+      ],
       area_ha: 120,
       boundary: {
         type: 'Polygon',
@@ -126,8 +128,7 @@ export function demoLotes(): Lote[] {
       locality: 'Chañar Ladeado',
       latitude: -33.325,
       longitude: -62.038,
-      crop: 'maiz',
-      sowing_date: null,
+      plantings: [{ id: 4, crop: 'maiz', area_ha: null, sowing_date: null }],
       area_ha: 60,
       boundary: null,
       summary: null,

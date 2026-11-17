@@ -1,11 +1,20 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError, isPlanLimit } from '../api/client';
-import { CROPS, type Crop, type Lote, type LoteInput } from '../api/types';
-import { FormAlert, SelectField, TextField } from '../components/Field';
+import type { Lote, LoteInput } from '../api/types';
+import { FormAlert, TextField } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { LocationField, type LocationText } from '../components/LocationField';
-import { CROP_LABELS, parseDecimal } from '../lib/format';
+import { PlantingsEditor } from '../components/PlantingsEditor';
+import {
+  draftsFrom,
+  plantingsError,
+  plantingsOf,
+  validateDrafts,
+  type PlantingDraft,
+  type PlantingsErrors,
+} from '../lib/crops';
+import { parseDecimal } from '../lib/format';
 import {
   EMPTY_OUTLINE,
   areaHa,
@@ -28,16 +37,13 @@ interface FormState {
   outline: Outline;
   /** The hectares field holds the drawn outline's area, not a typed number. */
   areaFromOutline: boolean;
-  crop: Crop | '';
-  sowingDate: string;
+  /** The crops, a row each (cultivos-por-lote S1). */
+  plantings: PlantingDraft[];
   areaHa: string;
 }
 
 type Errors = Partial<
-  Record<
-    'name' | 'location' | 'areaHa' | 'crop' | 'sowingDate' | 'establishment' | 'locality',
-    string
-  >
+  Record<'name' | 'location' | 'areaHa' | 'establishment' | 'locality', string>
 >;
 
 const EMPTY: FormState = {
@@ -47,8 +53,7 @@ const EMPTY: FormState = {
   location: { lat: '', lon: '' },
   outline: EMPTY_OUTLINE,
   areaFromOutline: false,
-  crop: '',
-  sowingDate: '',
+  plantings: [],
   areaHa: '',
 };
 
@@ -60,8 +65,7 @@ function fromLote(lote: Lote): FormState {
     location: { lat: String(lote.latitude), lon: String(lote.longitude) },
     outline: outlineFromPolygon(lote.boundary),
     areaFromOutline: false,
-    crop: lote.crop ?? '',
-    sowingDate: lote.sowing_date ?? '',
+    plantings: draftsFrom(plantingsOf(lote)),
     areaHa: lote.area_ha === null ? '' : String(lote.area_ha).replace('.', ','),
   };
 }
@@ -85,7 +89,11 @@ function withOutline(form: FormState, action: OutlineAction): FormState {
 }
 
 /** Client-side checks mirror the S8 rules so the farmer gets the answer without a round trip. */
-function validate(form: FormState): { errors: Errors; input?: LoteInput } {
+function validate(form: FormState): {
+  errors: Errors;
+  plantingErrors: PlantingsErrors;
+  input?: LoteInput;
+} {
   const errors: Errors = {};
   const name = form.name.trim();
   if (!name) errors.name = 'Poné un nombre al lote.';
@@ -111,17 +119,19 @@ function validate(form: FormState): { errors: Errors; input?: LoteInput } {
   if (form.areaHa.trim() && (area === null || area < 0))
     errors.areaHa = 'Escribí las hectáreas con números, por ejemplo 120,5.';
 
-  if (Object.keys(errors).length) return { errors };
+  const plantings = validateDrafts(form.plantings);
+  if (Object.keys(errors).length || !plantings.input)
+    return { errors, plantingErrors: plantings.errors };
   return {
     errors,
+    plantingErrors: plantings.errors,
     input: {
       name,
       establishment: form.establishment.trim(),
       locality: form.locality.trim(),
       latitude: Number(lat!.toFixed(6)),
       longitude: Number(lon!.toFixed(6)),
-      crop: form.crop || null,
-      sowing_date: form.sowingDate || null,
+      plantings: plantings.input,
       area_ha: area === null ? null : Number(area.toFixed(2)),
       boundary,
     },
@@ -134,8 +144,6 @@ const SERVER_FIELDS: Record<string, keyof Errors> = {
   locality: 'locality',
   latitude: 'location',
   longitude: 'location',
-  crop: 'crop',
-  sowing_date: 'sowingDate',
   area_ha: 'areaHa',
   boundary: 'location',
 };
@@ -162,6 +170,7 @@ interface LoteFormProps {
 function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo }: LoteFormProps) {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Errors>({});
+  const [plantingErrors, setPlantingErrors] = useState<PlantingsErrors>({});
   const formRef = useRef<HTMLFormElement>(null);
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -170,6 +179,7 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
     event.preventDefault();
     const result = validate(form);
     setErrors(result.errors);
+    setPlantingErrors(result.plantingErrors);
     if (!result.input) {
       // Take the farmer to the first problem instead of leaving them guessing.
       requestAnimationFrame(() =>
@@ -239,45 +249,28 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
           onOutline={(action) => setForm((f) => withOutline(f, action))}
           onChange={(location) => set('location', location)}
         />
-        <div className="form-row">
-          <SelectField
-            label="Cultivo"
-            name="crop"
-            value={form.crop}
-            error={shown.crop}
-            onChange={(e) => set('crop', e.target.value as Crop | '')}
-          >
-            <option value="">Sin definir</option>
-            {CROPS.map((crop) => (
-              <option key={crop} value={crop}>
-                {CROP_LABELS[crop]}
-              </option>
-            ))}
-          </SelectField>
-          <TextField
-            label="Hectáreas"
-            name="area_ha"
-            inputMode="decimal"
-            autoComplete="off"
-            hint={
-              form.areaFromOutline
-                ? 'Calculadas del contorno. Podés corregirlas.'
-                : 'Con coma, por ejemplo 120,5.'
-            }
-            value={form.areaHa}
-            error={shown.areaHa}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, areaHa: e.target.value, areaFromOutline: false }))
-            }
-          />
-        </div>
         <TextField
-          label="Fecha de siembra"
-          name="sowing_date"
-          type="date"
-          value={form.sowingDate}
-          error={shown.sowingDate}
-          onChange={(e) => set('sowingDate', e.target.value)}
+          label="Hectáreas"
+          name="area_ha"
+          inputMode="decimal"
+          autoComplete="off"
+          hint={
+            form.areaFromOutline
+              ? 'Calculadas del contorno. Podés corregirlas.'
+              : 'Con coma, por ejemplo 120,5.'
+          }
+          value={form.areaHa}
+          error={shown.areaHa}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, areaHa: e.target.value, areaFromOutline: false }))
+          }
+        />
+        <PlantingsEditor
+          drafts={form.plantings}
+          onChange={(plantings) => set('plantings', plantings)}
+          errors={plantingErrors}
+          error={plantingsError(submitError)}
+          loteHa={parseDecimal(form.areaHa)}
         />
         <button type="submit" className="btn btn--primary btn--block" disabled={pending}>
           {pending ? 'Guardando…' : 'Guardar lote'}

@@ -1319,32 +1319,111 @@
   margin-top: 28px;
 }
 
-.facts {
+/* The lote sheet (cultivos-por-lote S3): crops, field and place, each in its own group, every
+   fact with an icon. */
+.lote-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.fact-group {
+  display: grid;
+  gap: 12px;
+}
+
+.fact-group-title {
+  font-size: 1.125rem;
+}
+
+.fact-list {
   display: grid;
 }
 
-.facts.panel {
-  padding-block: 4px;
-}
-
-.facts-row {
+.fact {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 4px 16px;
   padding: 12px 0;
 }
 
-.facts-row + .facts-row {
+.fact:first-child {
+  padding-top: 0;
+}
+
+.fact:last-child {
+  padding-bottom: 0;
+}
+
+.fact + .fact {
   border-top: 1px solid var(--line);
 }
 
-.facts dt {
+.fact dt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--ink-2);
 }
 
-.facts dd {
+.fact dt svg {
+  flex-shrink: 0;
+}
+
+.fact dd {
+  margin-left: auto;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* Crops as chips: a colour mark to tell them apart, the label to say which one it is. */
+.crop-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 14 px corners rather than a pill: a chip with its hectares holds two lines. */
+.crop-chip {
+  display: inline-grid;
+  grid-template-columns: 12px auto;
+  align-items: center;
+  gap: 0 8px;
+  max-width: 100%;
+  padding: 8px 14px 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--panel-deep);
+  line-height: 1.35;
+}
+
+.crop-chip-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--crop);
+}
+
+.crop-chip-name {
+  font-weight: 700;
+}
+
+.crop-chip-meta {
+  grid-column: 2;
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.crops-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-2);
 }
 
 .detail-actions {
@@ -3189,6 +3268,137 @@ button.alert-event-tap:focus-visible {
 
 /* Moving down a plan: the safe choice and the costly one stacked, never a thumb apart. */
 .sub-cancel .confirm-actions {
+  grid-template-columns: 1fr;
+}
+
+/* The crops editor (cultivos-por-lote S1), in the lote form and in the quick change dialog. */
+.plantings {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.plantings legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.plantings-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A well a step darker than the form panel, not a card on a card. */
+.planting {
+  position: relative;
+  padding: 14px;
+  /* Concentric with the 12 px inputs it holds, 14 px in. */
+  border-radius: var(--radius-panel);
+  background: var(--panel-deep);
+}
+
+.planting-set {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.planting-legend {
+  padding: 0 96px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 44px;
+}
+
+.planting-remove {
+  position: absolute;
+  top: 14px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.planting-remove:hover {
+  background: var(--panel-hover);
+}
+
+.plantings-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-2);
+}
+
+/* A warning, not an error: the cream pair of the form notice, an icon and words; saving works. */
+.plantings-over {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-input);
+  background: var(--offline-fill);
+  color: var(--offline-ink);
+  font-weight: 700;
+}
+
+.plantings-over svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* The quick change of crops (S2) as a native modal, like the plan cancel confirm: no display
+   rule on <dialog>, the panel look is on the form box inside. */
+.crops-dialog {
+  width: min(36rem, 100% - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Both rules: scrolling the backdrop or the dialog must not scroll the page behind it. */
+.crops-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+.crops-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(4 16 42 / 0.6);
+}
+
+.crops-dialog-box {
+  padding: 20px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+
+.crops-dialog-title {
+  font-size: 1.25rem;
+}
+
+/* Save and cancel stacked: "Guardar cultivos" never wraps, and they are never a thumb apart. */
+.crops-dialog .confirm-actions {
   grid-template-columns: 1fr;
 }
 

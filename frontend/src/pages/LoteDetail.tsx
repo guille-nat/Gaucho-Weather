@@ -1,13 +1,24 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { Lote } from '../api/types';
 import { FormAlert } from '../components/Field';
 import { ForecastSkeleton, ForecastView } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
+import { LoteFacts } from '../components/LoteFacts';
 import { OfflineStrip } from '../components/OfflineStrip';
+import { PlantingsEditor } from '../components/PlantingsEditor';
 import { StatusChip } from '../components/StatusChip';
 import { useOnline } from '../hooks/useOnline';
-import { CROP_LABELS, formatCoord, formatDate, formatHa } from '../lib/format';
+import {
+  draftsFrom,
+  plantingsError,
+  plantingsOf,
+  validateDrafts,
+  type PlantingDraft,
+  type PlantingsErrors,
+} from '../lib/crops';
+import { formError } from '../lib/formErrors';
 import { loteMeta } from '../lib/lote';
 import { applySky, skyTheme } from '../lib/sky';
 import {
@@ -17,7 +28,9 @@ import {
   useLote,
   useLoteForecast,
   useRetryLoteForecast,
+  useUpdateLote,
 } from '../query/hooks';
+import { Saved } from './Perfil';
 
 /** The forecast part of the lote: the Inicio layout plus its decisions (S5). */
 function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
@@ -85,24 +98,78 @@ function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
   );
 }
 
-function Facts({ lote }: { lote: Lote }) {
-  const rows: [string, string][] = [
-    ['Establecimiento', lote.establishment || '—'],
-    ['Localidad', lote.locality || '—'],
-    ['Cultivo', lote.crop ? CROP_LABELS[lote.crop] : 'Sin definir'],
-    ['Fecha de siembra', lote.sowing_date ? formatDate(lote.sowing_date) : 'Sin definir'],
-    ['Superficie', lote.area_ha ? formatHa(lote.area_ha) : 'Sin definir'],
-    ['Ubicación', `${formatCoord(lote.latitude)}, ${formatCoord(lote.longitude)}`],
-  ];
+/**
+ * Changing the crops without the whole edit form (cultivos-por-lote S2): the editor in a native
+ * modal dialog that saves only `plantings`. The browser keeps focus inside, closes it on Esc and
+ * the back gesture (dropping the unsaved rows) and gives focus back to "Cambiar cultivos".
+ */
+function ChangeCrops({ lote }: { lote: Lote }) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const update = useUpdateLote(lote.id);
+  const [drafts, setDrafts] = useState<PlantingDraft[]>([]);
+  const [errors, setErrors] = useState<PlantingsErrors>({});
+
+  function open() {
+    update.reset();
+    // Rendered before showModal(), so the browser focuses the first crop, or "Agregar cultivo".
+    flushSync(() => {
+      setDrafts(draftsFrom(plantingsOf(lote)));
+      setErrors({});
+    });
+    dialogRef.current?.showModal();
+  }
+
+  function save(event: FormEvent) {
+    event.preventDefault();
+    const result = validateDrafts(drafts);
+    setErrors(result.errors);
+    if (!result.input) {
+      requestAnimationFrame(() =>
+        dialogRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+      );
+      return;
+    }
+    update.mutate({ plantings: result.input }, { onSuccess: () => dialogRef.current?.close() });
+  }
+
   return (
-    <dl className="facts panel">
-      {rows.map(([term, value]) => (
-        <div key={term} className="facts-row">
-          <dt>{term}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <button type="button" className="btn btn--light btn--block" onClick={open}>
+        <Icon name="pencil" />
+        Cambiar cultivos
+      </button>
+      <Saved message={update.isSuccess ? 'Cultivos guardados.' : null} />
+      <dialog ref={dialogRef} className="crops-dialog" aria-labelledby={titleId}>
+        {/* The look lives on this box: a display rule on <dialog> itself would show it closed. */}
+        <form className="crops-dialog-box form" onSubmit={save} noValidate>
+          <h2 id={titleId} className="crops-dialog-title">
+            Cultivos de {lote.name}
+          </h2>
+          <FormAlert message={formError(update.error)} />
+          <PlantingsEditor
+            drafts={drafts}
+            onChange={setDrafts}
+            errors={errors}
+            error={plantingsError(update.error)}
+            loteHa={lote.area_ha}
+            hideLegend
+          />
+          <div className="confirm-actions">
+            <button type="submit" className="btn btn--primary" disabled={update.isPending}>
+              {update.isPending ? 'Guardando…' : 'Guardar cultivos'}
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => dialogRef.current?.close()}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </>
   );
 }
 
@@ -206,7 +273,7 @@ export function LoteDetail() {
         <h2 id="sec-facts" className="panel-title">
           Datos del lote
         </h2>
-        <Facts lote={data} />
+        <LoteFacts lote={data} cropsAction={<ChangeCrops lote={data} />} />
         <div className="detail-actions">
           <Link className="btn btn--light btn--block" to={`/lotes/${data.id}/editar`}>
             <Icon name="pencil" />

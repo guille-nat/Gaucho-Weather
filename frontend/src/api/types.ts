@@ -40,6 +40,25 @@ export interface User {
 export const CROPS = ['soja', 'maiz', 'trigo', 'girasol', 'cebada', 'sorgo', 'otro'] as const;
 export type Crop = (typeof CROPS)[number];
 
+/** A lote holds at most this many plantings (cultivos-por-lote S1). */
+export const MAX_PLANTINGS = 8;
+
+/** One crop sown on part of a lote (cultivos-por-lote S1), as the API reads it. */
+export interface Planting {
+  id: number;
+  crop: Crop;
+  /** A decimal string with two places, e.g. `"12.50"`; null when not known. */
+  area_ha: string | null;
+  sowing_date: string | null;
+}
+
+/** A planting as POST and PATCH take it: no id, the list replaces the lote's whole list. */
+export interface PlantingInput {
+  crop: Crop;
+  area_ha: string | null;
+  sowing_date: string | null;
+}
+
 export interface GeoJsonPolygon {
   type: 'Polygon';
   /** Rings of [longitude, latitude]; the first ring is the outline. */
@@ -65,8 +84,8 @@ export interface Lote {
   /** JSON numbers; the backend rounds to 6 decimals. */
   latitude: number;
   longitude: number;
-  crop: Crop | null;
-  sowing_date: string | null;
+  /** Ordered by id; absent in a lote persisted before plantings existed (use `plantingsOf`). */
+  plantings?: Planting[];
   area_ha: number | null;
   boundary: GeoJsonPolygon | null;
   summary: LoteSummary | null;
@@ -81,8 +100,8 @@ export interface LoteInput {
   locality: string;
   latitude: number;
   longitude: number;
-  crop: Crop | null;
-  sowing_date: string | null;
+  /** Replaces the whole list; absent on PATCH leaves it as it is. */
+  plantings: PlantingInput[];
   area_ha: number | null;
   /** The drawn outline (S7), or null to clear it. */
   boundary: GeoJsonPolygon | null;

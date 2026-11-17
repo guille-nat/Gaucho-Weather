@@ -18,7 +18,7 @@ describe('Mis lotes', () => {
 
     const lote4 = items[1]!;
     expect(within(lote4).getByText('Lote 4 · La Esperanza')).toBeInTheDocument();
-    expect(within(lote4).getByText('Firmat · Soja · 120 ha')).toBeInTheDocument();
+    expect(within(lote4).getByText('Firmat · Soja · Maíz · 120 ha')).toBeInTheDocument();
     expect(within(lote4).getByRole('img', { name: /Plano del lote 4/ })).toBeInTheDocument();
     expect(lote4.querySelector('.lote-card-say')).toHaveTextContent(
       /^Mín\. esta noche \(2 m\) 3 °C$/,

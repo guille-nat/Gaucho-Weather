@@ -170,6 +170,19 @@ const PATHS = {
       <path d="M9 15.5a3 3 0 0 0 3 2.5" />
     </>
   ),
+  sprout: (
+    <>
+      <path d="M12 21v-9" />
+      <path d="M12 12C12 8.1 9.4 5.5 4.5 5.5c0 3.9 2.6 6.5 7.5 6.5Z" />
+      <path d="M12 15c0-3.3 2.3-5.5 6.5-5.5 0 3.3-2.3 5.5-6.5 5.5Z" />
+    </>
+  ),
+  barn: (
+    <>
+      <path d="M3 10.5 12 4l9 6.5V20H3Z" />
+      <path d="M9.5 20v-5.5h5V20" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof PATHS;

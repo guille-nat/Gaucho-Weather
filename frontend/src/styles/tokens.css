@@ -51,6 +51,18 @@
   --offline-fill: #fff1c2;
   --offline-ink: #3a2a00;
 
+  /* Crop marks (cultivos-por-lote S3): a dot beside the crop's name, never the only cue. Light
+     enough for 3:1 (WCAG 1.4.11) on every sky's panel (lowest: sorgo 3.8:1 on the dawn panel)
+     and on the deeper chip fill (≥ 5.1:1). Maíz is a pale corn yellow, lighter than the gold of
+     the verdicts, and like every mark it sits beside its name. */
+  --crop-soja: #7fd88f;
+  --crop-maiz: #fde27a;
+  --crop-trigo: #e3c08d;
+  --crop-girasol: #ffa95e;
+  --crop-cebada: #c8d98a;
+  --crop-sorgo: #ff9478;
+  --crop-otro: #cfd6e6;
+
   /* Type */
   --font-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
   --font-display: 'Onest', 'Atkinson Hyperlegible Next', system-ui, sans-serif;

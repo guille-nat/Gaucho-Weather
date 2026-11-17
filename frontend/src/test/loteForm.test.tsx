@@ -105,7 +105,8 @@ describe('Agregar lote', () => {
     await user.type(screen.getByLabelText('Localidad'), 'Firmat');
     await user.type(screen.getByLabelText('Latitud'), '-33,4592');
     await user.type(screen.getByLabelText('Longitud'), '-61.4831');
-    await user.selectOptions(screen.getByLabelText('Cultivo'), 'soja');
+    await user.click(screen.getByRole('button', { name: 'Agregar cultivo' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /Cultivo/ }), 'soja');
     await user.type(screen.getByLabelText('Hectáreas'), '120,5');
     await user.click(screen.getByRole('button', { name: 'Guardar lote' }));
 
@@ -119,9 +120,8 @@ describe('Agregar lote', () => {
       locality: 'Firmat',
       latitude: -33.4592,
       longitude: -61.4831,
-      crop: 'soja',
       area_ha: 120.5,
-      sowing_date: null,
+      plantings: [{ crop: 'soja', area_ha: null, sowing_date: null }],
     });
   });
 });

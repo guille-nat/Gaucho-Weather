@@ -1,6 +1,7 @@
 import { http, HttpResponse, type HttpHandler } from 'msw';
 import type { AccountChanges } from '../api/account';
 import { ALERT_VARIABLES, COMPARATOR_WORDS, describeRule } from '../api/alerts';
+import { CROPS, MAX_PLANTINGS } from '../api/types';
 import type {
   AlertComparator,
   AlertEvent,
@@ -12,6 +13,8 @@ import type {
   LoteHistory,
   LoteInput,
   Plan,
+  Planting,
+  PlantingInput,
   PlanChange,
   PlanRequest,
   PlanRequestInput,
@@ -228,8 +231,29 @@ function rotateCsrf(db: MockDb) {
   document.cookie = `csrftoken=${db.csrfToken}; path=/`;
 }
 
+/** DRF's nested shape: one object per item, `{}` for the valid ones (cultivos-por-lote). */
+function validatePlantings(value: unknown): unknown[] | string[] | null {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return ['Se esperaba una lista de ítems.'];
+  if (value.length > MAX_PLANTINGS) return ['Hasta 8 cultivos por lote.'];
+  const items = value.map((item: Partial<PlantingInput> | null) => {
+    const errors: Record<string, string[]> = {};
+    const crop = item?.crop;
+    if (!crop) errors.crop = ['Este campo es requerido.'];
+    else if (!(CROPS as readonly string[]).includes(crop))
+      errors.crop = [`"${crop}" no es una elección válida.`];
+    const area = item?.area_ha;
+    if (area !== undefined && area !== null && !(Number(area) > 0))
+      errors.area_ha = ['Asegúrese de que este valor sea mayor a 0.'];
+    return errors;
+  });
+  return items.some((errors) => Object.keys(errors).length) ? items : null;
+}
+
 function validateLote(body: Partial<LoteInput>, partial: boolean) {
-  const errors: Record<string, string[]> = {};
+  const errors: Record<string, unknown> = {};
+  const plantings = validatePlantings(body.plantings);
+  if (plantings) errors.plantings = plantings;
   if (!partial || body.name !== undefined) {
     if (!body.name || !String(body.name).trim()) errors.name = ['Este campo es requerido.'];
   }
@@ -252,7 +276,21 @@ function validateLote(body: Partial<LoteInput>, partial: boolean) {
   return errors;
 }
 
-function toLote(id: number, body: LoteInput, previous?: Lote): Lote {
+type LoteWrite = Omit<LoteInput, 'plantings'> & { plantings?: PlantingInput[] };
+
+/** A written list replaces the old one with fresh ids; no list keeps what the lote had. */
+function toPlantings(db: MockDb, input: PlantingInput[] | undefined, previous?: Lote): Planting[] {
+  if (input === undefined) return previous?.plantings ?? [];
+  return input.map((item) => ({
+    id: db.nextId++,
+    crop: item.crop,
+    area_ha:
+      item.area_ha === null || item.area_ha === undefined ? null : Number(item.area_ha).toFixed(2),
+    sowing_date: item.sowing_date ?? null,
+  }));
+}
+
+function toLote(db: MockDb, id: number, body: LoteWrite, previous?: Lote): Lote {
   const now = new Date().toISOString();
   return {
     id,
@@ -261,8 +299,7 @@ function toLote(id: number, body: LoteInput, previous?: Lote): Lote {
     locality: body.locality ?? '',
     latitude: Number(body.latitude.toFixed(6)),
     longitude: Number(body.longitude.toFixed(6)),
-    crop: body.crop ?? null,
-    sowing_date: body.sowing_date ?? null,
+    plantings: toPlantings(db, body.plantings, previous),
     area_ha:
       body.area_ha === null || body.area_ha === undefined ? null : Number(body.area_ha.toFixed(2)),
     boundary: body.boundary === undefined ? (previous?.boundary ?? null) : body.boundary,
@@ -551,7 +588,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
         const detail = `Tu plan ${db.user.plan?.name} permite hasta ${cap} lotes. Mirá los planes para sumar más.`;
         return HttpResponse.json({ detail, code: 'plan_limit' }, { status: 402 });
       }
-      const lote = toLote(db.nextId++, body);
+      const lote = toLote(db, db.nextId++, { ...body, plantings: body.plantings ?? [] });
       db.lotes.push(lote);
       return HttpResponse.json(lote, { status: 201 });
     }),
@@ -639,18 +676,17 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       const body = (await request.json()) as Partial<LoteInput>;
       const errors = validateLote(body, true);
       if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
-      const merged: LoteInput = {
+      const merged: LoteWrite = {
         name: body.name ?? previous.name,
         establishment: body.establishment ?? previous.establishment,
         locality: body.locality ?? previous.locality,
         latitude: body.latitude ?? previous.latitude,
         longitude: body.longitude ?? previous.longitude,
-        crop: body.crop === undefined ? previous.crop : body.crop,
-        sowing_date: body.sowing_date === undefined ? previous.sowing_date : body.sowing_date,
+        plantings: body.plantings,
         area_ha: body.area_ha === undefined ? previous.area_ha : body.area_ha,
         boundary: body.boundary === undefined ? previous.boundary : body.boundary,
       };
-      const lote = toLote(previous.id, merged, previous);
+      const lote = toLote(db, previous.id, merged, previous);
       db.lotes[index] = lote;
       return HttpResponse.json(lote);
     }),
