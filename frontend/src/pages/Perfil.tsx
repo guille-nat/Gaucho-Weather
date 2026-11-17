@@ -147,9 +147,22 @@ function useExclusiveDetails(root: RefObject<HTMLElement | null>) {
   }, [root]);
 }
 
+/**
+ * These forms are noValidate, so after a refused submit focus goes to the first field with an
+ * error, where the screen reader reads it (modern-web-guidance accessible-error-announcement).
+ */
+function useFocusFirstInvalid(error: unknown) {
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (error) form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [error]);
+  return form;
+}
+
 function NameForm({ me }: { me: User }) {
   const [name, setName] = useState(me.name);
   const rename = useUpdateAccount();
+  const form = useFocusFirstInvalid(rename.error);
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -157,7 +170,7 @@ function NameForm({ me }: { me: User }) {
   }
 
   return (
-    <form className="form account-form" onSubmit={save} noValidate>
+    <form ref={form} className="form account-form" onSubmit={save} noValidate>
       <TextField
         label="Nombre"
         name="name"
@@ -186,6 +199,7 @@ function EmailForm({ me }: { me: User }) {
   const [email, setEmail] = useState(me.email);
   const [password, setPassword] = useState('');
   const reEmail = useUpdateAccount();
+  const form = useFocusFirstInvalid(reEmail.error);
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -196,7 +210,7 @@ function EmailForm({ me }: { me: User }) {
   }
 
   return (
-    <form className="form account-form" onSubmit={save} noValidate>
+    <form ref={form} className="form account-form" onSubmit={save} noValidate>
       <TextField
         label="Email"
         type="email"
@@ -390,6 +404,7 @@ function PasswordForm() {
       setNext('');
     },
   });
+  const form = useFocusFirstInvalid(change.error);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -397,7 +412,7 @@ function PasswordForm() {
   }
 
   return (
-    <form className="form account-form" onSubmit={submit} noValidate>
+    <form ref={form} className="form account-form" onSubmit={submit} noValidate>
       <PasswordField
         label="Contraseña actual"
         name="current_password"
@@ -443,6 +458,7 @@ function BorrarSection({
 }) {
   const [password, setPassword] = useState('');
   const remove = useMutation({ mutationFn: deleteAccount, onSuccess: onDeleted });
+  const form = useFocusFirstInvalid(remove.error);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -461,7 +477,7 @@ function BorrarSection({
           // plans.py: a founder slot is never handed out twice, even after a delete.
           <p>Dejás de ser founder n.º {founderNumber}, y ese lugar no se le da a nadie más.</p>
         ) : null}
-        <form className="form account-form" onSubmit={submit} noValidate>
+        <form ref={form} className="form account-form" onSubmit={submit} noValidate>
           <PasswordField
             label="Tu contraseña"
             name="password"

@@ -100,6 +100,32 @@ describe('Borrar cuenta details (perfil-ux S11)', () => {
   });
 });
 
+describe('Focus after a failed submit (perfil-ux S12, accessible-error-announcement)', () => {
+  it('moves focus to the current password when the email change is refused', async () => {
+    const { user } = renderApp('/perfil', withAccount());
+    const { datos, row } = await openRow(/^Email/);
+    await user.click(row);
+    const email = await within(datos).findByLabelText('Email');
+    await user.type(email, 'x');
+    await user.type(within(datos).getByLabelText('Contraseña actual'), 'equivocada');
+    await user.click(within(datos).getByRole('button', { name: 'Cambiar email' }));
+
+    await within(datos).findByText('La contraseña no es correcta.');
+    expect(document.activeElement).toBe(within(datos).getByLabelText('Contraseña actual'));
+  });
+
+  it('moves focus to the password when deleting is refused', async () => {
+    const { user } = renderApp('/perfil', withAccount());
+    const borrar = await screen.findByRole('region', { name: 'Borrar cuenta' });
+    await user.click(within(borrar).getByText('Quiero borrar mi cuenta'));
+    await user.type(within(borrar).getByLabelText('Tu contraseña'), 'equivocada');
+    await user.click(within(borrar).getByRole('button', { name: 'Borrar mi cuenta' }));
+
+    await within(borrar).findByText('La contraseña no es correcta.');
+    expect(document.activeElement).toBe(within(borrar).getByLabelText('Tu contraseña'));
+  });
+});
+
 describe('Suscripción states (perfil-ux S4)', () => {
   it('shows the shape of the page while it loads', async () => {
     server.use(
