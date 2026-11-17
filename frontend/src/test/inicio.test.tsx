@@ -106,7 +106,35 @@ describe('Inicio: the weather first, no account needed', () => {
 
     await user.click(screen.getByRole('link', { name: 'Buscar lugar' }));
     const recent = screen.getByRole('list', { name: 'Recientes' });
-    expect(within(recent).getByRole('button', { name: /Casilda/ })).toBeInTheDocument();
+    expect(within(recent).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
+  });
+
+  it('saves a recent place with its star and lists it under Guardados', async () => {
+    stubGeolocation('denied');
+    const { user } = renderApp('/', createMockDb({ user: null }));
+
+    await user.click(await screen.findByRole('link', { name: 'Buscar lugar' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar localidad o paraje' }), 'casil');
+    const results = await screen.findByRole('list', { name: 'Resultados' });
+    await user.click(within(results).getByRole('button', { name: /Casilda/ }));
+    await user.click(await screen.findByRole('link', { name: 'Buscar lugar' }));
+
+    const star = screen.getByRole('button', { name: 'Guardar Casilda' });
+    expect(star).toHaveAttribute('aria-pressed', 'false');
+    await user.click(star);
+
+    const saved = screen.getByRole('list', { name: 'Guardados' });
+    expect(within(saved).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar Casilda' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('list', { name: 'Recientes' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Guardar Casilda' }));
+    expect(screen.queryByRole('list', { name: 'Guardados' })).not.toBeInTheDocument();
+    const recent = screen.getByRole('list', { name: 'Recientes' });
+    expect(within(recent).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
   });
 
   it('says it only covers Argentina for a place outside it', async () => {

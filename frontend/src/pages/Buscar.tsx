@@ -5,7 +5,14 @@ import { CREDITS } from '../components/ForecastView';
 import { Icon } from '../components/Icon';
 import { useDebounced } from '../hooks/useDebounced';
 import { locate } from '../lib/geo';
-import { choosePlace, letters, setCurrentPlace, usePlaces } from '../lib/places';
+import {
+  choosePlace,
+  letters,
+  samePlace,
+  setCurrentPlace,
+  toggleSaved,
+  usePlaces,
+} from '../lib/places';
 import { usePlaceSearch } from '../query/hooks';
 
 function PlaceButton({
@@ -28,10 +35,66 @@ function PlaceButton({
   );
 }
 
-/** The search sheet (S8, S10): a town or paraje of Argentina, the recent ones, or here. */
+/** A remembered place: pick it, or star it so newer searches never push it out (S8). */
+function RememberedPlace({
+  place,
+  saved,
+  onPick,
+}: {
+  place: Place;
+  saved: boolean;
+  onPick: (p: Place) => void;
+}) {
+  return (
+    <div className="place-row">
+      <PlaceButton place={place} onPick={onPick} icon={saved ? 'pin' : 'history'} />
+      <button
+        type="button"
+        className="place-star"
+        aria-label={`Guardar ${place.name}`}
+        aria-pressed={saved}
+        onClick={() => toggleSaved(place)}
+      >
+        <Icon name="star" size={24} fill={saved ? 'currentColor' : 'none'} />
+      </button>
+    </div>
+  );
+}
+
+function PlaceSection({
+  id,
+  title,
+  places,
+  saved,
+  onPick,
+}: {
+  id: string;
+  title: string;
+  places: Place[];
+  saved: boolean;
+  onPick: (p: Place) => void;
+}) {
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id} className="sheet-section">
+        {title}
+      </h2>
+      <ul className="place-list" aria-labelledby={id}>
+        {places.map((place) => (
+          <li key={`${place.lat},${place.lon}`}>
+            <RememberedPlace place={place} saved={saved} onPick={onPick} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The search sheet (S8, S10): a town or paraje of Argentina, the saved and recent ones, or here. */
 export function Buscar() {
   const navigate = useNavigate();
-  const { recent } = usePlaces();
+  const { recent, saved } = usePlaces();
+  const unsaved = recent.filter((place) => !saved.some((s) => samePlace(s, place)));
   const [text, setText] = useState('');
   const query = useDebounced(text.trim());
   const search = usePlaceSearch(query);
@@ -110,19 +173,21 @@ export function Buscar() {
 
       <div className="sheet-body" aria-live="polite">
         {!typing ? (
-          recent.length ? (
-            <section aria-labelledby="sec-recent">
-              <h2 id="sec-recent" className="sheet-section">
-                Recientes
-              </h2>
-              <ul className="place-list" aria-labelledby="sec-recent">
-                {recent.map((place) => (
-                  <li key={`${place.lat},${place.lon}`}>
-                    <PlaceButton place={place} onPick={pick} icon="history" />
-                  </li>
-                ))}
-              </ul>
-            </section>
+          saved.length || unsaved.length ? (
+            <>
+              {saved.length ? (
+                <PlaceSection id="sec-saved" title="Guardados" places={saved} saved onPick={pick} />
+              ) : null}
+              {unsaved.length ? (
+                <PlaceSection
+                  id="sec-recent"
+                  title="Recientes"
+                  places={unsaved}
+                  saved={false}
+                  onPick={pick}
+                />
+              ) : null}
+            </>
           ) : (
             <p className="sheet-hint">
               Escribí el nombre de un pueblo, ciudad o paraje de la Argentina.

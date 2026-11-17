@@ -2,8 +2,8 @@ import { useSyncExternalStore } from 'react';
 import type { Place } from '../api/types';
 
 /**
- * The places this phone remembers (S8), in localStorage: the place on screen and the recent
- * searches. They are public names, not account data, so they survive a logout.
+ * The places this phone remembers (S8), in localStorage: the place on screen, the recent
+ * searches and the places the farmer starred. They are public names, not account data, so they survive a logout.
  */
 export interface CurrentPlace {
   /** `gps`: where the phone is (its name comes from the reverse lookup); `search`: chosen. */
@@ -17,6 +17,8 @@ export interface CurrentPlace {
 interface PlacesState {
   current: CurrentPlace | null;
   recent: Place[];
+  /** Starred by the farmer: never pushed out by newer searches. */
+  saved: Place[];
 }
 
 const KEY = 'gw-places-v1';
@@ -31,7 +33,7 @@ export const DEFAULT_PLACE: CurrentPlace = {
   region: 'Santa Fe',
 };
 
-const EMPTY: PlacesState = { current: null, recent: [] };
+const EMPTY: PlacesState = { current: null, recent: [], saved: [] };
 let cached: { raw: string | null; state: PlacesState } | null = null;
 const listeners = new Set<() => void>();
 
@@ -46,7 +48,13 @@ function read(): PlacesState {
   let state = EMPTY;
   try {
     const parsed = raw ? (JSON.parse(raw) as Partial<PlacesState>) : null;
-    if (parsed) state = { current: parsed.current ?? null, recent: parsed.recent ?? [] };
+    if (parsed) {
+      state = {
+        current: parsed.current ?? null,
+        recent: parsed.recent ?? [],
+        saved: parsed.saved ?? [],
+      };
+    }
   } catch {
     // A broken entry is ignored, not fatal.
   }
@@ -65,7 +73,7 @@ function write(next: PlacesState) {
   listeners.forEach((notify) => notify());
 }
 
-const samePlace = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
+export const samePlace = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
   Math.abs(a.lat - b.lat) < 0.005 && Math.abs(a.lon - b.lon) < 0.005;
 
 export function setCurrentPlace(current: CurrentPlace) {
@@ -85,6 +93,17 @@ export function choosePlace(place: Place) {
       region: place.region,
     },
     recent,
+    saved: state.saved,
+  });
+}
+
+/** Stars a place, or forgets it when it is already starred. */
+export function toggleSaved(place: Place) {
+  const state = read();
+  const starred = state.saved.some((p) => samePlace(p, place));
+  write({
+    ...state,
+    saved: starred ? state.saved.filter((p) => !samePlace(p, place)) : [...state.saved, place],
   });
 }
 

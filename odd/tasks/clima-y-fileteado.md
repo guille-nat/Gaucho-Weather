@@ -77,12 +77,12 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2 | inline | done | Direction chosen; contract written |
-| T2 | S1, S3, S4, S5, S6 | delegated (unit A: parallel writer) | in progress | Backend: engine v0, forecast endpoint, archiver extension |
-| T3 | S1, S2, S5 | delegated (unit B: parallel writer) | in progress | Frontend: fileteado world app-wide, Hoy en tu lote, Pronóstico tab |
+| T2 | S1, S3, S4, S5, S6 | delegated (unit A: parallel writer) | done | Backend: engine v0, forecast endpoint, archiver extension |
+| T3 | S1, S2, S5 | delegated (unit B: parallel writer) | cancelled (L7) | Frontend: fileteado world app-wide, Hoy en tu lote, Pronóstico tab |
 | T3x | S2 | cancelled (L6) | cancelled | Work stashed, not merged |
-| T5 | S8, S10 | delegated (unit A2: parallel writer) | in progress | Backend public forecast and places |
-| T6 | S1, S8, S9, S10 | delegated (unit B2: parallel writer) | in progress | Frontend weather-first redesign |
-| T4 | S7 | pending: runs after T3, because it edits the same files (LoteForm, MapPicker) | pending | Map search, satellite and boundary drawing with automatic hectares |
+| T5 | S8, S10 | delegated (unit A2: parallel writer) | done (0a29da1) | Backend public forecast and places |
+| T6 | S1, S8, S9, S10 | delegated (unit B2: parallel writer) | done (da95378; saved places L11) | Frontend weather-first redesign |
+| T4 | S7 | inline (after T6) | done (77c590f, 3e6a700) | Map search, satellite and boundary drawing with automatic hectares |
 
 ## Log
 - L1 (2026-11-03, user, verbatim): "primero perdiop toda la escencia lde agro argentino, faltan metricas e info que ayude al productor poder tomar deciciones, oredicciones de lluvia, horarios, etc. es Gaucho Weather asi que tiene que representar eso en una cultura donde el gaucho es el representante del campo, le falta vida y color"
@@ -121,3 +121,7 @@ Branch: `feat/clima-y-fileteado` (from `feat/phase-1-foundation`) · Delivery: a
     - compose build args `VITE_SATELLITE_*`;
     - four test lotes on the demo account (ids 5–8).
 - L10 (2026-11-04, user, verbatim): "no mejor subi todo a main total estamos construyendo luego si apaga la PC". Option chosen: replace main with a backup (`v1-legacy` branch and `v1-final` tag).
+- L11 (2026-11-17): closing the leftovers of L9 against `main` (92b73ef).
+  - Done already: satellite build args in both compose files and the Dockerfile; brand icons replaced (02d0ed1); DESIGN.md rewritten in phase 1.
+  - Saved places (S8) were the only open item. Now a star in each Buscar row saves the place under "Guardados"; newer searches never push it out. Vitest 207 passed, eslint clean, tsc only the known `src/sw.ts` errors.
+  - Not run: the feature-end verifier. The code it would check is already in `main`, and three later features were built and tested on top of it.

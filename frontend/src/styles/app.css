@@ -2039,6 +2039,41 @@ input[type='date'].input {
   color: var(--ink-2);
 }
 
+.place-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.place-row .place-option {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-star {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.place-star:hover {
+  background: var(--panel-hover);
+}
+
+.place-star:focus-visible {
+  outline-offset: -3px;
+}
+
+.place-star[aria-pressed='true'] {
+  color: var(--gold);
+}
+
 .place-option-text {
   display: grid;
 }

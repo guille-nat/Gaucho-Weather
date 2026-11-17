@@ -16,7 +16,7 @@ señal se siguen viendo los últimos datos.
     el veredicto dorado "Para el campo", 48 h, 7 días, lluvia caída y esperada, viento,
     humedad y sol. Datos de `GET /api/pronostico/?lat&lon` (S10).
   - `/buscar` (`Buscar.tsx`), pública: búsqueda con debounce de 300 ms en
-    `/api/lugares/?q=`, lugares recientes y "Usar mi ubicación".
+    `/api/lugares/?q=`, lugares guardados y recientes, y "Usar mi ubicación".
   - `/ingresar` y `/crear-cuenta`. Sin destino previo, al entrar se va a `/lotes`.
   - Con cuenta (`RequireAuth`): `/lotes` Mis lotes, `/lotes/nuevo`, `/lotes/:id`,
     `/lotes/:id/editar`, `/alertas` y `/perfil`. Anónimo, estas pestañas llevan a
@@ -27,7 +27,11 @@ señal se siguen viendo los últimos datos.
   el usuario haya elegido un lugar. Si la niega, se muestra el último lugar o Rosario y
   una invitación a buscar. El nombre del punto GPS sale de `/api/lugares/reverso/`; si
   no hay nombre (por ejemplo, fuera de la Argentina) se muestran las coordenadas.
-  El lugar actual y los 6 recientes se guardan en localStorage (`src/lib/places.ts`).
+  El lugar actual, los 6 recientes y los guardados viven en localStorage
+  (`src/lib/places.ts`). Cada fila de Buscar tiene una estrella (`aria-pressed`) que
+  guarda el lugar. Los guardados aparecen en "Guardados", arriba de "Recientes", y una
+  búsqueda nueva nunca los desplaza, porque el productor vuelve siempre a los mismos
+  pueblos. No hay tope de guardados, porque cada lugar ocupa unos pocos bytes.
 - **Errores del pronóstico:** se muestra el `detail` del servidor tal cual (400 "Por
   ahora solo cubrimos Argentina." con botón de búsqueda; 503 con "Reintentar").
 - **Probabilidad de lluvia:** un lugar nuevo no tiene ensamble y llega `null`; se
@@ -298,3 +302,5 @@ señal se siguen viendo los últimos datos.
 - 2026-11-16: service worker propio (`src/sw.ts`, `injectManifest`) con los mismos cachés
   y rutas, más `/api/planes/` en el caché público, `/api/alertas/` sin caché y los
   eventos de Web Push (T9, S7).
+- 2026-11-17: lugares guardados con estrella en Buscar; cierra el pendiente de S8 de
+  clima-y-fileteado.
