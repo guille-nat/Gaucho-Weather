@@ -17,6 +17,11 @@ Branch: `feat/perfil-ux` (stacked on `feat/cuenta-planes-alertas`) · Delivery: 
   - "Administrar suscripción" vs "Ver planes" made distinct;
   - price-unset wording (L6): "Precio a confirmar: te lo pasamos por email antes de aplicar el pedido." on Suscripción.
 - **S6 — Polish and re-critique.**
+- **S7 — Push on this phone from Perfil** (re-critique P1): with push on and this browser not subscribed, Perfil says so and offers "Activar en este teléfono" with the same flow as Alertas (`useEnablePush`); a browser that blocks notifications is told how to unblock them; a subscribed phone reads "Activadas en este teléfono.".
+- **S8 — Focus in the cancel confirm** (P1): opening it moves focus to its question; "Mejor no" returns focus to "Darme de baja"; confirming moves focus to the status line.
+- **S9 — Cancel during a trial** (P1/P2): the button and the question say it ends the trial now; the losses are computed from the account's usage instead of conditionals.
+- **S10 — Trial deadline on Perfil** (P2): during a trial Perfil says what happens at the end ("Cuando termine pasás a Básico."), and the link to the subscription page is named like the page ("Tu suscripción").
+- **S11 — One list of limits on Suscripción** (P2): each limit appears once, with its usage; push and email stay as checks. Plus the delete-account minors: its button stays off without a password, a stale error clears while typing, and its summary shows that it opens.
 
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
@@ -27,6 +32,11 @@ Branch: `feat/perfil-ux` (stacked on `feat/cuenta-planes-alertas`) · Delivery: 
 | T4 | S4 | States on Perfil and Suscripción | inline | none | done (RED 5) | 28dfa88 |
 | T5 | S5 | Founder and price copy | inline | none | done (RED 4 + 1) | 6d16a1d, see L6 |
 | T6 | S6 | Polish + critique | inline | item 4 (concurrency, found in polish) | done; verifier blockers fixed in one batch | ae26298, 28f4893, 78b873d, 73c0b2b |
+| T7 | S7 | Push on this phone from Perfil | inline | none | done (RED 2) | ac9c4e8 |
+| T8 | S8 | Focus in the cancel confirm | inline | none | done (RED 2) | d4d8ee6 |
+| T9 | S9 | Cancel during a trial | inline | none | done (RED 2) | d4d8ee6 |
+| T10 | S10 | Trial deadline on Perfil | inline | none | done (RED 2) | 3f07af5 |
+| T11 | S11 | One list of limits + delete minors | inline | none | done (RED 4) | 884699a |
 
 Route evidence: T1 is the skill's shipped documenter agent with a disjoint surface (DESIGN.md, `.impeccable/design.*`); T2–T6 share Perfil.tsx and app.css, so they run inline one after another.
 
@@ -45,4 +55,8 @@ Route evidence: T1 is the skill's shipped documenter agent with a disjoint surfa
   - Spacing: the trial "Quedarme con Productor" action got its own group (78b873d).
 - **L8** (2026-11-17): independent verifier (item 4): backend `update_fields` holds (no save override, signals or auto_now; empty PATCH still 200). Frontend: 3 blockers caused by T2 (same switch tapped twice ending off the server value on double failure or on a stale answer arriving last; a failure hidden by a later success). One correction batch (73c0b2b): per-switch confirmed value from the newest answered save, shown when none is pending; failure kept in hook state; "Guardando…" while any save is pending. Probes kept as regression tests; recheck limited to them passed 3×; Vitest 171. Scratch removed, dev test user deleted.
 - **L9** (2026-11-17): re-critique 27/40 (from 24). Detector clean on source and on both rendered pages. New findings (push for this phone, focus in the cancel confirm, trial cancel copy, trial deadline depth, repeated limits) are new scope, offered to the user.
+- **L10** (2026-11-17, user, verbatim, on the re-critique findings): "si encarala"
+- **L11** (2026-11-17): second batch T7–T11 done test-first (Vitest 183 passed, eslint clean; tsc only the 12 `src/sw.ts` errors). Commits ac9c4e8, d4d8ee6, 3f07af5, 884699a. Screenshots checked: push on this phone from Perfil, trial chip and "Cuando termine pasás a Básico.", one plan list, trial cancel confirm, delete disabled without password.
+  - `planFeatures` gained an optional `limit` tag; /planes is unchanged (its tests pass).
+  - Environment, not this change: the host `frontend/node_modules` lacks the `workbox-*` packages declared in package.json, so `vite build` fails on `src/sw.ts` and tsc reports its 12 errors; the container has them. A stale Vite HMR graph broke the dev app once ("does not provide an export named 'Alertas'"); restarting the frontend container fixed it.
 
