@@ -81,6 +81,7 @@ Branch: `feat/cuenta-planes-alertas` (from `main`) · Delivery: ask-on-risk · R
 | T18 | all | Split RDD review of ba985f9..HEAD into slices under the budget | inline | — | done | see L31 |
 | T19 | S7 S9 S11 S5 S14 | Fix the security and resilience warnings of the split review | inline | item 2 (secret in logs, SSRF) | done | see L34 |
 | T20 | S7 S14 | Fix the warnings of review slices E and F | inline | item 2 (SSRF, admin permission) | done | see L35 |
+| T21 | all | Deliver as stacked PRs to main (slices in L36) | inline | — | planned | — |
 | T11 | all | Docs `Doc/funcionalidades/{planes,cuenta,alertas,historico}.md` + updates | delegated (context backstop) | none | done | see L27 |
 
 Route evidence: no Writer trigger reason (units are sequential and depend on each other), so the parent writes inline following this logbook. T1, T3, T4 and T9 get an independent verifier after their own checks.
@@ -257,3 +258,18 @@ Forecast: ~4000 authored changed lines → over the 400-line budget; ask-on-risk
     - the push allowlist moved to `apps/alerts/push_hosts.py` and is checked again before every send, so stored subscriptions outside it are never called and are dropped;
     - the plan request admin actions require the `change` permission.
   - pytest 450 passed, ruff clean.
+- **L36** (2026-11-16): `8aa3199` assessed medium, under budget (109 lines); it is reviewed with the last slice. Chain strategy chosen by the user: **stacked-to-main**.
+  - The branch holds ~13.4k authored changed lines; single commits already exceed 400, so no cohesive split fits the budget without rewriting history. Every slice needs `size:exception`.
+  - Slices (each branch ends at a commit of this branch, in order):
+    1. `pr/planes` → `325721e` (plans, founders, trial, lote limit, `/planes`) ~1680
+    2. `pr/cuenta` → `262ba29` (account, password change and reset, Perfil) ~1680
+    3. `pr/alertas-reglas` → `22f3eb3` (rules API and evaluator) ~1470
+    4. `pr/historico-backend` → `d2b9c84` (own hourly table, backfill, API) ~780
+    5. `pr/alertas-entrega` → `017f1c9` (push and email delivery, inbox, service worker) ~1460
+    6. `pr/historico-frontend` → `d4691b7` ~1070
+    7. `pr/alertas-frontend` → `68dfedb` ~1770
+    8. `pr/docs` → `19cc3d2` ~610
+    9. `pr/suscripcion` → `cc2f15c` (subscription, founder badge, forecast on create) ~2920
+    10. `pr/hardening` → HEAD (review fixes) ~650
+  - Pending: the user's go-ahead to push and open the PRs.
+
