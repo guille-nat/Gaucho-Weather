@@ -174,7 +174,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
 
     const change = await region('Cambiar de plan');
     await user.click(within(change).getByRole('button', { name: 'Darme de baja' }));
-    const confirm = within(change).getByRole('group', { name: '¿Pasar al plan Básico?' });
+    const confirm = within(change).getByRole('dialog', { name: '¿Pasar al plan Básico?' });
     expect(
       within(confirm).getByText('Seguís con el pronóstico, tus lotes, tus reglas y el histórico.'),
     ).toBeInTheDocument();
@@ -187,7 +187,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     ).toBeInTheDocument();
 
     await user.click(within(confirm).getByRole('button', { name: 'Mejor no' }));
-    expect(within(change).queryByRole('group')).toBeNull();
+    expect(screen.getByRole('dialog', { hidden: true })).not.toHaveAttribute('open');
     expect(db.planRequest).toBeNull();
 
     await user.click(within(change).getByRole('button', { name: 'Darme de baja' }));

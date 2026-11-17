@@ -48,7 +48,7 @@ describe('Cancel during a trial (perfil-ux S9)', () => {
 
     const change = await openCancel(user, 'Terminar la prueba ahora');
     expect(within(change).queryByRole('button', { name: 'Darme de baja' })).toBeNull();
-    const confirm = within(change).getByRole('group', {
+    const confirm = within(change).getByRole('dialog', {
       name: '¿Terminar la prueba y pasar a Básico?',
     });
     expect(
@@ -61,7 +61,7 @@ describe('Cancel during a trial (perfil-ux S9)', () => {
     const { user } = renderApp(ROUTE, dbFor(productor, { lotes: lotes(5), alertRules: rules(4) }));
 
     const change = await openCancel(user, 'Darme de baja');
-    const confirm = within(change).getByRole('group', { name: '¿Pasar al plan Básico?' });
+    const confirm = within(change).getByRole('dialog', { name: '¿Pasar al plan Básico?' });
     expect(
       within(confirm).getByText(
         'Tenés 5 lotes y Básico permite 2: quedan todos, pero no vas a poder crear nuevos.',
@@ -78,7 +78,7 @@ describe('Cancel during a trial (perfil-ux S9)', () => {
     const { user } = renderApp(ROUTE, dbFor(productor, { alertRules: rules(1) }));
 
     const change = await openCancel(user, 'Darme de baja');
-    const confirm = within(change).getByRole('group', { name: '¿Pasar al plan Básico?' });
+    const confirm = within(change).getByRole('dialog', { name: '¿Pasar al plan Básico?' });
     expect(within(confirm).queryByText(/^Tenés/)).toBeNull();
     expect(
       within(confirm).getByText(
@@ -88,27 +88,39 @@ describe('Cancel during a trial (perfil-ux S9)', () => {
   });
 });
 
-describe('Focus in the cancel confirm (perfil-ux S8)', () => {
-  it('moves focus into the question, and back to the button on Mejor no', async () => {
+describe('Cancel confirm as a native modal (perfil-ux S8, S12 dialog)', () => {
+  it('opens a modal dialog named by its question, with focus on the safe choice', async () => {
     const { user } = renderApp(ROUTE, dbFor(productor));
 
-    const change = await openCancel(user, 'Darme de baja');
-    expect(document.activeElement).toHaveTextContent('¿Pasar al plan Básico?');
+    await openCancel(user, 'Darme de baja');
+    const dialog = screen.getByRole('dialog', { name: '¿Pasar al plan Básico?' });
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog).toHaveAttribute('open');
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Mejor no' }));
+  });
 
-    await user.click(within(change).getByRole('button', { name: 'Mejor no' }));
-    expect(document.activeElement).toBe(
-      within(change).getByRole('button', { name: 'Darme de baja' }),
-    );
+  it('closes on Mejor no without asking for anything', async () => {
+    const db = dbFor(productor);
+    const { user } = renderApp(ROUTE, db);
+
+    await openCancel(user, 'Darme de baja');
+    const dialog = screen.getByRole('dialog', { name: '¿Pasar al plan Básico?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Mejor no' }));
+
+    expect(dialog).not.toHaveAttribute('open');
+    expect(db.planRequest).toBeNull();
   });
 
   it('moves focus to the pending request once the request is sent', async () => {
     const { user } = renderApp(ROUTE, dbFor(productor));
 
-    const change = await openCancel(user, 'Darme de baja');
-    await user.click(within(change).getByRole('button', { name: 'Sí, pedir la baja' }));
+    await openCancel(user, 'Darme de baja');
+    const dialog = screen.getByRole('dialog', { name: '¿Pasar al plan Básico?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, pedir la baja' }));
 
     const pending = await screen.findByRole('region', { name: 'Pedido pendiente' });
     await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(dialog).not.toHaveAttribute('open');
     expect(document.activeElement).toBe(within(pending).getByRole('heading'));
   });
 });

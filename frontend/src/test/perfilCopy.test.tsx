@@ -45,7 +45,7 @@ describe('Founder and plan copy (perfil-ux S5)', () => {
     const change = await screen.findByRole('region', { name: 'Cambiar de plan' });
     await user.click(within(change).getByRole('button', { name: 'Darme de baja' }));
 
-    const confirm = within(change).getByRole('group', { name: '¿Pasar al plan Básico?' });
+    const confirm = within(change).getByRole('dialog', { name: '¿Pasar al plan Básico?' });
     expect(
       within(confirm).getByText(
         'Seguís siendo founder n.º 7: si después querés volver a Productor, lo pedís desde acá.',
@@ -58,7 +58,7 @@ describe('Founder and plan copy (perfil-ux S5)', () => {
     const change = await screen.findByRole('region', { name: 'Cambiar de plan' });
     await user.click(within(change).getByRole('button', { name: 'Darme de baja' }));
 
-    const confirm = within(change).getByRole('group', { name: '¿Pasar al plan Básico?' });
+    const confirm = within(change).getByRole('dialog', { name: '¿Pasar al plan Básico?' });
     expect(within(confirm).queryByText(/founder/)).not.toBeInTheDocument();
   });
 

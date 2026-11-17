@@ -7,6 +7,22 @@ import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { PERSIST_KEY } from '../query/persister';
 import { server } from './server';
 
+// jsdom has no modal dialog: open/close and the close event, nothing else. Focus containment and
+// focus return are the browser's, checked in a real browser, not here.
+if (!('showModal' in HTMLDialogElement.prototype)) {
+  Object.assign(HTMLDialogElement.prototype, {
+    showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    },
+    close(this: HTMLDialogElement, returnValue?: string) {
+      if (!this.hasAttribute('open')) return;
+      if (returnValue !== undefined) this.returnValue = returnValue;
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+}
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 
 afterEach(async () => {

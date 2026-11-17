@@ -3161,6 +3161,33 @@ button.alert-event-tap:focus-visible {
   text-wrap: pretty;
 }
 
+/* The cancel confirm as a native modal (perfil-ux S12). No display rule here: <dialog> keeps
+   the browser's closed state; the panel look is on the .confirm box inside. */
+.sub-cancel-dialog {
+  width: min(32rem, 100% - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Both rules: scrolling the backdrop or the dialog must not scroll the page behind it. */
+.sub-cancel-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+.sub-cancel-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(4 16 42 / 0.6);
+}
+
+.sub-cancel-dialog h2.confirm-text {
+  font-size: 1.125rem;
+}
+
 /* Moving down a plan: the safe choice and the costly one stacked, never a thumb apart. */
 .sub-cancel .confirm-actions {
   grid-template-columns: 1fr;

@@ -165,8 +165,9 @@ function losses(basico: Plan, usage: Subscription['usage']): string[] {
 
 /**
  * Moving down to Básico: said plainly before it is asked for (S4 rules on a downgrade), from the
- * account's own numbers. On a trial it ends the trial early, and says so (perfil-ux S9). Focus
- * follows the question and comes back to the button on "Mejor no" (perfil-ux S8).
+ * account's own numbers. On a trial it ends the trial early, and says so (perfil-ux S9).
+ * A native modal dialog (perfil-ux S12): the browser keeps focus inside it, closes it on Esc and
+ * the back gesture, and gives focus back to "Darme de baja"; the safe choice gets focus first.
  */
 function CancelPlan({
   basico,
@@ -186,78 +187,85 @@ function CancelPlan({
   disabled: boolean;
   onConfirm: () => void;
 }) {
-  const [asking, setAsking] = useState(false);
   const titleId = useId();
-  const questionRef = useRef<HTMLParagraphElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const backToButton = useRef(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const safeRef = useRef<HTMLButtonElement>(null);
+  const lost = losses(basico, usage);
 
-  useEffect(() => {
-    if (asking) questionRef.current?.focus();
-    else if (backToButton.current) {
-      backToButton.current = false;
-      buttonRef.current?.focus();
-    }
-  }, [asking]);
+  function open() {
+    dialogRef.current?.showModal();
+    // Opened from script, so the safe action is focused here rather than by `autofocus`.
+    safeRef.current?.focus();
+  }
 
-  if (!asking) {
-    return (
+  function closed() {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const confirmed = dialog.returnValue === 'confirm';
+    // Esc sets no value, and browsers differ on clearing the last one.
+    dialog.returnValue = '';
+    if (confirmed) onConfirm();
+  }
+
+  return (
+    <>
       <button
-        ref={buttonRef}
         type="button"
         className="btn btn--danger btn--block"
         disabled={disabled}
-        onClick={() => setAsking(true)}
+        onClick={open}
       >
         {trial ? 'Terminar la prueba ahora' : 'Darme de baja'}
       </button>
-    );
-  }
-  const lost = losses(basico, usage);
-  return (
-    <div className="confirm sub-cancel" role="group" aria-labelledby={titleId}>
-      <p id={titleId} ref={questionRef} tabIndex={-1} className="confirm-text">
-        {trial ? `¿Terminar la prueba y pasar a ${basico.name}?` : `¿Pasar al plan ${basico.name}?`}
-      </p>
-      {trial ? <p>La prueba termina ahora, sin esperar al último día.</p> : null}
-      <p>Seguís con el pronóstico, tus lotes, tus reglas y el histórico.</p>
-      {founderNumber !== null ? (
-        <p>
-          Seguís siendo founder n.º {founderNumber}: si después querés volver a {current.name}, lo
-          pedís desde acá.
-        </p>
-      ) : null}
-      {lost.length ? (
-        <ul className="sub-cancel-losses">
-          {lost.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="confirm-actions">
-        <button
-          type="button"
-          className="btn btn--danger-solid"
-          disabled={disabled}
-          onClick={() => {
-            setAsking(false);
-            onConfirm();
-          }}
-        >
-          {trial ? 'Sí, terminar la prueba' : 'Sí, pedir la baja'}
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          onClick={() => {
-            backToButton.current = true;
-            setAsking(false);
-          }}
-        >
-          Mejor no
-        </button>
-      </div>
-    </div>
+      <dialog
+        ref={dialogRef}
+        className="sub-cancel-dialog"
+        aria-labelledby={titleId}
+        onClose={closed}
+      >
+        {/* The look lives on this box: a display rule on <dialog> itself would show it closed. */}
+        <div className="confirm sub-cancel">
+          <h2 id={titleId} className="confirm-text">
+            {trial
+              ? `¿Terminar la prueba y pasar a ${basico.name}?`
+              : `¿Pasar al plan ${basico.name}?`}
+          </h2>
+          {trial ? <p>La prueba termina ahora, sin esperar al último día.</p> : null}
+          <p>Seguís con el pronóstico, tus lotes, tus reglas y el histórico.</p>
+          {founderNumber !== null ? (
+            <p>
+              Seguís siendo founder n.º {founderNumber}: si después querés volver a {current.name},
+              lo pedís desde acá.
+            </p>
+          ) : null}
+          {lost.length ? (
+            <ul className="sub-cancel-losses">
+              {lost.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="confirm-actions">
+            <button
+              type="button"
+              className="btn btn--danger-solid"
+              disabled={disabled}
+              onClick={() => dialogRef.current?.close('confirm')}
+            >
+              {trial ? 'Sí, terminar la prueba' : 'Sí, pedir la baja'}
+            </button>
+            <button
+              ref={safeRef}
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => dialogRef.current?.close()}
+            >
+              Mejor no
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }
 
