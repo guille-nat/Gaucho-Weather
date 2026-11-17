@@ -442,7 +442,10 @@ function BorrarSection({
   return (
     <Section title="Borrar cuenta">
       <details className="account-danger">
-        <summary>Quiero borrar mi cuenta</summary>
+        <summary>
+          <Icon name="chevronRight" className="account-danger-chevron" strokeWidth={2.4} />
+          Quiero borrar mi cuenta
+        </summary>
         <p>Borramos tu cuenta, tus lotes y tus alertas. No se puede deshacer.</p>
         {founderNumber !== null ? (
           // plans.py: a founder slot is never handed out twice, even after a delete.
@@ -455,13 +458,16 @@ function BorrarSection({
             autoComplete="current-password"
             value={password}
             error={fieldError(remove.error, 'password')}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              remove.reset();
+              setPassword(e.target.value);
+            }}
           />
           <FormAlert message={formError(remove.error)} />
           <button
             type="submit"
             className="btn btn--danger-solid btn--block"
-            disabled={remove.isPending}
+            disabled={remove.isPending || !password}
           >
             <Icon name="trash" />
             {remove.isPending ? 'Borrando…' : 'Borrar mi cuenta'}

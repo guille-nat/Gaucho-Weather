@@ -7,6 +7,8 @@ export interface PlanFeature {
   text: string;
   /** A limitation of the plan rather than something it gives. */
   missing?: boolean;
+  /** The line states a limit the subscription page shows with its usage instead. */
+  limit?: 'lotes' | 'rules';
 }
 
 /** What a plan includes, in the order /planes and the subscription page list it. */
@@ -14,10 +16,12 @@ export function planFeatures(plan: Plan): PlanFeature[] {
   const list: PlanFeature[] = [
     {
       icon: 'parcel',
+      limit: 'lotes',
       text: plan.max_lotes === null ? 'Lotes sin límite' : `Hasta ${plan.max_lotes} lotes`,
     },
     {
       icon: 'bell',
+      limit: 'rules',
       text:
         plan.max_alert_rules === null
           ? 'Reglas de alerta sin límite'

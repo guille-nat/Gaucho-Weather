@@ -17,7 +17,6 @@ import { trialLine } from '../lib/membership';
 import { planFeatures } from '../lib/planFeatures';
 import { usePlans, useRequestPlan, useSubscription, useWithdrawPlanRequest } from '../query/hooks';
 import { Saved, Section } from './Perfil';
-import { PlanFeatureList } from './Planes';
 
 const dateLong = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
@@ -59,21 +58,34 @@ function CurrentPlan({ sub }: { sub: Subscription }) {
           <StatusChip tone="ok">Activo</StatusChip>
         )}
       </div>
-      <PlanFeatureList plan={plan} />
-      <ul className="sub-usage" aria-label="Lo que estás usando">
+      {/* One list: each limit once, with its usage, then what the plan gives (perfil-ux S11). */}
+      <ul className="plan-features sub-features" aria-label="Lo que incluye y lo que usás">
         <li>
           <Icon name="parcel" size={20} />
-          <span>{usageLine(usage.lotes, plan.max_lotes, ['lote', 'lotes'])}</span>
+          <span className="sub-usage-line">
+            {usageLine(usage.lotes, plan.max_lotes, ['lote', 'lotes'])}
+          </span>
         </li>
         <li>
           <Icon name="bell" size={20} />
-          <span>
+          <span className="sub-usage-line">
             {usageLine(usage.alert_rules, plan.max_alert_rules, [
               'regla de alerta',
               'reglas de alerta',
             ])}
           </span>
         </li>
+        {planFeatures(plan)
+          .filter((feature) => !feature.limit)
+          .map((feature) => (
+            <li
+              key={feature.text}
+              className={feature.missing ? 'plan-feature--missing' : undefined}
+            >
+              <Icon name={feature.icon} size={20} strokeWidth={2} />
+              <span>{feature.text}</span>
+            </li>
+          ))}
       </ul>
     </Section>
   );

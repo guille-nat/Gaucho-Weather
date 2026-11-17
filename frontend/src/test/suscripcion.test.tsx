@@ -57,11 +57,13 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     const plan = await region('Tu plan');
     expect(within(plan).getByText('Productor')).toBeInTheDocument();
     expect(within(plan).getByText('Founder n.º 7')).toBeInTheDocument();
-    expect(within(plan).getByText('Hasta 15 lotes')).toBeInTheDocument();
-    expect(within(plan).getByText('Reglas de alerta sin límite')).toBeInTheDocument();
     expect(within(plan).getByText('Notificaciones push')).toBeInTheDocument();
     expect(within(plan).getByText('1 de 15 lotes')).toBeInTheDocument();
     expect(within(plan).getByText('2 reglas de alerta, sin límite')).toBeInTheDocument();
+    // Each limit once, with its usage (perfil-ux S11).
+    expect(within(plan).queryByText('Hasta 15 lotes')).toBeNull();
+    expect(within(plan).queryByText('Reglas de alerta sin límite')).toBeNull();
+    expect(within(plan).getAllByRole('list')).toHaveLength(1);
   });
 
   it('tells a founder the whole story on the page, without inventing benefits', async () => {

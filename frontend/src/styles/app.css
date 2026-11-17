@@ -2462,6 +2462,30 @@ input[type='date'].input {
   cursor: pointer;
 }
 
+.account-danger summary {
+  gap: 6px;
+  list-style: none;
+}
+
+.account-danger summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-danger-chevron {
+  flex-shrink: 0;
+  transition: rotate var(--dur-base) var(--ease-out);
+}
+
+.account-danger[open] .account-danger-chevron {
+  rotate: 90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-danger-chevron {
+    transition: none;
+  }
+}
+
 .account-danger[open] summary {
   margin-bottom: 8px;
 }
@@ -3048,26 +3072,9 @@ button.alert-event-tap:focus-visible {
   margin-bottom: 4px;
 }
 
-.sub-usage {
-  display: grid;
-  gap: 8px;
-  margin: 8px 0 0;
-  padding: 12px 0 0;
-  border-top: 1px solid var(--line);
-  list-style: none;
+.sub-usage-line {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.sub-usage li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.sub-usage svg {
-  flex-shrink: 0;
-  color: var(--ink-2);
 }
 
 .sub-pending {

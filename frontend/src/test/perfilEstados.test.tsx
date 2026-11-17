@@ -64,6 +64,41 @@ describe('Perfil states (perfil-ux S4)', () => {
   });
 });
 
+describe('Borrar cuenta details (perfil-ux S11)', () => {
+  it('keeps the delete button off until a password is typed', async () => {
+    const { user } = renderApp('/perfil', withAccount());
+    const borrar = await screen.findByRole('region', { name: 'Borrar cuenta' });
+    await user.click(within(borrar).getByText('Quiero borrar mi cuenta'));
+
+    const button = within(borrar).getByRole('button', { name: 'Borrar mi cuenta' });
+    expect(button).toBeDisabled();
+    await user.type(within(borrar).getByLabelText('Tu contraseña'), 'x');
+    expect(button).toBeEnabled();
+  });
+
+  it('clears a wrong-password error once the password is typed again', async () => {
+    const { user } = renderApp('/perfil', withAccount());
+    const borrar = await screen.findByRole('region', { name: 'Borrar cuenta' });
+    await user.click(within(borrar).getByText('Quiero borrar mi cuenta'));
+    const field = within(borrar).getByLabelText('Tu contraseña');
+
+    await user.type(field, 'equivocada');
+    await user.click(within(borrar).getByRole('button', { name: 'Borrar mi cuenta' }));
+    expect(await within(borrar).findByText('La contraseña no es correcta.')).toBeInTheDocument();
+
+    await user.type(field, '2');
+    expect(within(borrar).queryByText('La contraseña no es correcta.')).toBeNull();
+  });
+
+  it('shows that the delete line opens', async () => {
+    renderApp('/perfil', withAccount());
+    const borrar = await screen.findByRole('region', { name: 'Borrar cuenta' });
+
+    const summary = within(borrar).getByText('Quiero borrar mi cuenta').closest('summary')!;
+    expect(summary.querySelector('svg')).not.toBeNull();
+  });
+});
+
 describe('Suscripción states (perfil-ux S4)', () => {
   it('shows the shape of the page while it loads', async () => {
     server.use(
