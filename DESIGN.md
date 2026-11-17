@@ -1,189 +1,140 @@
 ---
 name: Gaucho Weather
-description: Per-field farm decisions for Argentine producers, drawn as a cadastral plan on white paper.
+description: A weather app built as a farm tool. The whole screen takes the colour of the sky over the place, with white type, solid tinted panels and one pampa-gold accent.
 colors:
-  paper: "#ffffff"
-  paper-sunk: "#f5f5f2"
-  ink: "#141414"
-  ink-2: "#3b3b38"
-  rule: "#8f8f89"
-  rule-strong: "#6b6b66"
-  survey-blue: "#2b6cb0"
-  survey-blue-ink: "#1f5592"
-  survey-blue-wash: "#eaf1f9"
-  catastro-pink: "#d6336c"
-  crit: "#a3001b"
-  crit-wash: "#fdecee"
-  caut: "#6e3f00"
-  ok: "#145a2a"
-  wait: "#3b3b38"
-  offline-wash: "#fff3cf"
+  sky-a: "#1d68c4"
+  sky-b: "#124f9e"
+  glow: "rgb(255 214 102 / 0.2)"
+  panel: "color-mix(in srgb, var(--sky-a) 70%, #04102a)"
+  panel-deep: "color-mix(in srgb, var(--sky-a) 48%, #04102a)"
+  panel-hover: "color-mix(in srgb, var(--sky-a) 80%, #04102a)"
+  line: "color-mix(in srgb, #fff 22%, var(--panel))"
+  track: "color-mix(in srgb, #fff 16%, var(--panel))"
+  ink: "#ffffff"
+  ink-2: "color-mix(in srgb, #fff 88%, var(--sky-a))"
+  ink-deep: "#0b1533"
+  gold: "#f2b705"
+  gold-ink: "#1d1600"
+  rain: "#9ad8ff"
+  ok-fill: "#c9f2d6"
+  ok-ink: "#0b4220"
+  crit-fill: "#ffd9cf"
+  crit-ink: "#741002"
+  offline-fill: "#fff1c2"
+  offline-ink: "#3a2a00"
 typography:
   display:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "3rem"
-    fontWeight: 700
-    lineHeight: 1
-    letterSpacing: "0.01em"
+    fontFamily: "Onest, Atkinson Hyperlegible Next, system-ui, sans-serif"
+    fontSize: "clamp(5.5rem, 26vw, 6rem)"
+    fontWeight: 300
+    lineHeight: 0.95
+    letterSpacing: "-0.04em"
     fontFeature: "tnum"
   headline:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
+    fontFamily: "Onest, Atkinson Hyperlegible Next, system-ui, sans-serif"
     fontSize: "2rem"
-    fontWeight: 700
-    lineHeight: 1.05
-    letterSpacing: "0.02em"
+    fontWeight: 600
+    lineHeight: 1.15
+    letterSpacing: "-0.02em"
   title:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "1.75rem"
-    fontWeight: 700
-    lineHeight: 1.05
-    letterSpacing: "0.03em"
-  reading:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "1.5rem"
-    fontWeight: 700
-    lineHeight: 1
-    fontFeature: "tnum"
-  body-strong:
+    fontFamily: "Onest, Atkinson Hyperlegible Next, system-ui, sans-serif"
+    fontSize: "1.125rem"
+    fontWeight: 600
+    lineHeight: 1.15
+  verdict:
     fontFamily: "Atkinson Hyperlegible Next, Atkinson Hyperlegible, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 700
-    lineHeight: 1.25
+    lineHeight: 1.35
   body:
     fontFamily: "Atkinson Hyperlegible Next, Atkinson Hyperlegible, system-ui, sans-serif"
     fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.45
-  body-small:
+  label:
     fontFamily: "Atkinson Hyperlegible Next, Atkinson Hyperlegible, system-ui, sans-serif"
     fontSize: "1rem"
-    fontWeight: 400
-    lineHeight: 1.45
-  button:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "1.1875rem"
     fontWeight: 700
-    lineHeight: 1
-    letterSpacing: "0.06em"
-  label:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "1rem"
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "0.06em"
-  meta:
-    fontFamily: "Barlow Semi Condensed, Arial Narrow, sans-serif"
-    fontSize: "1rem"
-    fontWeight: 500
-    lineHeight: 1.25
-    letterSpacing: "0.04em"
+    lineHeight: 1.5
 rounded:
-  chip: "6px"
-  control: "8px"
-  card: "12px"
-  pill: "16px"
+  input: "12px"
+  control: "14px"
+  panel: "20px"
+  pill: "999px"
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "20px"
-  2xl: "24px"
-  gutter-phone: "16px"
+  gutter: "16px"
   gutter-tablet: "24px"
   gutter-desktop: "40px"
+  panel-pad: "16px"
+  section: "24px"
 components:
   button-primary:
     backgroundColor: "{colors.ink}"
-    textColor: "{colors.paper}"
-    typography: "{typography.button}"
+    textColor: "{colors.ink-deep}"
+    typography: "{typography.label}"
     rounded: "{rounded.control}"
     padding: "0 20px"
     height: "52px"
   button-secondary:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.survey-blue}"
-    typography: "{typography.button}"
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
     rounded: "{rounded.control}"
     padding: "0 20px"
     height: "52px"
   button-secondary-hover:
-    backgroundColor: "{colors.survey-blue-wash}"
-    textColor: "{colors.survey-blue-ink}"
-  button-danger:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.crit}"
-    typography: "{typography.button}"
-    rounded: "{rounded.control}"
-    padding: "0 20px"
-    height: "52px"
-  button-danger-hover:
-    backgroundColor: "{colors.crit-wash}"
-    textColor: "{colors.crit}"
-  button-danger-solid:
-    backgroundColor: "{colors.crit}"
-    textColor: "{colors.paper}"
-    typography: "{typography.button}"
-    rounded: "{rounded.control}"
-    padding: "0 20px"
-    height: "52px"
-  input:
-    backgroundColor: "{colors.paper}"
+    backgroundColor: "{colors.panel-hover}"
+  verdict-pill:
+    backgroundColor: "{colors.gold}"
+    textColor: "{colors.gold-ink}"
+    typography: "{typography.verdict}"
+    rounded: "{rounded.panel}"
+    padding: "14px 52px 16px 16px"
+  panel:
+    backgroundColor: "{colors.panel}"
     textColor: "{colors.ink}"
+    rounded: "{rounded.panel}"
+    padding: "{spacing.panel-pad}"
+  input:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ink-deep}"
     typography: "{typography.body}"
-    rounded: "{rounded.control}"
+    rounded: "{rounded.input}"
     padding: "0 14px"
     height: "52px"
-  chip-none:
-    textColor: "{colors.ink}"
+  level-ok:
+    backgroundColor: "{colors.ok-fill}"
+    textColor: "{colors.ok-ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    padding: "4px 8px 4px 6px"
-  chip-pending:
-    textColor: "{colors.wait}"
-    typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    padding: "4px 8px 4px 6px"
-  chip-critical:
-    textColor: "{colors.crit}"
-    typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    padding: "4px 8px 4px 6px"
-  chip-caution:
-    textColor: "{colors.caut}"
-    typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    padding: "4px 8px 4px 6px"
-  chip-ok:
-    textColor: "{colors.ok}"
-    typography: "{typography.label}"
-    rounded: "{rounded.chip}"
-    padding: "4px 8px 4px 6px"
-  lote-card:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
-    padding: "12px"
-  lote-card-active:
-    backgroundColor: "{colors.paper-sunk}"
-  tonight-panel:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
-    padding: "16px"
-  tab:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink-2}"
-    height: "68px"
-  tab-active-icon:
-    backgroundColor: "{colors.survey-blue}"
-    textColor: "{colors.paper}"
     rounded: "{rounded.pill}"
-    width: "56px"
-    height: "32px"
-  offline-strip:
-    backgroundColor: "{colors.offline-wash}"
+    padding: "2px 10px 2px 8px"
+  level-caution:
+    backgroundColor: "{colors.gold}"
+    textColor: "{colors.gold-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "2px 10px 2px 8px"
+  level-critical:
+    backgroundColor: "{colors.crit-fill}"
+    textColor: "{colors.crit-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "2px 10px 2px 8px"
+  chip:
+    backgroundColor: "{colors.track}"
     textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "2px 10px 2px 8px"
+  tabbar:
+    backgroundColor: "{colors.panel-deep}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.label}"
+    height: "68px"
+  offline-strip:
+    backgroundColor: "{colors.offline-fill}"
+    textColor: "{colors.offline-ink}"
+    typography: "{typography.label}"
     rounded: "{rounded.control}"
     padding: "10px 14px"
 ---
@@ -192,156 +143,154 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Surveyed Parcel"**
+**Creative North Star: "Cielo vivo"**
 
-Gaucho Weather is the category-standard farm app played straight, with every field (lote) drawn as a parcel on a cadastral plan. The world is a blend the user asked for: the canon farm-app skeleton (cards, a status chip, a black primary action, a bottom tab bar) fused with the material of a "plano catastral": black survey line on white paper, hatch fills, a north tick, a double-ruled title block and condensed uppercase survey lettering. It is light only, chosen for the use scene: outdoors, in full sun, with the screen brightness up.
+The app is painted in the sky over the place on screen. A full-bleed field, drawn from a pair of sky colours and a soft radial glow where the sun stands, sits behind everything. Its colour follows today's condition and the time of day: deep sky blue for a clear day, slate for cloud, deep teal for rain, violet for storm, navy at night and warm coral at dawn and dusk. When the forecast changes, the whole interface cross-fades to the new sky over 1600 ms. Every panel, line and secondary ink is mixed from the sky, so the screen changes as one surface instead of being repainted piece by piece.
 
-Density is calm and one-handed. Each screen answers one work question before it shows data; the reading (tonight's minimum at 2 m) is set large in survey type, and the caveat that qualifies it sits beside it in ink, never as grey small print. Brand color is rationed to tiny catastro-pink marks; interaction is survey blue; everything else is ink on paper.
+On that field the type is white, the numbers are large and confident, and a few solid tinted panels answer the field questions. The personality is trustworthy, plain-spoken and direct, with life in it. Colour gives the mood, and a single warm accent, pampa gold, marks what matters for the field: the day's verdict, a lote's decisions, the active tab, a switch that is on, the founder seal. The world rejects both the empty minimal screen and the decorated one. There is no glassmorphism, no blur and no ornament over a number.
 
-The built system rejects the generic weather-widget list of city names and the low-contrast "elegant" grey-on-white look: secondary text is still 11:1, rules are visible, and state is always carried by an icon and a word.
+Legibility in full sun is a hard rule here, not a polish step. Every sky pair is checked for AA with white text (white on `sky-a` ≥ 5.4:1, `ink-2` ≥ 4.6:1). Body text is 17 px, the smallest text, tab labels included, is 16 px, targets are 44 px or more, and state is never carried by colour alone.
 
 **Key Characteristics:**
-- White paper, ink #141414, 1 px ruled white cards with a 12 px radius.
-- Parcel outline signature: survey-line polygon, number stamp, severity hatch, north tick.
-- Double title-block rule under every page head.
-- Barlow Semi Condensed uppercase for survey lettering over Atkinson Hyperlegible Next for reading.
-- Dashed line means "not data yet": no-forecast parcel, "Sin datos aún" chip, pending panel, loading skeleton.
+- A full-bleed sky field whose colour follows the forecast condition and time of day, and cross-fades between skies (static with reduced motion).
+- White type on the sky. Dark ink appears only on light fills: white controls, gold, and the status fills.
+- Solid panels mixed from the sky toward a deep navy. No translucency and no backdrop blur.
+- One warm accent, pampa gold, reserved for field verdicts, decisions, the active state and the founder seal.
+- Onest Light for big tabular numerals, Onest SemiBold for headings, and Atkinson Hyperlegible Next for everything you read.
+- Soft, generous rounding (20 px panels) and a calm 16 px internal rhythm.
 
 ## Colors
 
-An ink-on-paper plan with one interactive blue, one rationed brand pink, and state tones that never appear without an icon and a label.
+The sky supplies the field and every neutral, and the gold is the only colour that speaks on top of it.
 
 ### Primary
-- **Survey Blue** (survey-blue): every interactive affordance and only those: links, secondary buttons, the "Ver modelos" disclosure, the active tab's icon pill, focus rings, caret and selection. Darkens to **Survey Blue Ink** on hover; **Survey Blue Wash** is the secondary-button hover fill.
+- **Pampa Gold** (`gold`): the one warm accent. It fills the "Para el campo" verdict pill, the caution level chip, the founder banner, badge and plan badge. It also draws the 4 px top bar of a lote's decisions panel, the active tab bar, the checked switch, the focus outline (3 px solid) and link underlines. Text on gold is always **Gold Ink** (`gold-ink`, 9.9:1).
 
 ### Secondary
-- **Catastro Pink** (catastro-pink): small brand marks only: the diamond in the rail brand and favicon, the accents in the gaucho empty-state drawing, and the center of the map stake. It never carries text or state.
-
-### Tertiary
-- **Critical Red** (crit) with **Critical Wash** (crit-wash): destructive actions, field errors, the form alert and the delete confirmation; the critical chip tone.
-- **Caution Brown** (caut) and **Field Green** (ok): text-safe chip tones on white, defined for the severity states the decision engine will produce.
-- **Offline Cream** (offline-wash): the fill of the offline strip and form notices, always with a 1.5 px ink border and an icon.
+- **Rain Blue** (`rain`): the fill of rain bars. All the 7-day rain bars share one scale, and each bar always sits beside its millimetres and probability.
 
 ### Neutral
-- **Paper** (paper): the ground, card and input fill.
-- **Sunk Paper** (paper-sunk): pressed card, hover fill for icon buttons and desktop tabs, skeleton blocks, map ground.
-- **Ink** (ink): text, survey line, primary buttons, title-block rules, tab-bar edge, every informational icon.
-- **Ink Two** (ink-2): secondary text, meta lines, hints, inactive tabs (11:1 on white). **Wait** shares its value for the pending chip.
-- **Card Rule** (rule): the 1 px card border and table/section dividers.
-- **Strong Rule** (rule-strong): input borders (5.3:1), dashed placeholder borders, disabled icon buttons, scrollbar.
+- **Sky Top** (`sky-a`) and **Sky Bottom** (`sky-b`): the two stops of the field gradient (`sky-a` holds to 28%, then fades to `sky-b`). The values in the frontmatter are the default clear-day sky. Nine themes override the pair on `:root[data-sky]`: `dia`, `parcial`, `nublado`, `lluvia`, `tormenta`, `alba`, `noche`, `noche-nublada` and `noche-lluvia` (values in `frontend/src/styles/tokens.css`). `sky-a` of each theme is mirrored in `THEME_COLOR` in `frontend/src/lib/sky.ts` for the browser bar.
+- **Sun Glow** (`glow`): the radial light at the top right of the field. It is warm on clear skies and dawn, cool or barely there at night and under cloud.
+- **Sky Panel** (`panel`): the default surface for panels, secondary buttons, notices and plan cards. It is the sky mixed 70% toward night navy `#04102a`.
+- **Deep Sky Panel** (`panel-deep`): the mobile tab bar, mixed 48% toward night navy.
+- **Lifted Sky Panel** (`panel-hover`): the hover state of panel-coloured controls and the featured plan card.
+- **Panel Line** (`line`) and **Rain Track** (`track`): hairlines and dividers, and the unfilled track of bars, chips, switches and skeletons. Both are white mixed into the panel.
+- **White** (`ink`): all type on the sky and on panels, and the fill of primary buttons, inputs and search.
+- **Sky Ink** (`ink-2`): secondary text such as minimum temperatures, regions, hints and dry days. It is white tinted 12% toward the sky.
+- **Night Ink** (`ink-deep`): text on white controls (primary button, inputs, search, skip link).
+- **Status pairs**: `ok-fill`/`ok-ink`, `crit-fill`/`crit-ink` and `offline-fill`/`offline-ink`. Each is a light fill with its own dark ink and passes AA on its own. They are used for level chips, the error notice and the offline strip.
 
 ### Named Rules
-**The Ink Information Rule.** Information is ink; only controls are blue. The attention icon, pin and info icons, the caveat and the parcel itself are ink. If it is not clickable, it is not survey blue.
+**The Sky Is the Palette Rule.** A new surface colour is mixed from `--sky-a` (or from white into `--panel`), never written as a fixed hex, so it cross-fades with the sky. A fixed fill is allowed only when it carries its own dark ink, as gold and the status pairs do.
 
-**The Pink Mark Rule.** Catastro pink appears as a small filled mark (diamond, pin center, drawing accent), never as text, fill area or state.
+**The One Warm Thing Rule.** Gold marks field verdicts, decisions, the active state, focus and the founder seal. It is never a decorative fill and never a second brand colour on a panel.
 
-**The Never Colour Alone Rule.** A state tone always travels with an icon and an uppercase label inside a chip, and with a distinct hatch in the parcel.
+**The Paired Ink Rule.** Every light fill names its ink (`gold`/`gold-ink`, `ok-fill`/`ok-ink`, `crit-fill`/`crit-ink`, `offline-fill`/`offline-ink`, white/`ink-deep`). White text never sits on a light fill.
 
 ## Typography
 
-**Display Font:** Barlow Semi Condensed (with Arial Narrow, sans-serif), weights 500/600/700, self-hosted via Fontsource.
-**Body Font:** Atkinson Hyperlegible Next (with Atkinson Hyperlegible, system-ui), weights 400/700, self-hosted via Fontsource.
+**Display Font:** Onest (with Atkinson Hyperlegible Next, system-ui)
+**Body Font:** Atkinson Hyperlegible Next (with Atkinson Hyperlegible, system-ui)
 
-**Character:** Condensed uppercase survey lettering labels the plan the way a cadastral sheet does; Atkinson carries every sentence a 60-year-old reads in the sun. Numbers that matter are set in the survey face with tabular figures.
+**Character:** Onest is a modern grotesk. It sets the large numerals light and tight, and the headings semibold. Atkinson Hyperlegible Next carries every sentence and label, chosen for letterforms that stay distinct in glare and for older eyes. Loaded weights: Onest 300/500/600 and Atkinson 400/700.
 
 ### Hierarchy
-- **Display** (700, 3rem, 1): tonight's minimum on the lote detail, the one number the screen exists for.
-- **Headline** (700, 2rem, 1.05, uppercase): the lote name on the detail title block.
-- **Title** (700, 1.75rem, 1.05, uppercase): page titles ("Mis lotes", "Perfil", "Alertas", form titles); 2.25rem on auth screens. Empty-state and placeholder titles step down to 1.5rem and 1.375rem in the same style.
-- **Reading** (700, 1.5rem, 1, tabular): the temperature on a lote card.
-- **Body Strong** (700, 1.125rem, 1.25): lote card names, "Mínima esta noche a 2 m", establishment name.
-- **Body** (400, 17px, 1.45): all running text; field labels are the same size in 700.
-- **Body Small** (400, 16px): hints, fine print; the floor for any reading text.
-- **Button** (700, 1.1875rem, 0.06em, uppercase): every button label.
-- **Label** (700, 16px, 0.06em, uppercase): section heads ("Datos del lote"), chips, model names.
-- **Meta** (500, 16px, 0.04em, uppercase): the TOWN · CROP · HA line under a lote name.
+- **Display** (Onest 300, clamp(5.5rem, 26vw, 6rem), line-height 0.95, -0.04em, tabular numerals): the current temperature in the hero only.
+- **Headline** (Onest 600, 2rem, 1.15, -0.02em): page titles. Headings use `text-wrap: balance`.
+- **Title** (Onest 600, 1.125rem, 1.15): panel titles. The condition line under the temperature uses Onest 500 at 1.375rem, and the 7-day rain figures use Onest with tabular numerals.
+- **Verdict** (Atkinson 700, 1.125rem, 1.35): the field-verdict sentence inside the gold pill.
+- **Body** (Atkinson 400, 1.0625rem / 17 px, 1.45): all running text, with `text-wrap: pretty` on paragraphs.
+- **Label** (Atkinson 700, 1rem / 16 px): buttons, chips, level chips, the offline strip and the active tab. The inactive tab label uses 400 at the same size.
 
 ### Named Rules
-**The Survey Lettering Rule.** Uppercase belongs to the survey face only: titles, labels, chips, buttons, tabs, meta lines. Sentences are never uppercase and never condensed.
+**The 16 px Floor Rule.** Nothing is set below `--text-small` (1rem), tab labels and fine print included.
 
-**The Sixteen Floor Rule.** No reading text below 16 px on any viewport; on desktop the card meta, chip, caveat and waiting text step up to 17 px.
+**The Tabular Figures Rule.** Every figure that is compared or scanned (temperatures, ranges, mm, prices, founder numbers) uses `font-variant-numeric: tabular-nums`.
+
+**The Sentence Case Rule.** The system has no uppercase labels and no tracked-out small caps. Labels are set in sentence case and gain emphasis through weight.
 
 ## Layout
 
-Mobile-first from a 390 px baseline. Content sits in a single 640 px column (`page`) with a gutter of 16 px, 24 px from 600 px, and 40 px from 960 px. The spacing rhythm runs on 4 px steps (4, 8, 12, 16, 20, 24): card lists gap 10 px, form fields 20 px, sections 24 px.
+The layout is mobile-first and single-column at 390 px. Content lives in a centred column (max 1180 px) with a gutter that grows from 16 px to 24 px at 600 px and to 40 px at 960 px. Below 960 px a fixed four-tab bar (Clima, Lotes, Alertas, Perfil, 68 px plus the safe area) sits at the bottom, and the main column reserves its height plus 32 px. At 960 px and above the tab bar becomes a sticky, transparent top bar with the brand mark, and the forecast splits into two columns (5fr / 7fr). Grids of cards go to two columns at 760 px, and to three for plans.
 
-On phones a fixed bottom tab bar (68 px, 2 px ink top edge) holds three tabs: Lotes, Alertas, Perfil. The primary "Agregar lote" button docks above it on a paper fade, full width up to 608 px. From 960 px the tab bar becomes a 240 px sticky left rail with a 2 px ink right edge and the wordmark; the dock joins the page title block; the lote list becomes an auto-fill grid of cards at least 400 px wide, inside a 1120 px main area.
-
-A lote card is a three-column grid (80 px parcel, identity, 20 px chevron) over a full-width reading row, so the reading never wraps beside the drawing. The detail hero pairs a 140 px parcel (200 px from 600 px) with the titles. Scroll padding keeps focused fields clear of the tab bar and dock.
+The rhythm is 16 px: panel padding, gaps between forecast blocks and the 16 px gutter. Sections are separated by 24 px. Plan cards use 20 px padding. The hour strip scrolls horizontally inside its panel rather than widening the page.
 
 ## Elevation & Depth
 
-Flat paper. Depth is drawn with line, not light: 1 px rules for cards, 1.5 px ink borders for notices, 2 px ink edges for the tab bar, 3 px plus a 1 px second rule for title blocks. The only shadow is a soft lift on a hovered lote card (desktop pointer), paired with the border darkening to ink. The title-block double rule is built with box-shadow, but it is a rule, not elevation.
+Depth comes mostly from tone. Panels are flat, solid steps darker than the sky, and there is no border, blur or translucency. Shadows are soft, low-contrast navy (`rgb(2 8 24 / …)`). They appear in two places: under the light elements that float on the sky (primary button, search, verdict pill), and on the chrome that overlays content (the mobile tab bar, map controls). Inset rings stand in for borders: a 2 px white-mixed ring on secondary buttons and pending chips, and a 2 px gold ring on the featured plan.
 
 ### Shadow Vocabulary
-- **Card hover lift** (`box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -6px rgb(0 0 0 / 0.14)`): hovered lote card only.
-- **Title-block second rule** (`border-bottom: 3px solid ink; box-shadow: 0 3px 0 paper, 0 4px 0 ink`): page heads, the detail head and the auth brand.
+- **Float** (`box-shadow: 0 10px 28px rgb(2 8 24 / 0.25)`): the verdict pill and the search field, the two light objects that lead the screen.
+- **Lift** (`box-shadow: 0 6px 18px rgb(2 8 24 / 0.22)`): the white primary button.
+- **Bar** (`box-shadow: 0 -8px 24px rgb(2 8 24 / 0.22)`): the fixed mobile tab bar, cast upward over scrolling content.
+- **Featured** (`box-shadow: inset 0 0 0 2px var(--gold), 0 10px 28px rgb(2 8 24 / 0.28)`): the recommended plan card.
+- **Control Ring** (`box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 55%, var(--panel))`): secondary buttons and pending chips.
 
 ### Named Rules
-**The Drawn Depth Rule.** Surfaces are flat at rest; hierarchy comes from rule weight (1 / 1.5 / 2 / 3+1 px). Shadow appears only as a hover response on a card that is a link.
+**The Solid Panel Rule.** Panels are opaque tints of the sky. No `backdrop-filter`, no glass, no translucent white cards.
+
+**The Light Floats Rule.** Only light-filled elements on the sky (white controls, gold) cast a drop shadow. Sky-tinted panels stay flat.
 
 ## Shapes
 
-Gently rounded containers on a plan of hard survey line. Cards, the tonight panel, the map frame and confirmations use 12 px; buttons, inputs, icon buttons, notices and desktop tabs 8 px; chips 6 px; the active tab's icon pill 16 px. The parcel drawing itself is the opposite: mitered corners, 2.6 px ink stroke, a square-cornered number stamp, a filled north arrow. The map frame carries a faint 45° hatch over sunk paper, echoing the parcel.
-
-**The Dashed Means Not-Yet Rule.** A dashed edge means "no data yet", never decoration: a parcel without forecast (no hatch, 7/5 dash), the "Sin datos aún" chip, the pending tonight panel, the loading skeleton card, the Phase 1 placeholder.
+The shapes are soft and generous, in three radii and a pill. Panels, notices, plan cards and the verdict pill use 20 px. Buttons, the offline strip, the founder banner and the skip link use 14 px. Inputs use 12 px. Chips, level chips, badges, rain bars and switches are full pills (999 px), and icon buttons are circles. Borders are not used; inset rings or tone separate things instead. The active-tab bar is a 4 px gold bar with its bottom corners rounded.
 
 ## Components
 
 ### Buttons
-Tactile, uppercase and unambiguous; one black action per screen.
-- **Shape:** gently rounded (8 px), 52 px tall, 2 px border, survey-face label with an optional leading icon.
-- **Primary:** ink fill, white label; hover deepens to #2e2e2c. Used for "Agregar lote", form submit, auth.
-- **Secondary:** paper with a 2 px survey-blue border and blue label; hover fills with survey-blue wash. Used for "Editar lote".
-- **Danger / Danger solid:** crit outline for "Borrar lote"; solid crit (hover #820016) only for the confirming delete.
-- **Press / Disabled:** scale to 0.96 over 120 ms on press; disabled at 60% opacity.
+Big, quiet and thumb-sized.
+- **Shape:** 14 px corners, 52 px minimum height, 20 px horizontal padding, Atkinson 700 at 17 px.
+- **Primary:** a white fill with Night Ink text and the Lift shadow. It is the one bright control on the sky.
+- **Secondary:** a Sky Panel fill, white text and a 2 px white-mixed inset ring. Hover lifts the fill to Lifted Sky Panel.
+- **Danger:** transparent with a 2 px coral inset ring and white text. **Danger solid:** a deep red fill with white text.
+- **States:** press scales to 0.96 over 120 ms. Disabled is 60% opacity. Focus is the global 3 px gold outline at a 3 px offset.
 
-### Chips
-- **Style:** transparent fill, 1.5 px border in currentColor, 16 px stroked icon plus uppercase label in the survey face.
-- **State:** tone sets the color (ink, wait, crit, caut, ok); pending switches the border to dashed with a clock icon. Phase 1 shows "Pronóstico" (thermometer, ink) and "Sin datos aún" (clock, dashed).
+### Field Verdict Pill (signature)
+The "Para el campo" pill is the one gold object on the sky. It is a full-width button with 20 px corners, a gold fill and Gold Ink text. Its head is in Onest 600 at 16 px and its verdict sentence in Atkinson 700 at 18 px (for example "Jueves llueve 12 mm: no entres con la sembradora"). It casts the Float shadow and has a chevron that rotates on expand. Its focus outline turns white so it stays visible against gold. When expanded, a Sky Panel opens below with the other decisions and the reasons behind them, revealed in 200 ms.
+
+### Level Chips and Chips
+- **Level chips:** a pill with an icon and a word on a light fill: `ok-fill`/`ok-ink`, gold/`gold-ink` for caution, and `crit-fill`/`crit-ink` for critical. Atkinson 700 at 16 px. The word and the icon carry the meaning, and the fill confirms it.
+- **Chips:** a pill on Rain Track with white text. The pending variant is transparent with the Control Ring.
 
 ### Cards / Containers
-- **Corner Style:** 12 px.
-- **Background:** paper; sunk paper while pressed.
-- **Shadow Strategy:** flat; hover lift only (see Elevation).
-- **Border:** 1 px card rule, darkening to ink on hover; dashed for skeletons.
-- **Internal Padding:** 12 px for lote cards, 16 px for the tonight panel.
+- **Corner Style:** 20 px.
+- **Background:** Sky Panel. The featured plan uses Lifted Sky Panel with the Featured shadow.
+- **Shadow Strategy:** flat (see Elevation & Depth).
+- **Border:** none. A lote's decisions panel carries a 4 px gold inset bar along its top edge.
+- **Internal Padding:** 16 px, or 20 px on plan cards.
 
 ### Inputs / Fields
-- **Style:** 52 px, 1.5 px strong-rule border, 8 px radius, paper fill, 17 px text; bold label above, 16 px ink-2 hint below with example values. Placeholders stay empty of fake data.
-- **Focus:** border turns survey blue plus the global 3 px survey-blue outline at 1 px offset; hover darkens the border to ink.
-- **Error:** 2 px crit border with a bold crit message led by an icon; form-level errors use the crit-washed alert box with a 2 px crit border.
+- **Style:** a white fill, Night Ink text, 12 px corners, 52 px height, 14 px padding and 17 px text. The search field is taller (58 px, 19 px text) and floats with the Float shadow.
+- **Focus:** the 3 px gold outline at a 2 px offset. The search field shows it on `:focus-within`.
+- **Error:** a 3 px red inset ring, plus a field-error line with an icon and text below.
 
 ### Navigation
-Three uppercase survey-face tabs (Lotes, Alertas, Perfil), ink-2 at rest. The active tab turns ink, bold, and its icon sits in a 56 x 32 survey-blue pill with a white glyph. Back navigation is a bold blue text link with a chevron, at least 44 px tall. Pronóstico joins as a fourth tab only when its screen exists.
+On mobile, four equal tabs sit on Deep Sky Panel, each with an icon above a 16 px label in Sky Ink. The active tab turns white, bold (700), and gets a 4 px gold bar on its top edge, so it is never marked by colour alone. At 960 px and above the bar is transparent, the tabs sit in a row with the icon beside the label, the gold bar moves under the label, and the brand mark sits at the left.
 
-### Parcel Outline (signature)
-Each lote drawn as a surveyed parcel in a 120 x 108 viewBox: the field's real boundary when known, otherwise a seeded quadrilateral; 2.6 px mitered ink stroke; hatch fill by severity; a white square stamp holding the parcel number alone in the survey face (34 px, 26 px when longer than two characters); a filled north arrow with "N" in the corner. The area is never stamped; it stays in the meta line. Phase 1 renders the `none` hatch (ink, 1.8 px, 45°, at least 3:1) and the pending form (white fill, dashed outline). It always carries an accessible label naming the parcel and its state.
-
-### Tonight Panel
-The detail's reading: a 1 px ruled 12 px card with the chip, the bold question, the display-size value, and the bold ink caveat (max 40ch) directly beneath. Model values sit behind a blue "Ver modelos" disclosure whose chevron rotates 90° over 200 ms; the forecast time sits in fine print below.
+### Rain Bars
+A 10 px pill track in Rain Track with a Rain Blue fill. All 7 days share one scale. The millimetres sit to the right in bold Onest with tabular numerals, and dry days drop to Sky Ink at weight 400.
 
 ### Offline Strip and Notices
-Cream fill, 1.5 px ink border, 8 px radius, bold text with an icon, at least 48 px tall; shows when the server produced the data, never the fetch time.
+The offline strip uses a warm cream fill with dark ink, 14 px corners, Atkinson 700 at 16 px and an icon. Notices are Sky Panel blocks with 20 px corners. The error notice switches to the `crit-fill`/`crit-ink` pair, and its button becomes `crit-ink` with white text.
 
-### Empty State
-The gaucho's one appearance: an ink line drawing with pink marks, an uppercase survey-face title, a 34ch ink-2 sentence and the primary action, rising in with a 60 ms stagger (420 ms, ease-out).
+### Switch
+A 52 by 32 px pill on Rain Track with the Control Ring and a white thumb. When on, the track turns gold and the thumb turns Gold Ink. The hit area extends to 44 px without changing what is drawn.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** draw every lote as a parcel outline with its number stamp and north tick, hatched by severity.
-- **Do** close every page head with the double title-block rule (3 px ink, 1 px gap, 1 px ink).
-- **Do** set titles, labels, chips, buttons, tabs and meta lines in uppercase Barlow Semi Condensed, and every sentence in Atkinson Hyperlegible Next.
-- **Do** put a reading's caveat in ink, bold, directly beside the value it qualifies.
-- **Do** pair every state color with an icon and a label; use a dashed edge for "no data yet".
-- **Do** keep touch targets at 44 px or more (buttons and inputs are 52 px) and reading text at 16 px or more.
-- **Do** keep motion short (120 to 200 ms, cubic-bezier(0.2, 0, 0, 1)) and honor reduced motion.
+- **Do** mix every new surface from the sky: `color-mix(in srgb, var(--sky-a) N%, #04102a)` for panels, or white into `var(--panel)` for lines and tracks.
+- **Do** keep white type on the sky and panels, and give every light fill its paired dark ink (`gold-ink`, `ok-ink`, `crit-ink`, `offline-ink`, `ink-deep`).
+- **Do** keep a new sky theme as a `--sky-a`/`--sky-b`/`--glow` triple in `tokens.css`, mirror its `--sky-a` in `THEME_COLOR` in `sky.ts`, and check white on `sky-a` for ≥ 5.4:1.
+- **Do** pair every state with an icon, a word or a weight change, as the active tab (gold bar plus weight 700) and the level chips (icon plus word) do.
+- **Do** keep targets at 44 px or more, growing the hit area with a pseudo-element when the drawn shape is smaller (switch, founder badge).
+- **Do** use tabular numerals for every figure that is compared.
+- **Do** let the sky cross-fade over `--dur-sky` (1600 ms) and keep it static under `prefers-reduced-motion`.
 
 ### Don't:
-- **Don't** use survey blue for anything that is not interactive; information icons are ink.
-- **Don't** set text, fills or state in catastro pink.
-- **Don't** use grey below ink-2 for reading text, or washed hatches under 3:1.
-- **Don't** convey a state by color alone, or stamp the area inside the parcel.
-- **Don't** add a navigation tab for a screen that does not exist yet.
-- **Don't** add shadows to resting surfaces; depth is rule weight.
+- **Don't** use glassmorphism, `backdrop-filter` or translucent white panels. Panels are solid.
+- **Don't** spend gold on decoration or as a second panel colour. It marks the field verdict, decisions, the active state, focus and the founder seal.
+- **Don't** set any text below 16 px, and don't lower contrast for elegance (light grey on light, white on gold).
+- **Don't** use uppercase labels, eyebrows or tracked small caps above headings.
+- **Don't** write fixed hex colours in component CSS when a token exists. Drift found in `frontend/src/styles/app.css` that needs fixing (not yet tokenized): `#ff6a4d` on the danger button hover (line 311) and `#ffb3a3` on the account-danger summary text (line 2376). Other untokenized literals of the same kind: `#ff9a85` (danger ring, lines 307 and 1368), `#c2361f` (danger solid, 315), `#e2482b` (input error ring and selected map vertex, 1444 and 1710), `#eef3fb` (primary hover, 289), `#f7c21f` (verdict hover, 596), `#4a5470` (placeholders, 1435 and 1900), and `#1d68c4` as a literal caret colour (1430 and 1895). The 7-day millimetres (`.day-mm`, line 971) ask for weight 700 in Onest, which is not loaded (only 300/500/600), so the browser synthesizes the bold.
