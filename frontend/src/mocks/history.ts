@@ -63,16 +63,29 @@ function demoHour(date: string, hour: number): HistoryHour {
   const wind = round(3 + 14 * breeze + ((seed * 7) % 9));
   const gust = round(wind * 1.6);
   const [level, causes] = rateWind(wind, gust);
+  const temperature = round(18 + 7 * warmth + (seed % 5));
+  const humidity = Math.round(70 - 20 * warmth);
+  // Calm, clear nights invert: warmer at 80 m than near the ground.
+  const night = hour < 7 || hour > 20;
+  const above = round(temperature + (night ? 1.5 : -1.2));
+  const wetBulb = round(temperature - (100 - humidity) / 6);
   return {
     time: `${date}T${String(hour).padStart(2, '0')}:00:00-03:00`,
-    temperature_c: round(18 + 7 * warmth + (seed % 5)),
-    humidity_pct: Math.round(70 - 20 * warmth),
+    temperature_c: temperature,
+    humidity_pct: humidity,
     rain_mm: seed % 6 === 0 && hour >= 15 && hour <= 17 ? 2.4 : 0,
     wind_kmh: wind,
     wind_dir_deg: (seed * 40 + hour * 5) % 360,
     gust_kmh: gust,
     spray_wind: level,
     spray_wind_causes: causes,
+    temperature_80m_c: above,
+    wet_bulb_c: wetBulb,
+    cloud_cover_pct: (seed * 13 + hour * 3) % 100,
+    pressure_hpa: round(1008 + (seed % 9)),
+    radiation_wm2: night ? 0 : Math.round(800 * Math.max(0, warmth)),
+    delta_t_c: round(temperature - wetBulb),
+    inversion: above > temperature,
   };
 }
 
@@ -86,6 +99,8 @@ function summarise(date: string, hours: HistoryHour[]): HistoryDay {
   };
   const temps = values(hours, (h) => h.temperature_c);
   const rain = values(hours, (h) => h.rain_mm);
+  const humidity = values(hours, (h) => h.humidity_pct);
+  const inversions = hours.map((h) => h.inversion).filter((v): v is boolean => v !== null);
   return {
     date,
     temp_max_c: max((h) => h.temperature_c),
@@ -93,6 +108,9 @@ function summarise(date: string, hours: HistoryHour[]): HistoryDay {
     rain_mm: rain.length ? round(rain.reduce((a, b) => a + b, 0)) : null,
     wind_max_kmh: max((h) => h.wind_kmh),
     gust_max_kmh: max((h) => h.gust_kmh),
+    humidity_min_pct: humidity.length ? round(Math.min(...humidity)) : null,
+    delta_t_max_c: max((h) => h.delta_t_c),
+    inversion_hours: inversions.length ? inversions.filter(Boolean).length : null,
     hours: hours.length,
   };
 }

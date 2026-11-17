@@ -152,12 +152,14 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=0, hour="*/6"),
     },
     "archive-smn-observations": {
+        # Hourly: a missed run is caught by the next (auditoria-historico S5).
         "task": "archiver.fetch_smn_observations",
-        "schedule": crontab(minute=0, hour=3),
+        "schedule": crontab(minute=10),
     },
     "archive-history": {
+        # Hourly catch-up; the 04:20 run also revises (history.REVISION_HOUR, S2).
         "task": "archiver.fetch_history",
-        "schedule": crontab(minute=30, hour=4),
+        "schedule": crontab(minute=20),
     },
     "expire-trials": {
         "task": "accounts.expire_trials",
