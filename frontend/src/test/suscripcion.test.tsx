@@ -176,14 +176,8 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     expect(
       within(confirm).getByText('Seguís con el pronóstico, tus lotes, tus reglas y el histórico.'),
     ).toBeInTheDocument();
-    expect(
-      within(confirm).getByText(
-        'Si tenés más de 2 lotes, quedan todos, pero no vas a poder crear nuevos.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(confirm).getByText('Las reglas de alerta después de la 3.ª se pausan.'),
-    ).toBeInTheDocument();
+    // One lote and no rules fit in Básico: only what really changes is listed (perfil-ux S9).
+    expect(within(confirm).queryByText(/^Tenés/)).toBeNull();
     expect(
       within(confirm).getByText(
         'No vas a recibir notificaciones push: te avisamos por email y en la app.',

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type {
   Plan,
@@ -82,21 +82,33 @@ function CurrentPlan({ sub }: { sub: Subscription }) {
 function PendingRequest({
   sub,
   plans,
+  focus,
+  onFocused,
   onWithdrawn,
 }: {
   sub: Subscription;
   plans: Plan[] | undefined;
+  /** Just asked for: the button that sent it is gone or disabled, so focus lands here. */
+  focus: boolean;
+  onFocused: () => void;
   onWithdrawn: () => void;
 }) {
   const withdraw = useWithdrawPlanRequest();
   const titleId = useId();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const pending = sub.pending_request;
+  useEffect(() => {
+    if (focus && pending && headingRef.current) {
+      headingRef.current.focus();
+      onFocused();
+    }
+  }, [focus, pending, onFocused]);
   if (!pending) return null;
   const target =
     pending.kind === 'cancel' ? planName(plans, 'basico') : planName(plans, pending.plan!);
   return (
     <section className="panel sub-pending" aria-labelledby={titleId}>
-      <h2 className="panel-title" id={titleId}>
+      <h2 className="panel-title" id={titleId} ref={headingRef} tabIndex={-1}>
         <Icon name="clock" size={22} strokeWidth={2.2} />
         Pedido pendiente
       </h2>
@@ -118,16 +130,45 @@ function PendingRequest({
   );
 }
 
-/** Moving down to Básico: said plainly before it is asked for (S4 rules on a downgrade). */
+/** "Tenés 5 lotes y Básico permite 2: …", only for a limit the account goes over. */
+function losses(basico: Plan, usage: Subscription['usage']): string[] {
+  const lines: string[] = [];
+  const maxLotes = basico.max_lotes;
+  if (maxLotes !== null && usage.lotes > maxLotes) {
+    lines.push(
+      `Tenés ${usage.lotes} lotes y ${basico.name} permite ${maxLotes}: quedan todos, pero no vas a poder crear nuevos.`,
+    );
+  }
+  const maxRules = basico.max_alert_rules;
+  if (maxRules !== null && usage.alert_rules > maxRules) {
+    lines.push(
+      `Tenés ${usage.alert_rules} reglas de alerta y ${basico.name} permite ${maxRules}: se pausan las que pasan de ${maxRules}.`,
+    );
+  }
+  if (!basico.allows_push) {
+    lines.push('No vas a recibir notificaciones push: te avisamos por email y en la app.');
+  }
+  return lines;
+}
+
+/**
+ * Moving down to Básico: said plainly before it is asked for (S4 rules on a downgrade), from the
+ * account's own numbers. On a trial it ends the trial early, and says so (perfil-ux S9). Focus
+ * follows the question and comes back to the button on "Mejor no" (perfil-ux S8).
+ */
 function CancelPlan({
   basico,
   current,
+  usage,
+  trial,
   founderNumber,
   disabled,
   onConfirm,
 }: {
   basico: Plan;
   current: Plan;
+  usage: Subscription['usage'];
+  trial: boolean;
   /** A founder keeps the number on Básico (plans.change_plan) and can ask to come back. */
   founderNumber: number | null;
   disabled: boolean;
@@ -135,24 +176,38 @@ function CancelPlan({
 }) {
   const [asking, setAsking] = useState(false);
   const titleId = useId();
+  const questionRef = useRef<HTMLParagraphElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const backToButton = useRef(false);
+
+  useEffect(() => {
+    if (asking) questionRef.current?.focus();
+    else if (backToButton.current) {
+      backToButton.current = false;
+      buttonRef.current?.focus();
+    }
+  }, [asking]);
 
   if (!asking) {
     return (
       <button
+        ref={buttonRef}
         type="button"
         className="btn btn--danger btn--block"
         disabled={disabled}
         onClick={() => setAsking(true)}
       >
-        Darme de baja
+        {trial ? 'Terminar la prueba ahora' : 'Darme de baja'}
       </button>
     );
   }
+  const lost = losses(basico, usage);
   return (
     <div className="confirm sub-cancel" role="group" aria-labelledby={titleId}>
-      <p id={titleId} className="confirm-text">
-        ¿Pasar al plan {basico.name}?
+      <p id={titleId} ref={questionRef} tabIndex={-1} className="confirm-text">
+        {trial ? `¿Terminar la prueba y pasar a ${basico.name}?` : `¿Pasar al plan ${basico.name}?`}
       </p>
+      {trial ? <p>La prueba termina ahora, sin esperar al último día.</p> : null}
       <p>Seguís con el pronóstico, tus lotes, tus reglas y el histórico.</p>
       {founderNumber !== null ? (
         <p>
@@ -160,20 +215,13 @@ function CancelPlan({
           pedís desde acá.
         </p>
       ) : null}
-      <ul className="sub-cancel-losses">
-        {basico.max_lotes !== null ? (
-          <li>
-            Si tenés más de {basico.max_lotes} lotes, quedan todos, pero no vas a poder crear
-            nuevos.
-          </li>
-        ) : null}
-        {basico.max_alert_rules !== null ? (
-          <li>Las reglas de alerta después de la {basico.max_alert_rules}.ª se pausan.</li>
-        ) : null}
-        {!basico.allows_push ? (
-          <li>No vas a recibir notificaciones push: te avisamos por email y en la app.</li>
-        ) : null}
-      </ul>
+      {lost.length ? (
+        <ul className="sub-cancel-losses">
+          {lost.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
       <div className="confirm-actions">
         <button
           type="button"
@@ -184,9 +232,16 @@ function CancelPlan({
             onConfirm();
           }}
         >
-          Sí, pedir la baja
+          {trial ? 'Sí, terminar la prueba' : 'Sí, pedir la baja'}
         </button>
-        <button type="button" className="btn btn--secondary" onClick={() => setAsking(false)}>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={() => {
+            backToButton.current = true;
+            setAsking(false);
+          }}
+        >
           Mejor no
         </button>
       </div>
@@ -199,11 +254,13 @@ function ChangePlan({
   plans,
   saved,
   onSaved,
+  onRequested,
 }: {
   sub: Subscription;
   plans: Plan[] | undefined;
   saved: string | null;
   onSaved: (message: string | null) => void;
+  onRequested: () => void;
 }) {
   const request = useRequestPlan();
   const blocked = request.isPending || sub.pending_request !== null;
@@ -211,7 +268,12 @@ function ChangePlan({
   const basico = plans?.find((p) => p.code === 'basico');
   const ask = (input: PlanRequestInput) => {
     onSaved(null);
-    request.mutate(input, { onSuccess: () => onSaved('Le pasamos tu pedido al equipo.') });
+    request.mutate(input, {
+      onSuccess: () => {
+        onSaved('Le pasamos tu pedido al equipo.');
+        onRequested();
+      },
+    });
   };
 
   return (
@@ -276,6 +338,8 @@ function ChangePlan({
         <CancelPlan
           basico={basico}
           current={sub.plan}
+          usage={sub.usage}
+          trial={sub.status === 'trial'}
           founderNumber={sub.status === 'founder' ? sub.founder_number : null}
           disabled={blocked}
           onConfirm={() => ask({ kind: 'cancel' })}
@@ -307,6 +371,8 @@ export function Suscripcion() {
   const sub = useSubscription();
   const plans = usePlans();
   const [saved, setSaved] = useState<string | null>(null);
+  const [focusPending, setFocusPending] = useState(false);
+  const focused = useCallback(() => setFocusPending(false), []);
   const data = sub.data;
 
   return (
@@ -329,9 +395,17 @@ export function Suscripcion() {
           <PendingRequest
             sub={data}
             plans={plans.data?.plans}
+            focus={focusPending}
+            onFocused={focused}
             onWithdrawn={() => setSaved('Retiramos tu pedido.')}
           />
-          <ChangePlan sub={data} plans={plans.data?.plans} saved={saved} onSaved={setSaved} />
+          <ChangePlan
+            sub={data}
+            plans={plans.data?.plans}
+            saved={saved}
+            onSaved={setSaved}
+            onRequested={() => setFocusPending(true)}
+          />
           <Section title="Historial">
             {data.history.length ? (
               <ol className="timeline" aria-label="Cambios de plan">
