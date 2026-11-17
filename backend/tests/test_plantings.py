@@ -269,3 +269,18 @@ def test_data_migration_moves_crops_both_ways(make_user):
         assert BackLote.objects.get(id=bare.id).sowing_date is None
     finally:
         migrate(latest)
+
+
+@pytest.mark.django_db
+def test_patch_item_without_crop_is_refused(auth_client, user):
+    """Independent verification: a partial PATCH must still require each planting's crop."""
+    lote = make_lote(user)
+    Planting.objects.create(lote=lote, crop="soja")
+
+    response = auth_client.patch(
+        f"{URL}{lote.id}/", {"plantings": [{"crop": "maiz"}, {"area_ha": "5"}]}, format="json"
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"plantings": [{}, {"crop": ["Este campo es requerido."]}]}
+    assert stored(lote) == [("soja", None, None)]

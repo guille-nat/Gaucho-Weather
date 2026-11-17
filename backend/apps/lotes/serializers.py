@@ -71,6 +71,15 @@ class PlantingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(NOT_POSITIVE_AREA_MESSAGE)
         return value
 
+    def validate(self, attrs):
+        # On a PATCH of the lote, DRF skips required fields in nested items (it reads
+        # self.root.partial), so the crop each planting needs is checked here.
+        if "crop" not in attrs:
+            raise serializers.ValidationError(
+                {"crop": [self.fields["crop"].error_messages["required"]]}
+            )
+        return attrs
+
 
 class LoteListSerializer(serializers.ListSerializer):
     def to_representation(self, data):

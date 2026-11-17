@@ -244,7 +244,7 @@ function validatePlantings(value: unknown): unknown[] | string[] | null {
       errors.crop = [`"${crop}" no es una elección válida.`];
     const area = item?.area_ha;
     if (area !== undefined && area !== null && !(Number(area) > 0))
-      errors.area_ha = ['Asegúrese de que este valor sea mayor a 0.'];
+      errors.area_ha = ['Tiene que ser mayor que 0.'];
     return errors;
   });
   return items.some((errors) => Object.keys(errors).length) ? items : null;
