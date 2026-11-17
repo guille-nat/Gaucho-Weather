@@ -116,3 +116,10 @@ Route evidence: the Writer trigger fires on the context backstop (the parent ses
     - `npx vitest run`: 27 files, 251 passed (no flakes);
     - `eslint src`: clean; `prettier --check src`: clean;
     - `tsc -b`: only the 12 pre-existing `src/sw.ts` errors.
+- **L6** (2026-11-17): independent verification of 9a4f707 in a scratch copy, with a throwaway Postgres container on its own network.
+  - Verdicts: S1–S6 PASS, no blockers. The after suite has 491 passed and the baseline 475. 12 extra probes passed. Migration 0003 was applied over 0002 rows and left them unchanged.
+  - Advisories, open as follow-ups:
+    1. `backfill_history` on lote creation still sends one 91-day request, not chunked (as at the baseline).
+    2. A cell whose provider answers return only nulls would re-request 90 days every hour (out of domain for land cells).
+    3. The upsert can overwrite a stored value with null when the provider later returns null for one variable (as at the baseline, but the hourly overlap now rewrites yesterday every hour). The fix candidate is per-column COALESCE on conflict.
+    4. SMN now downloads 72 times a day, a public free source; it retries sooner but is no fresher.
