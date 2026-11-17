@@ -980,13 +980,22 @@
   padding-right: 16px;
 }
 
+/*
+ * The start of a new day runs down the whole strip (header and every band): a solid line and
+ * extra room before the first hour, and the day's name set above its hour, so today and tomorrow
+ * read apart at a glance.
+ */
 .hours-table .is-new-day {
-  box-shadow: inset 2px 0 0 var(--line);
+  padding-left: 14px;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #fff 70%, var(--panel));
 }
 
 .hours-day {
+  display: block;
   color: #fff;
+  font-family: var(--font-body);
   font-weight: 700;
+  font-size: var(--text-small);
 }
 
 .hours-temp td {

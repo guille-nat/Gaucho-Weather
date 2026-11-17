@@ -135,6 +135,21 @@ describe('Inicio: the weather first, no account needed', () => {
     await waitFor(() => expect(document.documentElement.dataset.sky).toBe('dia'));
   });
 
+  it('marks where a new day starts in every row of the hours, not only the header', async () => {
+    stubGeolocation(CASILDA);
+    renderApp('/', createMockDb({ user: null }));
+
+    const table = await screen.findByRole('table', { name: 'Próximas horas' });
+    const rows = within(table).getAllByRole('row');
+    const newDayColumns = (row: HTMLElement) =>
+      [...row.children].flatMap((cell, i) => (cell.classList.contains('is-new-day') ? [i] : []));
+    const header = newDayColumns(rows[0]!);
+    // 10 h to 9 h two days later: midnight twice.
+    expect(header).toHaveLength(2);
+    for (const row of rows) expect(newDayColumns(row)).toEqual(header);
+    expect(rows[0]!.children[header[0]!]).toHaveTextContent('Mañana 0 h');
+  });
+
   it('saves a recent place with its star and lists it under Guardados', async () => {
     stubGeolocation('denied');
     const { user } = renderApp('/', createMockDb({ user: null }));

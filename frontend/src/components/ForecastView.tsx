@@ -341,6 +341,11 @@ function Hours({ forecast }: { forecast: Forecast }) {
   // A new place has no ensemble: no probability at all, so the row goes instead of filling dashes.
   const withProbability = hours.some((h) => h.rain_probability_pct !== null);
   const today = forecast.daily[0]?.date ?? '';
+  // The first hour of each new day, marked in every row so the day change runs down the whole
+  // strip, not only through the header.
+  const newDay = hours.map((hour, i) => i > 0 && formatHour(hour.time) === '0\u00a0h');
+  const cell = (i: number, extra?: string) =>
+    [newDay[i] ? 'is-new-day' : '', extra ?? ''].filter(Boolean).join(' ') || undefined;
   return (
     <section className="panel hours" aria-labelledby={titleId}>
       <h2 id={titleId} className="panel-title">
@@ -358,10 +363,9 @@ function Hours({ forecast }: { forecast: Forecast }) {
               <td />
               {hours.map((hour, i) => {
                 const label = i === 0 ? 'Ahora' : formatHour(hour.time);
-                const midnight = i > 0 && label === '0\u00a0h';
                 return (
-                  <th key={hour.time} scope="col" className={midnight ? 'is-new-day' : undefined}>
-                    {midnight ? (
+                  <th key={hour.time} scope="col" className={cell(i)}>
+                    {newDay[i] ? (
                       <span className="hours-day">
                         {formatDayShort(hour.time.slice(0, 10), today)}{' '}
                       </span>
@@ -377,16 +381,18 @@ function Hours({ forecast }: { forecast: Forecast }) {
           <tbody className="hours-band hours-band--temp">
             <tr className="hours-temp">
               <RowHead icon="thermometer" short="°C" name="Temperatura" />
-              {hours.map((h) => (
-                <td key={h.time}>{formatDegrees(h.temperature_c)}</td>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
+                  {formatDegrees(h.temperature_c)}
+                </td>
               ))}
             </tr>
           </tbody>
           <tbody className="hours-band hours-band--rain">
             <tr>
               <RowHead icon="rain" short="mm" name="Lluvia (mm)" />
-              {hours.map((h) => (
-                <td key={h.time} className={h.rain_mm ? 'is-wet' : undefined}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i, h.rain_mm ? 'is-wet' : undefined)}>
                   {formatOneDecimal(h.rain_mm)}
                 </td>
               ))}
@@ -394,8 +400,8 @@ function Hours({ forecast }: { forecast: Forecast }) {
             {withProbability ? (
               <tr>
                 <RowHead icon="drop" short="%" name="Probabilidad de lluvia" />
-                {hours.map((h) => (
-                  <td key={h.time}>
+                {hours.map((h, i) => (
+                  <td key={h.time} className={cell(i)}>
                     {/* A small bar under the figure: the chance of rain readable at a glance. */}
                     <span
                       className="hours-prob"
@@ -411,16 +417,16 @@ function Hours({ forecast }: { forecast: Forecast }) {
           <tbody className="hours-band hours-band--wind">
             <tr>
               <RowHead icon="wind" short="km/h" name="Viento (km/h)" />
-              {hours.map((h) => (
-                <td key={h.time}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
                   {formatOneDecimal(h.wind_kmh === null ? null : Math.round(h.wind_kmh))}
                 </td>
               ))}
             </tr>
             <tr>
               <RowHead icon="wind" short="ráf." name="Ráfagas (km/h)" />
-              {hours.map((h) => (
-                <td key={h.time}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
                   {formatOneDecimal(h.gust_kmh === null ? null : Math.round(h.gust_kmh))}
                 </td>
               ))}
