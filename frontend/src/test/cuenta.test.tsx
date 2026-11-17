@@ -22,7 +22,7 @@ describe('Cuenta en Perfil (S5)', () => {
     expect(within(plan).getByText('Productor')).toBeInTheDocument();
     expect(within(plan).getByText('Founder n.º 7 · gratis para siempre')).toBeInTheDocument();
     expect(within(plan).getByText('1 de 15 lotes')).toBeInTheDocument();
-    expect(within(plan).getByRole('link', { name: 'Ver planes' })).toHaveAttribute(
+    expect(within(plan).getByRole('link', { name: 'Comparar planes' })).toHaveAttribute(
       'href',
       '/planes',
     );

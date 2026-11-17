@@ -66,10 +66,10 @@ function PlanSection({ me }: { me: User }) {
       </p>
       <div className="account-links">
         <Link className="account-link" to="/perfil/suscripcion">
-          Administrar suscripción
+          Cambiar de plan
         </Link>
         <Link className="account-link" to="/planes">
-          Ver planes
+          Comparar planes
         </Link>
       </div>
     </Section>
@@ -373,7 +373,13 @@ function PasswordForm() {
   );
 }
 
-function BorrarSection({ onDeleted }: { onDeleted: () => void }) {
+function BorrarSection({
+  founderNumber,
+  onDeleted,
+}: {
+  founderNumber: number | null;
+  onDeleted: () => void;
+}) {
   const [password, setPassword] = useState('');
   const remove = useMutation({ mutationFn: deleteAccount, onSuccess: onDeleted });
 
@@ -386,10 +392,11 @@ function BorrarSection({ onDeleted }: { onDeleted: () => void }) {
     <Section title="Borrar cuenta">
       <details className="account-danger">
         <summary>Quiero borrar mi cuenta</summary>
-        <p>
-          Borramos tu cuenta, tus lotes y tus alertas. No se puede deshacer. Si sos founder, tu
-          lugar no vuelve a quedar libre.
-        </p>
+        <p>Borramos tu cuenta, tus lotes y tus alertas. No se puede deshacer.</p>
+        {founderNumber !== null ? (
+          // plans.py: a founder slot is never handed out twice, even after a delete.
+          <p>Dejás de ser founder n.º {founderNumber}, y ese lugar no se le da a nadie más.</p>
+        ) : null}
         <form className="form account-form" onSubmit={submit} noValidate>
           <PasswordField
             label="Tu contraseña"
@@ -475,7 +482,12 @@ export function Perfil() {
         Al salir borramos de este teléfono los datos de tu cuenta guardados para usar sin conexión.
         El pronóstico de los lugares que buscaste queda.
       </p>
-      {me.data ? <BorrarSection onDeleted={() => leave('deleted')} /> : null}
+      {me.data ? (
+        <BorrarSection
+          founderNumber={me.data.founder_number ?? null}
+          onDeleted={() => leave('deleted')}
+        />
+      ) : null}
       <p className="credits">{CREDITS}</p>
     </div>
   );

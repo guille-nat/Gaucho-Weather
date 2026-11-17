@@ -121,10 +121,15 @@ function PendingRequest({
 /** Moving down to Básico: said plainly before it is asked for (S4 rules on a downgrade). */
 function CancelPlan({
   basico,
+  current,
+  founderNumber,
   disabled,
   onConfirm,
 }: {
   basico: Plan;
+  current: Plan;
+  /** A founder keeps the number on Básico (plans.change_plan) and can ask to come back. */
+  founderNumber: number | null;
   disabled: boolean;
   onConfirm: () => void;
 }) {
@@ -149,6 +154,12 @@ function CancelPlan({
         ¿Pasar al plan {basico.name}?
       </p>
       <p>Seguís con el pronóstico, tus lotes, tus reglas y el histórico.</p>
+      {founderNumber !== null ? (
+        <p>
+          Seguís siendo founder n.º {founderNumber}: si después querés volver a {current.name}, lo
+          pedís desde acá.
+        </p>
+      ) : null}
       <ul className="sub-cancel-losses">
         {basico.max_lotes !== null ? (
           <li>
@@ -261,7 +272,13 @@ function ChangePlan({
       <FormAlert message={request.error?.message} />
       <Saved message={saved} />
       {basico && sub.plan.code !== 'basico' ? (
-        <CancelPlan basico={basico} disabled={blocked} onConfirm={() => ask({ kind: 'cancel' })} />
+        <CancelPlan
+          basico={basico}
+          current={sub.plan}
+          founderNumber={sub.status === 'founder' ? sub.founder_number : null}
+          disabled={blocked}
+          onConfirm={() => ask({ kind: 'cancel' })}
+        />
       ) : null}
     </Section>
   );
