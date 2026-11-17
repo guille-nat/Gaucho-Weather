@@ -78,9 +78,13 @@
   --gutter: 16px;
   --tabbar-h: 68px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The floating tab bar stands this far above the bottom edge (or the home indicator). */
+  --tabbar-lift: max(var(--safe-bottom), 12px);
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  /* Things that travel or enter (the tab lens, a list row, the forecast reveal). */
+  --ease-glide: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-sky: 1600ms;

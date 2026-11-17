@@ -1,4 +1,11 @@
-import { useId, useState, type ReactNode } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { Forecast, ForecastDay, Level, Sky } from '../api/types';
 import {
   DECISION_TITLE,
@@ -48,6 +55,9 @@ interface ForecastViewProps {
   updating?: boolean;
 }
 
+/** The shortest wait for the forecast that earns an entrance: below it, nobody saw a wait. */
+const REVEAL_AFTER_MS = 120;
+
 export function ForecastView({
   forecast,
   fallback,
@@ -57,9 +67,24 @@ export function ForecastView({
   notice,
   updating,
 }: ForecastViewProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const waitingSince = useRef<number | null>(null);
+  // A forecast that arrives after a wait the farmer could see enters in steps (motion-pass S2).
+  // A wait too short to notice (a cached forecast while the phone finds itself) shows at once, so
+  // returning to Clima does not replay the entrance. Set before paint, outside React's attributes.
+  useLayoutEffect(() => {
+    if (!forecast) {
+      waitingSince.current ??= performance.now();
+      return;
+    }
+    if (waitingSince.current === null) return;
+    const waited = performance.now() - waitingSince.current;
+    waitingSince.current = null;
+    if (waited >= REVEAL_AFTER_MS && root.current) root.current.dataset.reveal = '';
+  }, [forecast]);
   // The header keeps its place in the tree whatever loads below it, so focus and taps survive.
   return (
-    <div className="forecast" aria-busy={updating || undefined}>
+    <div ref={root} className="forecast" aria-busy={updating || undefined}>
       <div className="forecast-head">
         {header}
         {notice}
@@ -415,7 +440,7 @@ function Week({ forecast }: { forecast: Forecast }) {
         Próximos 7 días
       </h2>
       <ul className="week-list" aria-labelledby={titleId}>
-        {days.map((day) => {
+        {days.map((day, index) => {
           const mm = day.rain_mm ?? 0;
           const width = Math.min(100, (mm / scale) * 100);
           return (
@@ -443,7 +468,7 @@ function Week({ forecast }: { forecast: Forecast }) {
                   <span
                     className="rain-fill"
                     data-rain-bar=""
-                    style={{ width: `${Number(width.toFixed(2))}%` }}
+                    style={{ width: `${Number(width.toFixed(2))}%`, '--i': index } as CSSProperties}
                   />
                 </span>
                 <span className={mm > 0 ? 'day-mm' : 'day-mm is-dry'}>{formatMm(day.rain_mm)}</span>

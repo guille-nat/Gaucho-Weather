@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router';
 import type { Place } from '../api/types';
 import { CREDITS } from '../components/ForecastView';
@@ -35,6 +36,19 @@ function PlaceButton({
   );
 }
 
+/** One view-transition name per remembered place, so a starred row travels between the lists. */
+const rowName = (place: Place) =>
+  `place-${Math.round(place.lat * 1e4)}-${Math.round(place.lon * 1e4)}`.replaceAll('-', '_');
+
+/** Stars or unstars a place; where supported, the row travels to its new list (motion-pass S2). */
+function toggleWithTransition(place: Place) {
+  if (!document.startViewTransition) {
+    toggleSaved(place);
+    return;
+  }
+  document.startViewTransition(() => flushSync(() => toggleSaved(place)));
+}
+
 /** A remembered place: pick it, or star it so newer searches never push it out (S8). */
 function RememberedPlace({
   place,
@@ -46,14 +60,14 @@ function RememberedPlace({
   onPick: (p: Place) => void;
 }) {
   return (
-    <div className="place-row">
+    <div className="place-row" style={{ viewTransitionName: rowName(place) } as CSSProperties}>
       <PlaceButton place={place} onPick={onPick} icon={saved ? 'pin' : 'history'} />
       <button
         type="button"
         className="place-star"
         aria-label={`Guardar ${place.name}`}
         aria-pressed={saved}
-        onClick={() => toggleSaved(place)}
+        onClick={() => toggleWithTransition(place)}
       >
         <Icon name="star" size={24} fill={saved ? 'currentColor' : 'none'} />
       </button>

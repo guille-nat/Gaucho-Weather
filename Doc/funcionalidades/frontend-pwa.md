@@ -53,6 +53,17 @@ señal se siguen viendo los últimos datos.
     está en `html`.
   - Mock: `?ahora=sol|parcial|nublado|lluvia|tormenta` fuerza el cielo de esta hora.
     `?cielo=noche&ahora=sol` es una noche estrellada.
+- **Motion** (feature `motion-pass`; reglas completas en `DESIGN.md` › Motion):
+  - Al cambiar de pestaña, la lente de vidrio viaja a la pestaña nueva (`<ViewTransition
+    name="tab-lens">` en `AppShell.tsx`) y la página hace un fundido. Funciona porque
+    `BrowserRouter` envuelve cada navegación en `React.startTransition`. La prop
+    `viewTransition` de `Link` no se usa: está deprecada y no anda con `BrowserRouter`.
+  - El pronóstico entra escalonado solo si la espera se llegó a ver (≥ 120 ms,
+    `REVEAL_AFTER_MS` en `ForecastView.tsx`). Si viene de la caché aparece de una, así que
+    volver a Clima no repite la animación.
+  - Buscar: al marcar la estrella, la fila viaja a "Guardados"
+    (`document.startViewTransition` y `flushSync`).
+  - Diálogos y `details` animados solo con CSS; sin soporte, cambian de golpe.
 - **Errores del pronóstico:** se muestra el `detail` del servidor tal cual (400 "Por
   ahora solo cubrimos Argentina." con botón de búsqueda; 503 con "Reintentar").
 - **Probabilidad de lluvia:** un lugar nuevo no tiene ensamble y llega `null`; se
@@ -328,3 +339,5 @@ señal se siguen viendo los últimos datos.
 - 2026-11-17: cielo animado según el clima de esta hora, con pausa y presupuesto de
   contraste; el cuerpo de la página pasa a ser transparente para que se vea el campo
   del cielo (feature `cielo-animado`).
+- 2026-11-17: barra de pestañas de vidrio líquido y pasada de motion: lente que viaja,
+  entrada del pronóstico, diálogos y acordeones (feature `motion-pass`).

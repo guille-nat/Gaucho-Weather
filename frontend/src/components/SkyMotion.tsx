@@ -50,7 +50,11 @@ export function SkyPause({ forecast }: { forecast: Forecast }) {
       title={label}
       onClick={() => setSkyPaused(!paused)}
     >
-      <Icon name={paused ? 'play' : 'pause'} size={22} strokeWidth={2.2} />
+      {/* Both icons stay in the DOM and cross-fade, so the swap has an exit too. */}
+      <span className="icon-swap" data-shown={paused ? 'play' : 'pause'}>
+        <Icon name="pause" size={22} strokeWidth={2.2} data-icon="pause" />
+        <Icon name="play" size={22} strokeWidth={2.2} data-icon="play" />
+      </span>
     </button>
   );
 }

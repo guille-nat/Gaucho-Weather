@@ -20,20 +20,48 @@
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 var(--gutter) calc(var(--tabbar-h) + var(--safe-bottom) + 32px);
+  padding: 0 var(--gutter) calc(var(--tabbar-h) + var(--tabbar-lift) + 32px);
 }
 
 .shell-main:focus {
   outline: none;
 }
 
+/*
+ * The tab bar is a floating pane of liquid glass (user decision, 2026-11-17): the sky and the
+ * animated weather pass blurred under it. The tint stays at 78 % so labels keep AA even with the
+ * white button or the gold pill underneath (ink-2 ≥ 5.0:1, active white on the lens ≥ 4.9:1).
+ * Without backdrop-filter, or with reduced transparency, it is the solid Deep Sky Panel.
+ */
 .tabbar {
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 12px var(--tabbar-lift);
   z-index: 20;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 6px;
+  border-radius: 28px;
   background: var(--panel-deep);
-  padding-bottom: var(--safe-bottom);
-  box-shadow: 0 -8px 24px rgb(2 8 24 / 0.22);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 12px 32px rgb(2 8 24 / 0.34);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tabbar {
+    background: color-mix(in srgb, var(--panel-deep) 78%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tabbar {
+    background: var(--panel-deep);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .tabbar-brand {
@@ -43,8 +71,7 @@
 .tabbar ul {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  max-width: 560px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .tab {
@@ -70,8 +97,21 @@
   font-weight: 700;
 }
 
-/* The active tab carries a gold bar and a heavier label: never colour alone. */
-.tab.is-active::before {
+/*
+ * The lens: a brighter drop of glass under the active tab, carrying the gold bar, so the active
+ * tab is marked by bar and weight, never colour alone. It is a shared <ViewTransition
+ * name="tab-lens"> (AppShell), so on a tab change it travels from the old tab to the new one.
+ */
+.tab-lens {
+  position: absolute;
+  inset: 6px 2px;
+  z-index: -1;
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+
+.tab-lens::before {
   content: '';
   position: absolute;
   top: 0;
@@ -89,15 +129,13 @@
 @media (min-width: 960px) {
   .tabbar {
     position: sticky;
-    inset: 0 0 auto;
+    inset: 12px 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 var(--gutter);
-    background: transparent;
-    box-shadow: none;
+    max-width: calc(1180px - 2 * var(--gutter));
+    margin: 12px auto 0;
+    padding: 0 8px 0 20px;
   }
 
   .tabbar-brand {
@@ -123,9 +161,13 @@
     padding: 0 14px;
   }
 
-  .tab.is-active::before {
+  .tab-lens {
+    inset: 8px 0;
+  }
+
+  .tab-lens::before {
     top: auto;
-    bottom: 8px;
+    bottom: 4px;
     left: 14px;
     right: 14px;
     border-radius: 4px;
@@ -1293,7 +1335,7 @@
 
 .dock {
   position: sticky;
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px);
+  bottom: calc(var(--tabbar-h) + var(--tabbar-lift) + 12px);
   margin-top: 20px;
 }
 
@@ -3595,4 +3637,183 @@ button.alert-event-tap:focus-visible {
 .crops-quick > svg:first-child {
   flex-shrink: 0;
   color: var(--gold);
+}
+
+/* ───────── Motion (motion-pass) ─────────
+ * Every effect explains a change of state and degrades to the plain change: without support,
+ * or with reduced motion, things simply appear. Durations come from the shared tokens.
+ */
+
+/* Page changes: a short cross-fade of the page, while the glass lens travels to the new tab and a
+   starred place travels between lists. Named groups glide; snapshots fade. */
+::view-transition-group(*) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-glide);
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--dur-base);
+}
+
+::view-transition-group(tab-lens) {
+  animation-duration: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* The forecast, when it replaces the loading state, enters in three steps. */
+@keyframes forecast-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    filter: blur(2px);
+  }
+}
+
+@keyframes rain-grow {
+  from {
+    scale: 0 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .forecast[data-reveal] > :not(.forecast-head) {
+    animation: forecast-in 420ms var(--ease-glide) both;
+  }
+
+  .forecast[data-reveal] > .forecast-data {
+    animation-delay: 90ms;
+  }
+
+  .forecast[data-reveal] > :is(.forecast-details, .forecast-credits) {
+    animation-delay: 180ms;
+  }
+
+  /* Each rain bar grows from zero to its millimetres, one day after another. */
+  .forecast[data-reveal] .rain-fill {
+    transform-origin: left center;
+    animation: rain-grow 520ms var(--ease-glide) both;
+    animation-delay: calc(220ms + var(--i, 0) * 40ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forecast[data-reveal] > :not(.forecast-head) {
+    animation: fade-in var(--dur-base) var(--ease-out) both;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Two icons in one slot: the shown one scales and un-blurs in, the other out. */
+.icon-swap {
+  display: grid;
+  place-items: center;
+}
+
+.icon-swap > svg {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    scale var(--dur-base) var(--ease-out),
+    filter var(--dur-base) var(--ease-out);
+}
+
+.icon-swap:not([data-shown='pause']) > [data-icon='pause'],
+.icon-swap:not([data-shown='play']) > [data-icon='play'] {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-swap > svg {
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+
+  .icon-swap:not([data-shown='pause']) > [data-icon='pause'],
+  .icon-swap:not([data-shown='play']) > [data-icon='play'] {
+    scale: 1;
+    filter: none;
+  }
+}
+
+/* Dialogs grow from 96 % with a fade and close a little faster; the backdrop fades with them. */
+:is(.crops-dialog, .sub-cancel-dialog) {
+  opacity: 0;
+  transition-property: opacity, scale, display, overlay;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)[open] {
+  opacity: 1;
+  transition-duration: 240ms;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.crops-dialog, .sub-cancel-dialog) {
+    scale: 0.96;
+  }
+
+  :is(.crops-dialog, .sub-cancel-dialog)[open] {
+    scale: 1;
+
+    @starting-style {
+      scale: 0.96;
+    }
+  }
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)::backdrop {
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)[open]::backdrop {
+  opacity: 1;
+  transition-duration: 240ms;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* Disclosures open and close by height where the browser can size to auto. */
+:is(.account-row, .account-danger, .models-more)::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+:is(.account-row, .account-danger, .models-more):not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.account-row, .account-danger, .models-more)::details-content {
+    transition:
+      block-size var(--dur-base) var(--ease-glide),
+      content-visibility var(--dur-base);
+    transition-behavior: allow-discrete;
+  }
 }

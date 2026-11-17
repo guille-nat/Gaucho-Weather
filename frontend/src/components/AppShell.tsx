@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, ViewTransition } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { founderLabel } from '../lib/membership';
 import { useMe } from '../query/hooks';
@@ -42,6 +42,15 @@ export function AppShell() {
                   aria-current={active ? 'page' : undefined}
                   aria-describedby={sealed ? founderId : undefined}
                 >
+                  {active ? (
+                    // One shared element. The router runs each navigation as a React
+                    // transition, so on a tab change React starts a view transition: the lens
+                    // travels to the new tab while the page cross-fades as the root
+                    // (motion-pass S2). Without the API the tab simply changes.
+                    <ViewTransition name="tab-lens">
+                      <span className="tab-lens" aria-hidden="true" />
+                    </ViewTransition>
+                  ) : null}
                   <span className="tab-icon">
                     <Icon name={item.icon} size={24} strokeWidth={active ? 2.4 : 2} />
                     {sealed ? (
