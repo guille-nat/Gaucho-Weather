@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createMockDb } from '../mocks/handlers';
 import { demoLotes, demoUser } from '../mocks/fixtures';
@@ -23,41 +23,47 @@ describe('Perfil layout (perfil-ux S3)', () => {
     expect(names).toEqual(['Cómo te avisamos', 'Tu plan', 'Tus datos', 'Borrar cuenta']);
   });
 
-  it('lists name, email and password as rows with what they hold now', async () => {
+  it('lists name, email and password as closed details with what they hold now', async () => {
     renderApp('/perfil', withAccount());
     const datos = await screen.findByRole('region', { name: 'Tus datos' });
 
-    expect(within(datos).getByRole('button', { name: `Nombre ${demoUser.name}` })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(
-      within(datos).getByRole('button', { name: `Email ${demoUser.email}` }),
-    ).toBeInTheDocument();
-    expect(
-      within(datos).getByRole('button', { name: 'Contraseña La que usás para entrar' }),
-    ).toBeInTheDocument();
-    expect(within(datos).queryByLabelText('Contraseña actual')).not.toBeInTheDocument();
+    for (const [label, value] of [
+      ['Nombre', demoUser.name],
+      ['Email', demoUser.email],
+      ['Contraseña', 'La que usás para entrar'],
+    ]) {
+      const summary = rowSummary(datos, label!);
+      expect(summary.tagName).toBe('SUMMARY');
+      expect(summary).toHaveTextContent(`${label} ${value}`);
+      expect(summary.closest('details')).not.toHaveAttribute('open');
+    }
+    expect(within(datos).queryByLabelText('Contraseña actual')).toBeNull();
   });
 
   it('opens one form at a time', async () => {
     const { user } = renderApp('/perfil', withAccount());
     const datos = await screen.findByRole('region', { name: 'Tus datos' });
-    const emailRow = within(datos).getByRole('button', { name: /^Email/ });
-    const claveRow = within(datos).getByRole('button', { name: /^Contraseña/ });
+    const email = rowSummary(datos, 'Email');
+    const clave = rowSummary(datos, 'Contraseña');
 
-    await user.click(emailRow);
-    expect(emailRow).toHaveAttribute('aria-expanded', 'true');
-    expect(within(datos).getByLabelText('Email')).toBeInTheDocument();
+    await user.click(email);
+    expect(email.closest('details')).toHaveAttribute('open');
+    expect(await within(datos).findByLabelText('Email')).toBeVisible();
     expect(within(datos).getAllByLabelText('Contraseña actual')).toHaveLength(1);
 
-    await user.click(claveRow);
-    expect(emailRow).toHaveAttribute('aria-expanded', 'false');
-    expect(claveRow).toHaveAttribute('aria-expanded', 'true');
-    expect(within(datos).queryByLabelText('Email')).not.toBeInTheDocument();
-    expect(within(datos).getByLabelText('Contraseña nueva')).toBeInTheDocument();
+    await user.click(clave);
+    expect(email.closest('details')).not.toHaveAttribute('open');
+    expect(clave.closest('details')).toHaveAttribute('open');
+    expect(await within(datos).findByLabelText('Contraseña nueva')).toBeVisible();
+    await waitFor(() => expect(within(datos).queryByLabelText('Email')).toBeNull());
 
-    await user.click(claveRow);
-    expect(within(datos).queryByLabelText('Contraseña nueva')).not.toBeInTheDocument();
+    await user.click(clave);
+    await waitFor(() => expect(within(datos).queryByLabelText('Contraseña nueva')).toBeNull());
   });
 });
+
+/** The summary of a "Tus datos" row, found by its label (summary has no implicit ARIA role). */
+export function rowSummary(datos: HTMLElement, label: string): HTMLElement {
+  const text = within(datos).getByText(label, { selector: '.account-row-label' });
+  return text.closest('summary')!;
+}

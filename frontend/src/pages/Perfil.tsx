@@ -1,5 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { Link, useNavigate } from 'react-router';
 import { changePassword, deleteAccount } from '../api/account';
 import { logout } from '../api/auth';
@@ -87,44 +95,56 @@ function PlanSection({ me }: { me: User }) {
   );
 }
 
-type DatoRow = 'name' | 'email' | 'password';
+/** The `name` that makes "Tus datos" open one row at a time (perfil-ux S3). */
+const DATOS_GROUP = 'account-data';
 
-/** A row that shows what the account holds now and opens the form that changes it. */
-function Row({
-  label,
-  value,
-  open,
-  onToggle,
-  children,
-}: {
-  label: string;
-  value: string;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  const formId = useId();
+/**
+ * A row that shows what the account holds now and opens the form that changes it: a native
+ * details/summary (modern-web-guidance `accordion`), the marker right before the label. The form
+ * mounts only while open, so a closed row leaves no second "Contraseña actual" in the page.
+ */
+function Row({ label, value, children }: { label: string; value: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="account-row">
-      <button
-        type="button"
-        className="account-row-head"
-        aria-expanded={open}
-        aria-controls={formId}
-        onClick={onToggle}
-      >
+    <details
+      className="account-row"
+      name={DATOS_GROUP}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="account-row-head">
+        <Icon name="chevronRight" className="account-row-chevron" strokeWidth={2.4} />
         <span className="account-row-text">
           {/* The space keeps "Email ana@…" apart for screen readers; grid drops it on screen. */}
           <span className="account-row-label">{label}</span>{' '}
           <span className="account-row-value">{value}</span>
         </span>
-        <Icon name="chevronRight" className="account-row-chevron" strokeWidth={2.4} />
-      </button>
-      <div id={formId} hidden={!open}>
-        {open ? children : null}
-      </div>
-    </div>
+      </summary>
+      {open ? children : null}
+    </details>
   );
+}
+
+/**
+ * Where `name` on details is unsupported, close the other rows ourselves (the guide's fallback):
+ * S3 asks for one form at a time.
+ */
+function useExclusiveDetails(root: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const element = root.current;
+    if (!element || Object.hasOwn(HTMLDetailsElement.prototype, 'name')) return;
+    const onToggle = (event: Event) => {
+      const opened = event.target;
+      if (!(opened instanceof HTMLDetailsElement) || !opened.open) return;
+      for (const other of element.querySelectorAll<HTMLDetailsElement>(
+        `details[name="${DATOS_GROUP}"]`,
+      )) {
+        if (other !== opened) other.open = false;
+      }
+    };
+    // toggle does not bubble, hence capture.
+    element.addEventListener('toggle', onToggle, true);
+    return () => element.removeEventListener('toggle', onToggle, true);
+  }, [root]);
 }
 
 function NameForm({ me }: { me: User }) {
@@ -218,28 +238,18 @@ function EmailForm({ me }: { me: User }) {
 }
 
 function DatosSection({ me }: { me: User }) {
-  const [open, setOpen] = useState<DatoRow | null>(null);
-  const toggle = (row: DatoRow) => setOpen((current) => (current === row ? null : row));
+  const rows = useRef<HTMLDivElement>(null);
+  useExclusiveDetails(rows);
   return (
     <Section title="Tus datos">
-      <div className="account-rows">
-        <Row label="Nombre" value={me.name} open={open === 'name'} onToggle={() => toggle('name')}>
+      <div className="account-rows" ref={rows}>
+        <Row label="Nombre" value={me.name}>
           <NameForm me={me} />
         </Row>
-        <Row
-          label="Email"
-          value={me.email}
-          open={open === 'email'}
-          onToggle={() => toggle('email')}
-        >
+        <Row label="Email" value={me.email}>
           <EmailForm me={me} />
         </Row>
-        <Row
-          label="Contraseña"
-          value="La que usás para entrar"
-          open={open === 'password'}
-          onToggle={() => toggle('password')}
-        >
+        <Row label="Contraseña" value="La que usás para entrar">
           <PasswordForm />
         </Row>
       </div>

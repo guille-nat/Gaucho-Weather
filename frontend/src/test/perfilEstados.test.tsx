@@ -18,7 +18,8 @@ const withAccount = (extra = {}) =>
 
 async function openRow(name: RegExp) {
   const datos = await screen.findByRole('region', { name: 'Tus datos' });
-  return { datos, row: within(datos).getByRole('button', { name }) };
+  const label = within(datos).getAllByText(name, { selector: '.account-row-label' })[0]!;
+  return { datos, row: label.closest('summary')! };
 }
 
 describe('Perfil states (perfil-ux S4)', () => {
@@ -32,7 +33,7 @@ describe('Perfil states (perfil-ux S4)', () => {
     await user.type(within(datos).getByLabelText('Nombre'), ' María');
     expect(saveName).toBeEnabled();
 
-    await user.click(within(datos).getByRole('button', { name: /^Email/ }));
+    await user.click(within(datos).getByText('Email', { selector: '.account-row-label' }));
     const saveEmail = within(datos).getByRole('button', { name: 'Cambiar email' });
     expect(saveEmail).toBeDisabled();
     await user.type(within(datos).getByLabelText('Email'), 'x');
@@ -40,7 +41,7 @@ describe('Perfil states (perfil-ux S4)', () => {
     await user.type(within(datos).getByLabelText('Contraseña actual'), PASSWORD);
     expect(saveEmail).toBeEnabled();
 
-    await user.click(within(datos).getByRole('button', { name: /^Contraseña/ }));
+    await user.click(within(datos).getByText('Contraseña', { selector: '.account-row-label' }));
     const savePassword = within(datos).getByRole('button', { name: 'Cambiar contraseña' });
     expect(savePassword).toBeDisabled();
     await user.type(within(datos).getByLabelText('Contraseña actual'), PASSWORD);

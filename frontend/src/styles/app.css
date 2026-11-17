@@ -2298,17 +2298,16 @@ input[type='date'].input {
 .account-row-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
+  gap: 10px;
   min-height: 60px;
   padding: 8px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
+  /* The marker is ours, right before the label (modern-web-guidance accordion). */
+  list-style: none;
   cursor: pointer;
+}
+
+.account-row-head::-webkit-details-marker {
+  display: none;
 }
 
 .account-row-head:focus-visible {
@@ -2337,7 +2336,7 @@ input[type='date'].input {
   transition: rotate var(--dur-base) var(--ease-out);
 }
 
-.account-row-head[aria-expanded='true'] .account-row-chevron {
+details[open] > .account-row-head .account-row-chevron {
   rotate: 90deg;
 }
 

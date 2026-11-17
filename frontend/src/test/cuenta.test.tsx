@@ -33,7 +33,7 @@ describe('Cuenta en Perfil (S5)', () => {
     const { user } = renderApp('/perfil', db);
 
     const datos = await screen.findByRole('region', { name: 'Tus datos' });
-    await user.click(within(datos).getByRole('button', { name: /^Nombre/ }));
+    await user.click(within(datos).getByText('Nombre', { selector: '.account-row-label' }));
     const name = within(datos).getByLabelText('Nombre');
     await user.clear(name);
     await user.type(name, 'Ana María Ferreyra');
@@ -48,7 +48,7 @@ describe('Cuenta en Perfil (S5)', () => {
     const { user } = renderApp('/perfil', db);
 
     const datos = await screen.findByRole('region', { name: 'Tus datos' });
-    await user.click(within(datos).getByRole('button', { name: /^Email/ }));
+    await user.click(within(datos).getByText('Email', { selector: '.account-row-label' }));
     const email = within(datos).getByLabelText('Email');
     await user.clear(email);
     await user.type(email, 'ana@nuevo.com.ar');
@@ -95,7 +95,7 @@ describe('Cuenta en Perfil (S5)', () => {
     const { user } = renderApp('/perfil', db);
 
     const clave = await screen.findByRole('region', { name: 'Tus datos' });
-    await user.click(within(clave).getByRole('button', { name: /^Contraseña/ }));
+    await user.click(within(clave).getByText('Contraseña', { selector: '.account-row-label' }));
     await user.type(within(clave).getByLabelText('Contraseña actual'), PASSWORD);
     await user.type(within(clave).getByLabelText('Contraseña nueva'), 'trigo-y-soja-2027');
     await user.click(within(clave).getByRole('button', { name: 'Cambiar contraseña' }));
