@@ -26,7 +26,7 @@ Branch: `feat/perfil-ux` (stacked on `feat/cuenta-planes-alertas`) · Delivery: 
 | T3 | S3 | Perfil layout | inline | none | done (RED 3) | 6424806 |
 | T4 | S4 | States on Perfil and Suscripción | inline | none | done (RED 5) | 28dfa88 |
 | T5 | S5 | Founder and price copy | inline | none | done (RED 4 + 1) | 6d16a1d, see L6 |
-| T6 | S6 | Polish + critique | inline | item 4 (concurrency, found in polish) | polish done; re-critique and verifier running | ae26298, 28f4893, 78b873d |
+| T6 | S6 | Polish + critique | inline | item 4 (concurrency, found in polish) | done; verifier blockers fixed in one batch | ae26298, 28f4893, 78b873d, 73c0b2b |
 
 Route evidence: T1 is the skill's shipped documenter agent with a disjoint surface (DESIGN.md, `.impeccable/design.*`); T2–T6 share Perfil.tsx and app.css, so they run inline one after another.
 
@@ -43,4 +43,6 @@ Route evidence: T1 is the skill's shipped documenter agent with a disjoint surfa
   - Exposed by T2: the switches used to be disabled while saving. Risk: item 4 (concurrency) → independent verifier.
   - Backend tests in the dev container need `--ds=config.settings.test`: the container's `DJANGO_SETTINGS_MODULE` wins over pytest.ini and 20 email tests fail otherwise. pytest 452 passed, Vitest 168 passed.
   - Spacing: the trial "Quedarme con Productor" action got its own group (78b873d).
+- **L8** (2026-11-17): independent verifier (item 4): backend `update_fields` holds (no save override, signals or auto_now; empty PATCH still 200). Frontend: 3 blockers caused by T2 (same switch tapped twice ending off the server value on double failure or on a stale answer arriving last; a failure hidden by a later success). One correction batch (73c0b2b): per-switch confirmed value from the newest answered save, shown when none is pending; failure kept in hook state; "Guardando…" while any save is pending. Probes kept as regression tests; recheck limited to them passed 3×; Vitest 171. Scratch removed, dev test user deleted.
+- **L9** (2026-11-17): re-critique 27/40 (from 24). Detector clean on source and on both rendered pages. New findings (push for this phone, focus in the cancel confirm, trial cancel copy, trial deadline depth, repeated limits) are new scope, offered to the user.
 
