@@ -241,6 +241,28 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
   });
 });
 
+describe('Cultivos desde el encabezado del lote (S2)', () => {
+  it('opens the same crops dialog from the crops under the lote name', async () => {
+    const db = createMockDb({ user: demoUser, lotes: demoLotes() });
+    const { user } = renderApp('/lotes/4', db);
+
+    const quick = await screen.findByRole('button', { name: /^Cambiar cultivos: / });
+    expect(quick).toHaveTextContent(/Soja · Maíz|Maíz · Soja/);
+    await user.click(quick);
+
+    const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
+    expect(dialog).toHaveAttribute('open');
+    expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(1);
+  });
+
+  it('offers to add crops from the header when the lote has none', async () => {
+    const db = createMockDb({ user: demoUser, lotes: withLote(4, { plantings: [] }) });
+    renderApp('/lotes/4', db);
+
+    expect(await screen.findByRole('button', { name: 'Agregar cultivos' })).toBeInTheDocument();
+  });
+});
+
 describe('Datos del lote (S3)', () => {
   it('groups the facts: crops, the field and the place', async () => {
     renderApp('/lotes/4', createMockDb({ user: demoUser, lotes: demoLotes() }));

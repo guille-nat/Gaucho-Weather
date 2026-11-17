@@ -3499,3 +3499,36 @@ button.alert-event-tap:focus-visible {
     animation: none;
   }
 }
+
+/* Cultivos por lote S2: the crops under the lote name are the quickest way to change them. */
+.crops-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 6px 14px 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--track);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.crops-quick:hover {
+  background: var(--panel-hover);
+}
+
+.crops-quick:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.crops-quick > svg:first-child {
+  flex-shrink: 0;
+  color: var(--gold);
+}

@@ -1,4 +1,13 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { Lote } from '../api/types';
@@ -11,6 +20,7 @@ import { PlantingsEditor } from '../components/PlantingsEditor';
 import { StatusChip } from '../components/StatusChip';
 import { useOnline } from '../hooks/useOnline';
 import {
+  cropLabels,
   draftsFrom,
   plantingsError,
   plantingsOf,
@@ -103,7 +113,13 @@ function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
  * modal dialog that saves only `plantings`. The browser keeps focus inside, closes it on Esc and
  * the back gesture (dropping the unsaved rows) and gives focus back to "Cambiar cultivos".
  */
-function ChangeCrops({ lote }: { lote: Lote }) {
+/** What the page calls to open the crops dialog from elsewhere (the header's crops button). */
+interface CropsDialog {
+  open: () => void;
+}
+
+/** One dialog per page; "Cambiar cultivos" here and the header's crops button both open it. */
+function ChangeCrops({ lote, ref }: { lote: Lote; ref?: Ref<CropsDialog> }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const update = useUpdateLote(lote.id);
@@ -119,6 +135,7 @@ function ChangeCrops({ lote }: { lote: Lote }) {
     });
     dialogRef.current?.showModal();
   }
+  useImperativeHandle(ref, () => ({ open }));
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -214,6 +231,7 @@ function DeleteLote({ lote }: { lote: Lote }) {
 export function LoteDetail() {
   const id = Number(useParams().id);
   const lote = useLote(id);
+  const crops = useRef<CropsDialog>(null);
 
   if (!lote.data) {
     return (
@@ -234,7 +252,8 @@ export function LoteDetail() {
   }
 
   const data = lote.data;
-  const meta = loteMeta(data);
+  const meta = loteMeta(data, { crops: false });
+  const cropNames = cropLabels(plantingsOf(data)).join(' · ');
   const header = (
     <header className="place-bar place-bar--lote">
       <div className="place-names">
@@ -244,6 +263,18 @@ export function LoteDetail() {
         </Link>
         <h1 className="place-name">{data.name}</h1>
         <p className="place-region">{[data.establishment, meta].filter(Boolean).join(' · ')}</p>
+        {/* S2: the crops change from the top of the page, not only from the facts below. */}
+        <button type="button" className="crops-quick" onClick={() => crops.current?.open()}>
+          <Icon name="sprout" size={20} />
+          {cropNames ? (
+            <span>
+              <span className="sr-only">Cambiar cultivos:</span> {cropNames}
+            </span>
+          ) : (
+            <span>Agregar cultivos</span>
+          )}
+          <Icon name="pencil" size={16} strokeWidth={2.4} />
+        </button>
       </div>
       <Link
         className="icon-btn icon-btn--solid"
@@ -273,7 +304,7 @@ export function LoteDetail() {
         <h2 id="sec-facts" className="panel-title">
           Datos del lote
         </h2>
-        <LoteFacts lote={data} cropsAction={<ChangeCrops lote={data} />} />
+        <LoteFacts lote={data} cropsAction={<ChangeCrops lote={data} ref={crops} />} />
         <div className="detail-actions">
           <Link className="btn btn--light btn--block" to={`/lotes/${data.id}/editar`}>
             <Icon name="pencil" />
