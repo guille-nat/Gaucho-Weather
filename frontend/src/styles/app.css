@@ -2273,16 +2273,68 @@ input[type='date'].input {
 
 .account-form {
   gap: 14px;
+  padding: 4px 0 16px;
 }
 
-.account-form + .account-form {
-  margin-top: 12px;
-  padding-top: 16px;
+/* Tus datos: one row per thing the account holds; a row opens the one form that changes it. */
+.account-rows {
+  display: grid;
+}
+
+.account-row + .account-row {
   border-top: 1px solid var(--line);
 }
 
-.account-form > .btn {
-  justify-self: start;
+.account-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.account-row-head:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-input);
+}
+
+.account-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-row-label {
+  font-weight: 700;
+}
+
+.account-row-value {
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+
+.account-row-chevron {
+  flex-shrink: 0;
+  transition: rotate var(--dur-base) var(--ease-out);
+}
+
+.account-row-head[aria-expanded='true'] .account-row-chevron {
+  rotate: 90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-row-chevron {
+    transition: none;
+  }
 }
 
 .account-saved {
@@ -3077,6 +3129,11 @@ button.alert-event-tap:focus-visible {
 
 .sub-cancel p:not(.confirm-text) {
   text-wrap: pretty;
+}
+
+/* Moving down a plan: the safe choice and the costly one stacked, never a thumb apart. */
+.sub-cancel .confirm-actions {
+  grid-template-columns: 1fr;
 }
 
 /* History: a quiet vertical line, newest on top. */

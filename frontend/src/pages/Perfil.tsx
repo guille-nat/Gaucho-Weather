@@ -76,19 +76,80 @@ function PlanSection({ me }: { me: User }) {
   );
 }
 
-function DatosSection({ me }: { me: User }) {
-  const [name, setName] = useState(me.name);
-  const [email, setEmail] = useState(me.email);
-  const [password, setPassword] = useState('');
-  const rename = useUpdateAccount();
-  const reEmail = useUpdateAccount();
+type DatoRow = 'name' | 'email' | 'password';
 
-  function saveName(event: FormEvent) {
+/** A row that shows what the account holds now and opens the form that changes it. */
+function Row({
+  label,
+  value,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const formId = useId();
+  return (
+    <div className="account-row">
+      <button
+        type="button"
+        className="account-row-head"
+        aria-expanded={open}
+        aria-controls={formId}
+        onClick={onToggle}
+      >
+        <span className="account-row-text">
+          {/* The space keeps "Email ana@…" apart for screen readers; grid drops it on screen. */}
+          <span className="account-row-label">{label}</span>{' '}
+          <span className="account-row-value">{value}</span>
+        </span>
+        <Icon name="chevronRight" className="account-row-chevron" strokeWidth={2.4} />
+      </button>
+      <div id={formId} hidden={!open}>
+        {open ? children : null}
+      </div>
+    </div>
+  );
+}
+
+function NameForm({ me }: { me: User }) {
+  const [name, setName] = useState(me.name);
+  const rename = useUpdateAccount();
+
+  function save(event: FormEvent) {
     event.preventDefault();
     rename.mutate({ name: name.trim() });
   }
 
-  function saveEmail(event: FormEvent) {
+  return (
+    <form className="form account-form" onSubmit={save} noValidate>
+      <TextField
+        label="Nombre"
+        name="name"
+        autoComplete="name"
+        value={name}
+        error={fieldError(rename.error, 'name')}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <FormAlert message={formError(rename.error)} />
+      <button type="submit" className="btn btn--secondary" disabled={rename.isPending}>
+        Guardar nombre
+      </button>
+      <Saved message={rename.isSuccess ? 'Nombre guardado.' : null} />
+    </form>
+  );
+}
+
+function EmailForm({ me }: { me: User }) {
+  const [email, setEmail] = useState(me.email);
+  const [password, setPassword] = useState('');
+  const reEmail = useUpdateAccount();
+
+  function save(event: FormEvent) {
     event.preventDefault();
     reEmail.mutate(
       { email: email.trim(), current_password: password },
@@ -97,50 +158,63 @@ function DatosSection({ me }: { me: User }) {
   }
 
   return (
+    <form className="form account-form" onSubmit={save} noValidate>
+      <TextField
+        label="Email"
+        type="email"
+        name="email"
+        autoComplete="email"
+        inputMode="email"
+        autoCapitalize="none"
+        spellCheck={false}
+        value={email}
+        error={fieldError(reEmail.error, 'email')}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <PasswordField
+        label="Contraseña actual"
+        name="current_password"
+        autoComplete="current-password"
+        hint="Para cambiar el email confirmá que sos vos."
+        value={password}
+        error={fieldError(reEmail.error, 'current_password')}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <FormAlert message={formError(reEmail.error)} />
+      <button type="submit" className="btn btn--secondary" disabled={reEmail.isPending}>
+        Cambiar email
+      </button>
+      <Saved message={reEmail.isSuccess ? 'Email cambiado.' : null} />
+    </form>
+  );
+}
+
+function DatosSection({ me }: { me: User }) {
+  const [open, setOpen] = useState<DatoRow | null>(null);
+  const toggle = (row: DatoRow) => setOpen((current) => (current === row ? null : row));
+  return (
     <Section title="Tus datos">
-      <form className="form account-form" onSubmit={saveName} noValidate>
-        <TextField
-          label="Nombre"
-          name="name"
-          autoComplete="name"
-          value={name}
-          error={fieldError(rename.error, 'name')}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <FormAlert message={formError(rename.error)} />
-        <button type="submit" className="btn btn--secondary" disabled={rename.isPending}>
-          Guardar nombre
-        </button>
-        <Saved message={rename.isSuccess ? 'Nombre guardado.' : null} />
-      </form>
-      <form className="form account-form" onSubmit={saveEmail} noValidate>
-        <TextField
+      <div className="account-rows">
+        <Row label="Nombre" value={me.name} open={open === 'name'} onToggle={() => toggle('name')}>
+          <NameForm me={me} />
+        </Row>
+        <Row
           label="Email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          inputMode="email"
-          autoCapitalize="none"
-          spellCheck={false}
-          value={email}
-          error={fieldError(reEmail.error, 'email')}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <PasswordField
-          label="Contraseña actual"
-          name="current_password"
-          autoComplete="current-password"
-          hint="Para cambiar el email confirmá que sos vos."
-          value={password}
-          error={fieldError(reEmail.error, 'current_password')}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <FormAlert message={formError(reEmail.error)} />
-        <button type="submit" className="btn btn--secondary" disabled={reEmail.isPending}>
-          Cambiar email
-        </button>
-        <Saved message={reEmail.isSuccess ? 'Email cambiado.' : null} />
-      </form>
+          value={me.email}
+          open={open === 'email'}
+          onToggle={() => toggle('email')}
+        >
+          <EmailForm me={me} />
+        </Row>
+        <Row
+          label="Contraseña"
+          value="La que usás para entrar"
+          open={open === 'password'}
+          onToggle={() => toggle('password')}
+        >
+          <PasswordForm />
+        </Row>
+      </div>
     </Section>
   );
 }
@@ -228,7 +302,7 @@ function AvisosSection({ me }: { me: User }) {
   );
 }
 
-function ClaveSection() {
+function PasswordForm() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const change = useMutation({
@@ -245,32 +319,30 @@ function ClaveSection() {
   }
 
   return (
-    <Section title="Contraseña">
-      <form className="form account-form" onSubmit={submit} noValidate>
-        <PasswordField
-          label="Contraseña actual"
-          name="current_password"
-          autoComplete="current-password"
-          value={current}
-          error={fieldError(change.error, 'current_password')}
-          onChange={(e) => setCurrent(e.target.value)}
-        />
-        <PasswordField
-          label="Contraseña nueva"
-          name="new_password"
-          autoComplete="new-password"
-          hint="Al menos 8 caracteres. Cerramos tus otras sesiones."
-          value={next}
-          error={fieldError(change.error, 'new_password')}
-          onChange={(e) => setNext(e.target.value)}
-        />
-        <FormAlert message={formError(change.error)} />
-        <button type="submit" className="btn btn--secondary" disabled={change.isPending}>
-          Cambiar contraseña
-        </button>
-        <Saved message={change.isSuccess ? 'Contraseña cambiada.' : null} />
-      </form>
-    </Section>
+    <form className="form account-form" onSubmit={submit} noValidate>
+      <PasswordField
+        label="Contraseña actual"
+        name="current_password"
+        autoComplete="current-password"
+        value={current}
+        error={fieldError(change.error, 'current_password')}
+        onChange={(e) => setCurrent(e.target.value)}
+      />
+      <PasswordField
+        label="Contraseña nueva"
+        name="new_password"
+        autoComplete="new-password"
+        hint="Al menos 8 caracteres. Cerramos tus otras sesiones."
+        value={next}
+        error={fieldError(change.error, 'new_password')}
+        onChange={(e) => setNext(e.target.value)}
+      />
+      <FormAlert message={formError(change.error)} />
+      <button type="submit" className="btn btn--secondary" disabled={change.isPending}>
+        Cambiar contraseña
+      </button>
+      <Saved message={change.isSuccess ? 'Contraseña cambiada.' : null} />
+    </form>
   );
 }
 
@@ -357,10 +429,9 @@ export function Perfil() {
       </header>
       {me.data ? (
         <>
+          <AvisosSection me={me.data} />
           <PlanSection me={me.data} />
           <DatosSection key={`datos-${me.data.id}`} me={me.data} />
-          <AvisosSection me={me.data} />
-          <ClaveSection />
         </>
       ) : null}
       <FormAlert message={exit.error?.message} />
