@@ -772,20 +772,57 @@
   font-size: 1.25rem;
 }
 
-.decision {
+/*
+ * Each decision is its own card (forecast blocks redesign): a level-tinted icon tile, the title
+ * and level chip, the verdict in bold, then its figures in an inset well. Cards are a step
+ * darker than the decisions panel and separated by space, not hairlines.
+ */
+.decision-list {
   display: grid;
-  gap: 8px;
-  padding: 14px 0;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.decision + .decision {
-  border-top: 1px solid var(--line);
+.decision {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--panel-deep);
 }
 
 .decision-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+/* The level in a tile with its own paired ink; the chip beside it says it in words. */
+.decision-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--track);
+}
+
+.decision--ok .decision-icon {
+  background: var(--ok-fill);
+  color: var(--ok-ink);
+}
+
+.decision--caution .decision-icon {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+.decision--critical .decision-icon {
+  background: var(--crit-fill);
+  color: var(--crit-ink);
 }
 
 .decision-title {
@@ -797,12 +834,17 @@
 
 .decision-reason {
   font-weight: 700;
+  font-size: 1.0625rem;
+  text-wrap: pretty;
 }
 
 .decision-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 10px 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #fff 6%, var(--panel-deep));
 }
 
 .decision-facts dt,
@@ -964,6 +1006,62 @@
 
 .hours-table td.is-wet {
   font-weight: 700;
+}
+
+/*
+ * One band per variable (forecast blocks redesign): temperature, rain and wind each on their own
+ * tint, with a gap between bands, so the strip reads by row at a glance. "Ahora" is a lighter
+ * column with white figures. Every tint keeps secondary ink at 5.5:1 or more on the brightest
+ * day sky.
+ */
+.hours-band--temp > tr > * {
+  background: color-mix(in srgb, #fff 6%, var(--panel));
+}
+
+.hours-band--rain > tr > * {
+  background: color-mix(in srgb, var(--rain) 14%, var(--panel));
+}
+
+.hours-band--wind > tr > * {
+  background: color-mix(in srgb, #fff 3%, var(--panel));
+}
+
+/* The gap between bands, drawn in the panel colour so the bands read as separate strips. */
+.hours-band + .hours-band > tr:first-child > * {
+  border-top: 6px solid var(--panel);
+}
+
+.hours-band > tr > * {
+  padding-block: 8px;
+}
+
+.hours-table thead th:nth-child(2),
+.hours-band > tr > td:nth-child(2) {
+  background-image: linear-gradient(rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.08));
+  color: #fff;
+}
+
+.hours-table thead th:nth-child(2) {
+  border-radius: 10px 10px 0 0;
+}
+
+.hours-band--wind > tr:last-child > td:nth-child(2) {
+  border-radius: 0 0 10px 10px;
+}
+
+/* The chance of rain as a small bar under its figure. */
+.hours-prob {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.hours-prob::after {
+  content: '';
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--rain) var(--p, 0%), var(--track) var(--p, 0%));
 }
 
 /* Week */

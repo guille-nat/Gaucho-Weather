@@ -280,6 +280,19 @@ There is no struck-through reference price and no discount without a real previo
 ### Navigation
 The navigation is a floating pane of liquid glass: Deep Sky Panel at 78 % with `blur(14px) saturate(170%)`, 28 px corners, a 1 px white highlight on its top edge and a soft navy shadow. On mobile it floats 12 px above the bottom edge, or above the home indicator, inset 12 px from the sides, with four equal tabs, each an icon above a 16 px label in Sky Ink. The active tab turns white and bold (700), sits on a lens (a 22 px pill of 8 % white), and gets a 4 px gold bar, so it is never marked by colour alone. At 960 px and above the pane is a sticky top bar 12 px from the top, with the brand mark at the left, the icon beside each label, and the gold bar under the active label.
 
+### Hours Strip and Decision Cards
+- **Próximas horas** is one table in three bands:
+  - temperature on white 6 % into the panel;
+  - rain (mm and chance) on Rain Blue 14 % into the panel;
+  - wind (speed and gusts) on white 3 % into the panel.
+  - A 6 px gap in the panel colour separates the bands. The chance of rain carries a small Rain Blue bar under its figure. "Ahora" is a lighter column with white figures. Every tint keeps secondary ink at 5.5:1 or more.
+- **Decisiones para este lote** is a list of cards, each a step darker than the panel and set apart by space:
+  - a 40 px icon tile in the level's paired fill: `ok-fill`/`ok-ink`, gold/`gold-ink` or `crit-fill`/`crit-ink`;
+  - the title and its level chip;
+  - the verdict in bold;
+  - the figures in an inset well.
+  - The chip states the level in words, so the tile's colour never carries it alone.
+
 ### Rain Bars
 A 10 px pill track in Rain Track with a Rain Blue fill. All 7 days share one scale. The millimetres sit to the right in bold Onest with tabular numerals, and dry days drop to Sky Ink at weight 400.
 

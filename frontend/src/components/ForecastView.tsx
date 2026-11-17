@@ -241,9 +241,11 @@ function DecisionsBlock({
         Decisiones para este lote
       </h2>
       <ul className="decision-list">
-        <li className="decision">
+        <li className={`decision decision--${frost.level}`}>
           <span className="decision-head">
-            <Icon name="snowflake" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="snowflake" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.frost_tonight}</span>
             <LevelChip level={frost.level} />
           </span>
@@ -281,9 +283,11 @@ function DecisionsBlock({
             </details>
           ) : null}
         </li>
-        <li className="decision">
+        <li className={`decision decision--${spray.level}`}>
           <span className="decision-head">
-            <Icon name="drop" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="drop" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.spray_today}</span>
             <LevelChip level={spray.level} />
           </span>
@@ -299,9 +303,11 @@ function DecisionsBlock({
             </dl>
           ) : null}
         </li>
-        <li className="decision">
+        <li className={`decision decision--${field.level}`}>
           <span className="decision-head">
-            <Icon name="parcel" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="parcel" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.field_work}</span>
             <LevelChip level={field.level} />
           </span>
@@ -366,13 +372,17 @@ function Hours({ forecast }: { forecast: Forecast }) {
               })}
             </tr>
           </thead>
-          <tbody>
+          {/* One band per variable, each with its own tint, so temperature, rain and wind read
+              apart at a glance (the table stays one table for screen readers). */}
+          <tbody className="hours-band hours-band--temp">
             <tr className="hours-temp">
               <RowHead icon="thermometer" short="°C" name="Temperatura" />
               {hours.map((h) => (
                 <td key={h.time}>{formatDegrees(h.temperature_c)}</td>
               ))}
             </tr>
+          </tbody>
+          <tbody className="hours-band hours-band--rain">
             <tr>
               <RowHead icon="rain" short="mm" name="Lluvia (mm)" />
               {hours.map((h) => (
@@ -385,10 +395,20 @@ function Hours({ forecast }: { forecast: Forecast }) {
               <tr>
                 <RowHead icon="drop" short="%" name="Probabilidad de lluvia" />
                 {hours.map((h) => (
-                  <td key={h.time}>{formatPct(h.rain_probability_pct)}</td>
+                  <td key={h.time}>
+                    {/* A small bar under the figure: the chance of rain readable at a glance. */}
+                    <span
+                      className="hours-prob"
+                      style={{ '--p': `${h.rain_probability_pct ?? 0}%` } as CSSProperties}
+                    >
+                      {formatPct(h.rain_probability_pct)}
+                    </span>
+                  </td>
                 ))}
               </tr>
             ) : null}
+          </tbody>
+          <tbody className="hours-band hours-band--wind">
             <tr>
               <RowHead icon="wind" short="km/h" name="Viento (km/h)" />
               {hours.map((h) => (
