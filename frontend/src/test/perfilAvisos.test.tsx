@@ -100,6 +100,37 @@ describe('Perfil: reliable alerts (perfil-ux S2)', () => {
     expect(db.user?.notify_email).toBe(true);
   });
 
+  it('keeps both switches off when the first answer arrives after the second', async () => {
+    const db = withAccount();
+    const { user } = renderApp('/perfil', db);
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.patch('*/api/auth/me/', async ({ request }) => {
+        const body = (await request.json()) as Record<string, boolean>;
+        db.user = { ...db.user!, ...body };
+        // The push answer was built before the email change reached the server.
+        const answer = { ...db.user };
+        if ('notify_push' in body) await gate;
+        return HttpResponse.json(answer);
+      }),
+    );
+    const section = await avisos();
+    const push = within(section).getByRole('switch', { name: 'Notificaciones push' });
+    const email = within(section).getByRole('switch', { name: 'Alertas por email' });
+
+    await user.click(push);
+    await user.click(email);
+    await within(section).findByText('Preferencias guardadas.');
+    release();
+    await within(section).findByText(NOTHING_OUTSIDE);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(push).not.toBeChecked();
+    expect(email).not.toBeChecked();
+    expect(db.user).toMatchObject({ notify_push: false, notify_email: false });
+  });
+
   it('ties the disabled push switch to the reason it is disabled', async () => {
     renderApp('/perfil', withAccount({ plan: planOf('basico'), founder_number: null }));
 

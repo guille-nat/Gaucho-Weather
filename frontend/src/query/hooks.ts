@@ -85,7 +85,14 @@ export function useUpdatePreferences() {
       );
       queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...back } : me));
     },
-    onSuccess: (user: User) => queryClient.setQueryData(queryKeys.me, user),
+    // Only the field this request changed: two answers can arrive out of order, and the later
+    // one was built before the other change reached the server.
+    onSuccess: (user: User, changes) => {
+      const saved = Object.fromEntries(
+        Object.keys(changes).map((key) => [key, user[key as keyof Preferences]]),
+      );
+      queryClient.setQueryData<User | null>(queryKeys.me, (me) => (me ? { ...me, ...saved } : me));
+    },
   });
 }
 
