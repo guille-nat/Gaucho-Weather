@@ -20,9 +20,9 @@ Branch: `feat/cultivos-lote` (stacked on `feat/perfil-ux`) · Delivery: ask-on-r
 ## Tasks
 | ID | Specs | Unit | Route | Risk | Status | Commit |
 |---|---|---|---|---|---|---|
-| T1 | S1 S4 | Backend: Planting model, data migration, nested serializer, admin, tests, Doc/funcionalidades/lotes.md | delegated (parallel with T2; context backstop) | item 1 (migration of existing crops), item 3 (lote API shape) | pending | — |
-| T2 | S1 S2 S3 | Frontend: types, mocks, crop editor in the form, quick change on the lote page, readable facts, card meta, tests | delegated (parallel with T1; context backstop) | none | pending | — |
-| T3 | all | Seam check (full suites), screenshots, independent verifier for T1 | inline + verifier | — | pending | — |
+| T1 | S1 S4 | Backend: Planting model, data migration, nested serializer, admin, tests, Doc/funcionalidades/lotes.md | delegated (parallel with T2; context backstop) | item 1 (migration of existing crops), item 3 (lote API shape) | done (verified) | 4448de7, 95d7f0c, 64c604d |
+| T2 | S1 S2 S3 | Frontend: types, mocks, crop editor in the form, quick change on the lote page, readable facts, card meta, tests | delegated (parallel with T1; context backstop) | none | done | a3de452, 2c5fb3d, 16c3e8c |
+| T3 | all | Seam check (full suites), screenshots, independent verifier for T1 | inline + verifier | — | done | see L6 |
 
 Route evidence: T1 and T2 are independent units with disjoint edit surfaces (backend/ vs frontend/), each several hundred lines, built against the contract above; the parent session is past its context backstop.
 
@@ -32,4 +32,7 @@ Route evidence: T1 and T2 are independent units with disjoint edit surfaces (bac
 - **L3** (2026-11-17): exploration: `crop` is display only (models, serializer, admin, LoteForm, LoteDetail Facts, `lib/lote.ts` meta line, mocks); the decision engine does not read it.
 - **L4** (2026-11-17): T1 4448de7 (pytest 471), T2 a3de452 (Vitest 200), nested errors readable 2c5fb3d. Independent verifier (items 1, 3): 2 blockers — a partial PATCH stored a planting without crop (fixed test-first in 95d7f0c, recheck passed, pytest 472); a lote with a sowing date and no crop lost the date in the migration (dev has none: 9 lotes, 5 with crop, 0 date-only). Advisories: `area_ha: ""` saved as null; old `crop` fields on POST silently dropped; mock area message aligned.
 - **L5** (2026-11-17, user answer on the date-only lotes): "Cultivo \"Otro\" (Recomendado)" — create an "otro" planting with that date.
+- **L6** (2026-11-17): T3 seam check and screenshots. pytest 472 passed, Vitest 203 passed, eslint clean, tsc only the 12 `src/sw.ts` errors. Dev DB migrated to lotes 0004: 9 lotes, 5 plantings (one per lote with a crop); worker and beat restarted.
+  - Screenshots showed the crops group two thirds down a long page, so S2 got a crops button under the lote name that opens the same dialog (16c3e8c); the header meta line no longer repeats the crops.
+  - Flaky under full-suite load once: `cuenta.test.tsx` "deletes the account…" (findBy at 1210 ms over the 1000 ms default); 3/3 alone and 2/2 full runs passed afterwards.
 
