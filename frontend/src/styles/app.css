@@ -3088,6 +3088,13 @@ button.alert-event-tap:focus-visible {
 
 /* Compact options sit mid-panel, away from its corners, so they take the control radius like
    the buttons in them instead of a strict 20 − 16 = 4px. */
+/* Trial: the sentence and its action as one group, apart from the other plans. */
+.sub-keep {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .sub-options {
   display: grid;
   gap: 10px;
