@@ -50,7 +50,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | pending | |
-| T2 | S4 | delegated, unit B, parallel with T1 | pending | |
+| T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T3 | S7 | delegated, unit A continued | pending | |
 | T4 | S5, S6 | delegated, unit C | pending | |
 
@@ -69,3 +69,13 @@ An independent verifier runs after T1–T4.
   - The official docs show only ARS for `auto_recurring.currency_id`.
   - Merchants report that Mercado Pago does not convert currency and charges the figure in local money, so sending 10 for "USD 10" would charge $10 ARS.
   - The user chose "Otra pasarela para USD". Stripe does not onboard Argentine merchants directly, so the gateway is still to be chosen.
+- **L3** (2026-11-17): the history audit (`auditoria-historico`) is committed as 9a4f707; its independent verifier is running in a scratch copy.
+  - The parent registered the empty `payments` and `backoffice` apps (6864f80) so units A and B can run in parallel. Both were launched.
+- **L4** (2026-11-17, user, verbatim, choosing the USD gateway among PayPal, Stripe with a US company, or later): "Decidir más adelante".
+  - Dollars stay "Pagar en dólares: próximamente" (S5). Everything in pesos and the backoffice go ahead.
+- **L5** (2026-11-17): unit B done (S4).
+  - It reuses `plans.apply_request` and `reject_request`, which the admin action already calls, so no extraction was needed.
+  - Anonymous gets 403 (session auth); a non-superuser gets 403 "Solo los super admins pueden usar el backoffice.".
+  - Every write records a `BackofficeAction` in the same transaction.
+  - A rejection note lives only in the log, because `PlanRequest` has no note field.
+  - For unit C: the SPA treats a non-CSRF 403 as a lost session, so the frontend must check `me.is_superuser` before calling `/api/backoffice/`.

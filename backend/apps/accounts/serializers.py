@@ -40,6 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
             "usage",
             "notify_push",
             "notify_email",
+            "is_superuser",
         ]
         read_only_fields = fields
 
