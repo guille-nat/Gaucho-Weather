@@ -252,12 +252,26 @@ def test_data_migration_moves_crops_both_ways(make_user):
         bare = OldLote.objects.create(
             user_id=user.id, name="Vacío", latitude=Decimal("-33"), longitude=Decimal("-61")
         )
+        # A sowing date with no crop was allowed before: it is kept as "otro" (L5).
+        dated = OldLote.objects.create(
+            user_id=user.id,
+            name="Solo fecha",
+            latitude=Decimal("-33"),
+            longitude=Decimal("-61"),
+            crop="",
+            sowing_date=date(2026, 9, 5),
+        )
 
         new = migrate(latest)
         NewPlanting = new.get_model("lotes", "Planting")
         assert list(
-            NewPlanting.objects.values_list("lote_id", "crop", "area_ha", "sowing_date")
-        ) == [(sown.id, "soja", None, date(2026, 10, 20))]
+            NewPlanting.objects.order_by("lote_id").values_list(
+                "lote_id", "crop", "area_ha", "sowing_date"
+            )
+        ) == [
+            (sown.id, "soja", None, date(2026, 10, 20)),
+            (dated.id, "otro", None, date(2026, 9, 5)),
+        ]
 
         # A second planting is dropped on the way back; the first one returns to the lote.
         NewPlanting.objects.create(lote_id=sown.id, crop="maiz", sowing_date=date(2026, 12, 1))

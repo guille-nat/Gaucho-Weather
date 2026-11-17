@@ -124,9 +124,13 @@ pronóstico está en [pronostico.md](pronostico.md).
   **Por qué:** es el contrato que usa el frontend para ubicar cada error en su
   fila; se arma en `PlantingListSerializer` sin cambiar la configuración global.
 - **Decisión:** al migrar, cada lote con cultivo pasa a tener un `Planting` con
-  ese cultivo y su fecha de siembra, sin hectáreas.
-  **Por qué:** no se pierden datos existentes. La migración inversa devuelve al
-  lote el primer cultivo; los demás se pierden, porque el modelo viejo admite uno.
+  ese cultivo y su fecha de siembra, sin hectáreas. Un lote con fecha de siembra
+  pero sin cultivo (el formulario viejo lo permitía) recibe un `Planting` "Otro"
+  con esa fecha.
+  **Por qué:** no se pierden datos existentes; "Otro" se ve en la ficha y el
+  productor lo cambia con "Cambiar cultivos". La migración inversa devuelve al
+  lote el primer cultivo (un "Otro" vuelve como "otro", no como vacío); los demás
+  se pierden, porque el modelo viejo admite uno.
 - **Decisión:** redondear coordenadas en vez de rechazarlas.
   **Por qué:** el GPS del teléfono entrega más de 6 decimales, y 6 equivalen a ~10 cm.
 
