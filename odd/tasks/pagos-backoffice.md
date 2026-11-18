@@ -49,7 +49,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | pending | |
+| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | paused (uncommitted in the tree) | the writer reported "All green" before writing Doc/funcionalidades/pagos.md |
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T3 | S7 | delegated, unit A continued | pending | |
 | T4 | S5, S6 | delegated, unit C | pending | |
@@ -79,3 +79,14 @@ An independent verifier runs after T1–T4.
   - Every write records a `BackofficeAction` in the same transaction.
   - A rejection note lives only in the log, because `PlanRequest` has no note field.
   - For unit C: the SPA treats a non-CSRF 403 as a lost session, so the frontend must check `me.is_superuser` before calling `/api/backoffice/`.
+- **L6** (2026-11-17, user, verbatim): "pausa y seguimos mañana". The loop is stopped, and unit A was stopped at its last step (its doc) with its tests reported green.
+  - Unit A's work is uncommitted in the working tree:
+    - `backend/apps/payments/*` (models, migration 0001, admin, urls and the rest);
+    - `backend/apps/accounts/models.py`, `views.py` and migration `0009_alter_planchange_reason.py`;
+    - `backend/config/settings/base.py`, `.env.example`, `backend/tests/test_payments*.py`.
+  - Next session:
+    1. Re-run unit A's verification; write `Doc/funcionalidades/pagos.md` (flow, settings, sandbox steps for the owner); spot check; commit T1.
+    2. T3 (S7: payments in the backoffice).
+    3. T4 (frontend S5/S6; it must check `me.is_superuser` before calling `/api/backoffice/`, see L5).
+    4. An independent verifier over T1–T4 (risk items 2, 3 and 5).
+    5. Follow-up: the COALESCE upsert for history (auditoria-historico L6, advisory 3).
