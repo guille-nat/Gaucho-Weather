@@ -119,6 +119,20 @@ registrado).
 En producción se usan las credenciales `APP_USR-...` de la cuenta real; la URL de la API es
 la misma.
 
+## Qué permite Mercado Pago sobre una suscripción existente (probado en el sandbox)
+Probado el 2026-11-19 con `PUT /preapproval/{id}` sobre una suscripción `authorized` con un
+cobro hecho (próximo cobro el 19/12):
+- **Pausar (`paused`) y reanudar (`authorized`) dentro del mismo ciclo:** no cobra nada y no
+  mueve `next_payment_date`.
+- **Mover el próximo cobro:** `next_payment_date` y `auto_recurring.start_date` responden 200
+  pero **se ignoran** (la fecha no cambia). Un 200 no prueba el cambio: hay que releer.
+- **Cambiar el monto** (`auto_recurring.transaction_amount`): funciona y vale para los cobros
+  siguientes. `0` da 400 "must be a positive number" y el mínimo es $15 ("Cannot pay an amount
+  lower than $ 15.00").
+- **Sin probar todavía:** qué pasa al reanudar una suscripción que estuvo pausada durante la
+  fecha de cobro (si cobra al reanudar, cobra lo atrasado o espera al ciclo siguiente). La
+  documentación no lo dice.
+
 ## Decisiones y por qué
 - **Decisión:** en la app, el aviso "próximamente" en dólares aparece solo con los pagos
   encendidos.
