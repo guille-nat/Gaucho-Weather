@@ -57,6 +57,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 
 **S2 — Referrals.** Every account has a personal code, for example `GW-ANA7`, and a share link shown on Perfil.
 - The referee enters the code when subscribing (the same field as coupons) and gets a discount on their first charges.
+- Referee reward (decided, L6): 50% off the first month ($7.450 today), then full price.
 - Referrer reward (decided, L3): each referee counts once their **second** approved charge arrives (anti-abuse: sign up with a discount, pay once, cancel). Each one that counts takes 1/3 of a month off the referrer's next charge, so three make a free month. Mercado Pago's minimum makes that charge $15, not $0.
   - Perfil shows the progress, for example "Invitaste a 2 de 3: tu próximo mes sale $4.967".
 - Abuse guards:
@@ -89,6 +90,14 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - how to cancel ("Darme de baja" on the web; the store's subscription settings in the native apps);
   - refunds, handled by the store for store purchases;
   - that prices may differ by channel.
+- (L6) Currency by channel:
+  - the web charges in pesos (Mercado Pago);
+  - the stores charge in dollars, using the plans' `price_usd_month`;
+  - (A) the currency the buyer finally sees is set by each store and country, and is checked when the apps are built.
+- (L6) The plan belongs to the account, not the device or the channel. Paying on any channel (web in pesos, App Store, Google Play) gives that plan on the web, iOS and Android when signed in to the same account. This holds today: the plan lives on `User`, and every client reads it from the API.
+- (L6) One paid subscription per account across all channels. A channel never offers buying what the account already pays for elsewhere; it shows the plan and where it is billed.
+- (L6) Changing plan or cancelling happens on the channel that bills it. The server cannot cancel a store subscription, so moving channels means cancelling the old one first. The UI says so plainly, and so do the terms.
+- (A) Apple's "multiplatform services" rule governs using web-bought access in iOS, and it may require also offering in-app purchase. That would just be one more channel in this design.
 - Native apps will need token authentication next to today's cookie session plus CSRF. That is a future task.
 - (A) Apple's and Google's rules for selling digital subscriptions in-app, and for web-bought access, are in flux and read in conflicting ways (checked 2026-11-19). They will be decided with the rules current when the apps are built.
 
@@ -97,7 +106,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
    - a founder cannot pay for anything (subscribe refuses every founder);
    - a request approved to Empresa would make it free forever;
    - `_end` skips founders, so cancelling would leave Empresa free.
-1. ~~Referrer reward~~ decided (L3). Still open: the referee's reward (proposal: 50% on the first month).
+1. ~~Referral rewards~~ decided: referrer (L3) and referee, 50% on the first month (L6).
 2. Whether a coupon and a referral code stack, or only one applies (common SaaS default: only one).
 3. Whether coupons apply to Empresa as well as Productor.
 4. Whether founder and trial accounts can use coupons (founders don't pay; trial accounts would on subscribing).
@@ -121,3 +130,6 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - Verified today's gaps (decision 0 above) and proposed the founder credit.
   - User: "hay que aclarar todo esto, recorda que lo que no se aclara se da por sentado y eso lleva a que sea un problema legal y que al cliente no le guste". Added S0.
 - **L5** (2026-11-19): user: "si pensa que estaria bueno poder subirlo a IOS y Android despues con apps nativas asi que hay que tener en cuenta eso". The founder upgrade is decided (yes); S5 added.
+- **L6** (2026-11-19): user: "si va el 50%. pensa que en apple pay y google pay la app debe de cobrar en dolares y bueno si es por la web asi si en pesos. Tambien hay que pensar que se debe de poder compartir la info de la cuenta, si uno adquiere el plan empresa desde la web en pesos, no importa si el usa la app desde un android o IOS debe de tener su cuenta con su plan que pago."
+  - Referee reward decided.
+  - Currency by channel, the account-level plan, one subscription per account, and cancel-where-billed were added to S5.
