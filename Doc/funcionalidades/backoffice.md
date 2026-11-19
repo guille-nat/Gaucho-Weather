@@ -174,3 +174,4 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - 2026-11-17: versión inicial (S4).
 - 2026-11-19: pagos y suscripciones (`pagos/`) e ingresos en pesos en `resumen/` (S7).
 - 2026-11-19: pantalla `/backoffice` en el frontend (T4).
+- 2026-11-19: Pedidos vuelve a la página anterior al resolver el último pedido de una página (el review vio que quedaba en error con 404 "Página inválida.").

@@ -136,3 +136,7 @@ An independent verifier runs after T1–T4.
   - One correction batch fixed B1 and advisory 1 (a non-string `type`). RED was 4 failed; GREEN is a suite of 593 passed.
   - The recheck is those 4 tests.
   - Advisories 2 (a provider 404 gives 502 and Mercado Pago keeps retrying) and 3 (the wording of a 4xx) are logged in `pagos.md`.
+- **L14** (2026-11-19): the slice 63568b5..2dc8a6e was reviewed under lineage review-0e1bb17d9dd195cd: approved and acknowledged, with one advisory.
+  - The advisory: Pedidos stayed on a page that no longer existed after its last request was resolved.
+  - Fixed: Pedidos now steps back a page. RED was re-checked against the old code; GREEN is a frontend suite of 283/283.
+  - Open questions for the user: Planes still says "Todavía no cobramos" with payments on; and what a `paused` subscription does to the plan.

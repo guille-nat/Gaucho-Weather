@@ -66,6 +66,13 @@ export function Pedidos() {
   );
   const apply = useBackofficeMutation((row: RequestRow) => applyRequest(row.id));
 
+  /** A resolved request leaves the queue: if it was the last row of a later page, that page
+   * no longer exists (the API answers 404), so step back before the list is read again. */
+  function resolved(message: string) {
+    setSaved(message);
+    if (page > 1 && requests.data?.results.length === 1) setPage(page - 1);
+  }
+
   return (
     <div className="bo-tab">
       <p className="fine">
@@ -122,7 +129,7 @@ export function Pedidos() {
                               setSaved(null);
                               apply.mutate(row, {
                                 onSuccess: () =>
-                                  setSaved(`Aplicamos el pedido de ${row.user.name}.`),
+                                  resolved(`Aplicamos el pedido de ${row.user.name}.`),
                               });
                             }}
                           >
@@ -169,7 +176,7 @@ export function Pedidos() {
             onCancel={() => setRejecting(null)}
             onDone={(message) => {
               setRejecting(null);
-              setSaved(message);
+              resolved(message);
             }}
           />
         ) : null}

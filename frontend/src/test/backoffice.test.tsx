@@ -247,6 +247,30 @@ describe('Backoffice tabs', () => {
     expect(await within(panel).findByText('No hay pedidos pendientes.')).toBeInTheDocument();
   });
 
+  it('steps back a page when it resolves the last request on the last page', async () => {
+    const db = dbFor(admin);
+    const [first] = db.backoffice.requests;
+    if (!first) throw new Error('the demo data has a pending request');
+    db.backoffice.requests = Array.from({ length: 51 }, (_, i) => ({
+      ...first,
+      id: 100 + i,
+      user: { ...first.user, id: 500 + i, name: `Cuenta ${i + 1}` },
+    }));
+    const { user } = renderApp('/backoffice', db);
+
+    const panel = await openTab(user, 'Pedidos');
+    await within(panel).findByRole('table', { name: 'Pedidos pendientes' });
+    await user.click(within(panel).getByRole('button', { name: /Siguiente/ }));
+    const table = await within(panel).findByRole('table', { name: 'Pedidos pendientes' });
+    const last = await within(table).findByRole('row', { name: /Cuenta 51/ });
+    await user.click(within(last).getByRole('button', { name: 'Aplicar' }));
+
+    expect(await within(panel).findByText('Aplicamos el pedido de Cuenta 51.')).toBeInTheDocument();
+    expect(await within(panel).findByRole('row', { name: /Cuenta 1(?!\d)/ })).toBeInTheDocument();
+    expect(within(panel).queryByText('No pudimos cargar')).toBeNull();
+    expect(within(panel).queryByRole('alert')).toBeNull();
+  });
+
   it('lists payments and subscriptions (S7)', async () => {
     const db = dbFor(admin);
     const { user } = renderApp('/backoffice', db);
