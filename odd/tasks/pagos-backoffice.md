@@ -53,7 +53,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
 | T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
-| T4 | S5, S6 | delegated, unit C | pending | |
+| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | in progress | |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
 
@@ -112,3 +112,6 @@ An independent verifier runs after T1–T4.
   - `GET /api/backoffice/pagos/?tipo=pagos|suscripciones` is paginated; an unknown tipo is a 400.
   - `resumen.payments` gives `active_subscriptions`, `monthly_ars`, `month_payments` and `month_ars`, in ARS only, with the month in Buenos Aires time.
   - Amounts are numbers, following `COERCE_DECIMAL_TO_STRING: False`.
+- **L11** (2026-11-19): RDD assess of 3566828 (T3): medium, `under_budget` (290 lines), so it stays pending in the open slice.
+  - T4 was delegated to one bounded writer under the context backstop.
+  - Allowed edit surfaces: the frontend pages, api, mocks, tests and styles, plus the three docs.
