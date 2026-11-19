@@ -109,15 +109,19 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 1. ~~Referral rewards~~ decided: referrer (L3) and referee, 50% on the first month (L6).
 2. ~~Stacking~~ decided (L7): a coupon and a referral code never stack. Only one applies, the one better for the customer, and the screen says which.
 3. ~~Plans per coupon~~ decided (L8): each coupon names the plans it applies to, chosen when it is created in the backoffice (for example `CAMPO50` Productor only, `COOPERATIVA20` Empresa only).
-4. Whether founder and trial accounts can use coupons (founders don't pay; trial accounts would on subscribing).
+4. ~~Who can use coupons~~ decided (L9):
+   - trial accounts can, when subscribing;
+   - founders cannot, since they already have a permanent benefit;
+   - a founder can still refer people. The reward discounts their Empresa difference, and is kept until they pay something.
 
 ## Tasks
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
 | T0 | S0 clear terms (pages, acceptance, pre-checkout summary, emails) | tbd | blocked on the texts and the lawyer review | |
-| T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | blocked on decisions 2–4 | |
-| T2 | S2 referrals | tbd | blocked on decision 1 | |
+| TF | founder upgrade (decision 0): founders subscribe to Empresa for the difference; cancelling returns to Productor; no Empresa-by-request for founders | tbd | ready | |
+| T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
+| T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
 | T3 | S3 credits | tbd | blocked on the lab result | |
 | T4 | S4 visibility and reports | tbd | after T1–T3 | |
 
@@ -135,3 +139,6 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - Currency by channel, the account-level plan, one subscription per account, and cancel-where-billed were added to S5.
 - **L7** (2026-11-19): user: "no se puede juntar". Proposal accepted: the one better for the customer applies, and the screen says which.
 - **L8** (2026-11-19): user: "si". Each coupon names its plans.
+- **L9** (2026-11-19): user: "si". All product decisions are closed.
+  - Still pending: the lab result (credits), the S0 texts and their lawyer review.
+  - The user's authorization to start implementing.
