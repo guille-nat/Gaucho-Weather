@@ -303,6 +303,28 @@ FOUNDER_HAS_PRODUCTOR = "La cuenta es founder: ya tiene Productor sin vencimient
 ALREADY_FOUNDER = "La cuenta ya es founder (n.º {number})."
 NOT_FOUNDER = "La cuenta no es founder."
 NO_SUBSCRIPTION = "La cuenta no tiene una suscripción con Mercado Pago."
+PAYING = "La cuenta tiene una suscripción paga: cancelala primero."
+PAID_DAYS = "La cuenta tiene días pagos hasta el {date}: dale la prueba después de esa fecha."
+
+
+def refuse_if_paying(target: User, *, trial: bool) -> None:
+    """A trial or a founder grant never leaves a paying account charged without service.
+
+    A running subscription (authorized or paused) keeps charging, and a trial's expiry would
+    let expire_trials move a paying account to Básico. A cancelled one still inside its paid
+    month ends the plan at its next_payment_at, which would cut a longer trial short; a
+    founder is safe there (that end never touches founders).
+    """
+    open_subs = target.provider_subscriptions.filter(ended_at=None)
+    if open_subs.filter(status__in=payment_services.RUNNING).exists():
+        raise Refused(PAYING)
+    if trial:
+        ending = open_subs.filter(status=ProviderSubscription.Status.CANCELLED).first()
+        if ending is not None and ending.next_payment_at is not None:
+            date = timezone.localtime(ending.next_payment_at).strftime("%d/%m/%Y")
+            raise Refused(PAID_DAYS.format(date=date))
+
+
 EDITABLE_FIELDS = ("name", "email")
 
 
@@ -467,6 +489,7 @@ class TrialView(BackofficeView):
             target = locked_account(pk)
             if target.is_founder:
                 raise Refused(FOUNDER_HAS_PRODUCTOR)
+            refuse_if_paying(target, trial=True)
             from_plan = target.plan_id
             plans._switch(
                 target, Plan.PRODUCTOR, PlanChange.Reason.STAFF, timezone.now(), by=request.user
@@ -497,6 +520,7 @@ class FounderGrantView(BackofficeView):
             target = locked_account(pk)
             if target.is_founder:
                 raise Refused(ALREADY_FOUNDER.format(number=target.founder_number))
+            refuse_if_paying(target, trial=False)
             number = program.next_number
             # A number set by hand in the Django admin is never handed out twice.
             while User.objects.filter(founder_number=number).exists():

@@ -908,3 +908,76 @@ class TestCancel:
         assert response.json() == {"detail": NOT_ENABLED}
         assert not route.called
         assert not BackofficeAction.objects.exists()
+
+
+PAYING = "La cuenta tiene una suscripción paga: cancelala primero."
+PAID_DAYS = "La cuenta tiene días pagos hasta el 06/12/2026: dale la prueba después de esa fecha."
+
+
+class TestPayingAccount:
+    """A trial or a founder grant must never leave a paying account charged without service
+    (or moved to Básico by expire_trials while it keeps paying)."""
+
+    @pytest.fixture(autouse=True)
+    def _frozen(self):
+        with time_machine.travel(NOW, tick=False):
+            yield
+
+    @pytest.mark.parametrize("status", ["authorized", "paused"])
+    @pytest.mark.parametrize(
+        ("action", "body"), [("prueba/", {"hasta": "2026-12-31"}), ("founder/dar/", {})]
+    )
+    def test_is_refused_while_a_subscription_runs(self, admin_client, status, action, body):
+        ana = account("ana@example.com", plan_id="productor")
+        subscription(ana, status=status)
+
+        response = admin_client.post(url(ana, action), body, format="json")
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": PAYING}
+        ana.refresh_from_db()
+        assert (ana.plan_id, ana.plan_expires_at, ana.founder_number) == ("productor", None, None)
+        assert not PlanChange.objects.exists()
+        assert not BackofficeAction.objects.exists()
+
+    def test_a_trial_is_refused_while_a_cancelled_subscription_has_paid_days(self, admin_client):
+        ana = account("ana@example.com", plan_id="productor")
+        subscription(ana, status="cancelled")
+
+        response = admin_client.post(url(ana, "prueba/"), {"hasta": "2026-12-31"}, format="json")
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": PAID_DAYS}
+        ana.refresh_from_db()
+        assert ana.plan_expires_at is None
+        assert not BackofficeAction.objects.exists()
+
+    def test_founder_is_granted_while_a_cancelled_subscription_has_paid_days(self, admin_client):
+        ana = account("ana@example.com", plan_id="productor")
+        subscription(ana, status="cancelled")
+
+        response = admin_client.post(url(ana, "founder/dar/"), format="json")
+
+        assert response.status_code == 200
+        ana.refresh_from_db()
+        assert ana.founder_number is not None
+
+    @pytest.mark.parametrize(
+        ("action", "body"), [("prueba/", {"hasta": "2026-12-31"}), ("founder/dar/", {})]
+    )
+    def test_an_ended_or_pending_subscription_does_not_block(self, admin_client, action, body):
+        ana = account("ana@example.com")
+        subscription(ana, status="cancelled", ended_at=NOW)
+        ProviderSubscription.objects.create(
+            user=ana,
+            plan_id="productor",
+            provider="mercadopago",
+            currency="ARS",
+            amount=14900,
+            external_id="pending-checkout",
+            status="pending",
+        )
+
+        response = admin_client.post(url(ana, action), body, format="json")
+
+        assert response.status_code == 200

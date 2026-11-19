@@ -307,6 +307,36 @@ describe('Plan and founder by hand (S3)', () => {
     expect(await within(dialog).findByText('La fecha tiene que ser futura.')).toBeVisible();
   });
 
+  it('refuses a trial or a founder to an account that is paying', async () => {
+    const db = dbFor({ paymentsEnabled: true });
+    const juan = db.backoffice.subscriptions.find((s) => s.user.id === 21);
+    expect(juan?.status).toBe('authorized');
+    const { user, record } = await openRecord(JUAN, db);
+
+    await user.click(within(record).getByRole('button', { name: 'Dar o extender prueba' }));
+    const trial = screen.getByRole('dialog', { name: /^Prueba de Productor para/ });
+    fireEvent.change(within(trial).getByLabelText(/^Hasta el día/), {
+      target: { value: '2099-12-31' },
+    });
+    await user.click(within(trial).getByRole('button', { name: 'Dar prueba' }));
+    expect(await within(trial).findByRole('alert')).toHaveTextContent(
+      'La cuenta tiene una suscripción paga: cancelala primero.',
+    );
+    await user.click(within(trial).getByRole('button', { name: 'Cancelar' }));
+
+    const founder = await confirm(
+      user,
+      record,
+      'Marcar founder',
+      '¿Marcar a Juan Gómez como founder?',
+      'Marcar founder',
+    );
+    expect(await within(founder).findByRole('alert')).toHaveTextContent(
+      'La cuenta tiene una suscripción paga: cancelala primero.',
+    );
+    expect(db.backoffice.actions.some((a) => a.target_user?.id === 21)).toBe(false);
+  });
+
   it('offers no trial to a founder', async () => {
     const { record } = await openRecord(OWN, dbFor());
 

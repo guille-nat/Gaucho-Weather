@@ -357,6 +357,30 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
   };
 
   /** The one-click writes of a record (S2-S4), by the path they post to. */
+  /**
+   * Like refuse_if_paying in backoffice/views.py: a running subscription blocks a trial and a
+   * founder grant; a cancelled one still inside its paid month blocks a trial only.
+   */
+  function payingRefusal(row: AccountRow, trial: boolean): Response | null {
+    const open = db.backoffice.subscriptions.filter((s) => s.user.id === row.id && !s.ended_at);
+    if (open.some((s) => s.status === 'authorized' || s.status === 'paused')) {
+      return refuse('La cuenta tiene una suscripción paga: cancelala primero.');
+    }
+    const ending = open.find((s) => s.status === 'cancelled');
+    if (trial && ending?.next_payment_at) {
+      const date = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(new Date(ending.next_payment_at));
+      return refuse(
+        `La cuenta tiene días pagos hasta el ${date}: dale la prueba después de esa fecha.`,
+      );
+    }
+    return null;
+  }
+
   const actions: Record<string, (row: AccountRow) => Response | null> = {
     bloquear: (row) => {
       if (row.id === db.user!.id) return refuse(SELF_REFUSED);
@@ -406,6 +430,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (row.founder_number !== null) {
         return refuse(`La cuenta ya es founder (n.º ${row.founder_number}).`);
       }
+      const paying = payingRefusal(row, false);
+      if (paying) return paying;
       let number = db.backoffice.founderNext;
       while (db.backoffice.accounts.some((a) => a.founder_number === number)) number += 1;
       db.backoffice.founderNext = number + 1;
@@ -659,6 +685,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (row.founder_number !== null) {
         return refuse('La cuenta es founder: ya tiene Productor sin vencimiento.');
       }
+      const paying = payingRefusal(row, true);
+      if (paying) return paying;
       const fromPlan = row.plan.code;
       switchToProductor(row);
       extrasOf(row).plan_expires_at = new Date(`${hasta}T23:59:59-03:00`).toISOString();

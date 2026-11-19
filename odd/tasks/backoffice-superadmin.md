@@ -52,6 +52,9 @@ Common rules for every spec:
   - (A) Marking works even when the program's quota is used up. The super admin decides by hand, and the confirmation dialog shows the remaining quota.
 - Removing founder clears `founder_number` and is logged as `founder_revoke`.
   - (A) The plan is left as it is: no expiry, so the account stays "active" on that plan. The super admin changes the plan separately if needed.
+- (L7) A paying account is protected:
+  - A running subscription (authorized or paused, not ended) refuses both a trial and a founder grant with 400 "La cuenta tiene una suscripción paga: cancelala primero."
+  - A cancelled subscription still inside its paid month refuses a trial with 400 "La cuenta tiene días pagos hasta el DD/MM/AAAA: dale la prueba después de esa fecha.", but still allows a founder grant.
 
 **S4 — Mercado Pago from the panel.** "Mercado Pago: volver a pedirle a Mercado Pago el estado de una suscripción (por si se perdió un webhook) y cancelarla desde el panel."
 - Sync:
@@ -137,3 +140,8 @@ Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and
     5. An export GET writes a log row, so another site could trigger it.
     6. Sync reads only the first page of charges.
   - Native review: user granted consent, but START refused with `lens_context_budget_exceeded` (530dcef..HEAD, 6086 lines). No authority was created.
+- **L7** (2026-11-19): the verifier's advisory became a user decision.
+  - User: "y si no le cancelamos ala sub osea que tome como debito el dia siguiente de la fecha pero que si no han pasado uncilo de cierre no le cobre? tambien la posibilidad de codigos de referidos, promocionales hay que tenerlas en cuenta, hay que manejarlo como lo manejan todos que tiene saas por subscipcion"
+  - Proposal: an experiment in the Mercado Pago sandbox (pause/resume, change the amount), then a design for credits, coupons and referrals; meanwhile, the guard. User: "dale".
+  - The guard was added to S3, test-first. Backend RED: 5 failed. Frontend RED: 1 failed without the mock guard. GREEN: backend 749 passed; frontend 316 passed; typecheck and lint clean.
+  - Next: the sandbox experiment, then a new feature document for credits, coupons and referrals.

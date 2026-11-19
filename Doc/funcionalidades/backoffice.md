@@ -154,11 +154,23 @@ es un super admin, no el dueño de la cuenta; el registro deja constancia del ca
   (`expire_trials`) la pasa a Básico.
   - Fecha de hoy o pasada: 400 `{"hasta": ["La fecha tiene que ser futura."]}`.
   - Un founder: 400 `{"detail": "La cuenta es founder: ya tiene Productor sin vencimiento."}`.
+  - Una cuenta que paga (suscripción `authorized` o `paused` sin terminar): 400
+    `{"detail": "La cuenta tiene una suscripción paga: cancelala primero."}`.
+  - Una suscripción cancelada que todavía tiene días pagos: 400 `{"detail": "La cuenta tiene
+    días pagos hasta el 06/12/2026: dale la prueba después de esa fecha."}`.
+  - **Por qué:** con la suscripción andando, el vencimiento de la prueba haría que
+    `expire_trials` pase a Básico una cuenta que sigue pagando. Con una cancelada, el fin de
+    sus días pagos (`end_cancelled_subscriptions`) cortaría antes una prueba más larga. Hasta
+    que existan los créditos (meses gratis sin cancelar), primero se cancela.
 - `founder/dar/` toma el próximo número de `FounderProgram` con `select_for_update`, como el
   alta (`plans.start_membership`), y pone la cuenta en Productor sin vencimiento (motivo
   `staff`). Si ese número ya lo tiene otra cuenta (puesto a mano en el admin), usa el
   siguiente libre.
   - Una cuenta que ya es founder: 400 `{"detail": "La cuenta ya es founder (n.º 3)."}`.
+  - Una cuenta que paga: 400 `{"detail": "La cuenta tiene una suscripción paga: cancelala
+    primero."}`. **Por qué:** founder es Productor gratis; sin cancelar, Mercado Pago le
+    seguiría cobrando. Una suscripción cancelada con días pagos no frena el founder (ese fin
+    nunca toca a un founder).
   - (A) Funciona aunque el cupo esté completo. **Por qué:** es una decisión a mano del super
     admin; la pantalla le muestra antes cuántos lugares quedan.
 - `founder/quitar/` borra `founder_number`. El número no se vuelve a dar.
@@ -323,3 +335,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-19: pantalla `/backoffice` en el frontend (T4).
 - 2026-11-19: Pedidos vuelve a la página anterior al resolver el último pedido de una página (el review vio que quedaba en error con 404 "Página inválida.").
 - 2026-11-19: ficha de cuenta con edición, control de acceso, prueba y founder a mano, y sincronizar o cancelar la suscripción de Mercado Pago (backoffice-superadmin S1-S4).
+- 2026-11-19: prueba y founder se rechazan para una cuenta que paga (advertencia del verificador).
