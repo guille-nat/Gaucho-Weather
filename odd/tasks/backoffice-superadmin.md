@@ -101,10 +101,10 @@ Frontend:
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T0 | scaffolding (action types and migration 0002, Informes stubs and wiring, `backofficeGate`) | inline | done | (this commit) |
-| T1 | S1–S4 backend + frontend + docs | delegated writer A (parallel with T2) | pending | |
-| T2 | S5–S8 backend + frontend + docs | delegated writer B (parallel with T1) | pending | |
-| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | pending | |
+| T0 | scaffolding (action types and migration 0002, Informes stubs and wiring, `backofficeGate`) | inline | done | 452cb84, 2b8110c |
+| T1 | S1–S4 backend + frontend + docs | delegated writer A (parallel with T2) | done (verification pending) | 4d13fc6 |
+| T2 | S5–S8 backend + frontend + docs | delegated writer B (parallel with T1) | done (verification pending) | fce2b80 |
+| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | running | |
 
 Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and each is several hundred lines. They are launched together (Writer trigger a). The parent context is also past the backstop (b).
 
@@ -116,3 +116,14 @@ Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and
   - Informes stubs are wired into the URLs, the mocks and the tabs (seven tabs).
   - Migration 0002 adds the action types.
   - Checks: backend `tests/test_backoffice.py` 55 passed; frontend `backoffice.test.tsx` 17 passed.
+- **L4** (2026-11-19): Writers A and B returned with all of S1–S8 implemented. Both reported `partial`, but only because the backend tests inside the container ran with `config.settings.dev`: the `DJANGO_SETTINGS_MODULE` env var beats `pytest.ini`.
+  - Fixed in 7dc9df7: `addopts` now passes `--ds=config.settings.test`.
+  - Seam check after both units: backend 705 passed and ruff clean; frontend 315 passed and eslint clean; typecheck shows only the 12 known `src/sw.ts` workbox errors.
+  - Commits: fce2b80 (T2) and 4d13fc6 (T1, high-risk, on its own).
+- **L5** (2026-11-19): extra assumptions the writers documented in the docs:
+  - a repeated reset email within 10 minutes answers 429;
+  - a write that changes nothing answers 200 and logs nothing;
+  - the URLs use Spanish verbs;
+  - the charge search reads only Mercado Pago's first page;
+  - `pagos_aprobados` and `pagos_rechazados` count every currency;
+  - `founders.usados` is the program's `next_number - 1`.
