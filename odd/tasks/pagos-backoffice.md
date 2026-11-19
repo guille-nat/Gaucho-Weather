@@ -152,3 +152,6 @@ An independent verifier runs after T1–T4.
   - A paused subscription that ended revives on `authorized`; an ended cancelled one never does.
   - Re-subscribing cancels an ended paused subscription first.
   - Planes leads to Suscripción ("Suscribirme") when payments are on. It does not for Básico, a founder, or the plan already paid. A trial keeps the link under its note.
+- **L17** (2026-11-19): 6d5a615..530dcef was reviewed with the risk and reliability lenses: approved with no findings and acknowledged.
+  - The reviewed boundary is now 530dcef.
+  - Next: the end-to-end Mercado Pago sandbox test, once the user loads `TEST-...` credentials.
