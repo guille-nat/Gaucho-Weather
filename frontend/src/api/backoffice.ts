@@ -1,5 +1,12 @@
 import { ApiError, apiFetch, isCsrfFailure } from './client';
-import type { PaymentStatus, PlanCode, PlanRef, ProviderSubscriptionStatus } from './types';
+import type {
+  AlertVariable,
+  PaymentStatus,
+  PlanChangeReason,
+  PlanCode,
+  PlanRef,
+  ProviderSubscriptionStatus,
+} from './types';
 
 /**
  * The backoffice API for super admins (pagos-backoffice S4, S7). Field names follow
@@ -78,7 +85,23 @@ export interface PlanPrice {
 export type PriceInput = Pick<PlanPrice, 'price_ars_month' | 'price_usd_month'>;
 
 export type BackofficeActionKind =
-  'plan_change' | 'request_apply' | 'request_reject' | 'price_update';
+  | 'plan_change'
+  | 'request_apply'
+  | 'request_reject'
+  | 'price_update'
+  // backoffice-superadmin S1-S4, S8
+  | 'account_update'
+  | 'account_block'
+  | 'account_unblock'
+  | 'superadmin_grant'
+  | 'superadmin_revoke'
+  | 'password_reset'
+  | 'trial_grant'
+  | 'founder_grant'
+  | 'founder_revoke'
+  | 'subscription_sync'
+  | 'subscription_cancel'
+  | 'export';
 
 export interface ActionRow {
   id: number;
@@ -184,3 +207,85 @@ export const listPayments = (page: number) =>
 
 export const listSubscriptions = (page: number) =>
   backoffice<Page<SubscriptionRow>>(`pagos/${query({ tipo: 'suscripciones', page })}`);
+
+// --- backoffice-superadmin S1-S4: the account record --------------------------------------
+
+export interface RecordPlanChange {
+  id: number;
+  at: string;
+  /** Null at sign-up. */
+  from_plan: PlanRef | null;
+  to_plan: PlanRef;
+  reason: PlanChangeReason;
+  /** Who made a staff change; null for the system (sign-up, payments, the trial's end). */
+  by: Person | null;
+  note: string;
+}
+
+export type RecordSubscription = Omit<SubscriptionRow, 'user'>;
+export type RecordPayment = Omit<PaymentRow, 'user'>;
+
+export interface RecordLote {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface RecordAlertRule {
+  id: number;
+  variable: AlertVariable;
+  /** The variable in words, e.g. "Helada en el suelo". */
+  name: string;
+  lote: string;
+  enabled: boolean;
+}
+
+/** `GET cuentas/{id}/`: everything about one account. Every write below answers it again. */
+export interface AccountRecord extends Person {
+  plan: PlanRef;
+  status: MembershipStatus;
+  founder_number: number | null;
+  plan_expires_at: string | null;
+  /** False: blocked, cannot log in. */
+  is_active: boolean;
+  is_superuser: boolean;
+  date_joined: string;
+  last_login: string | null;
+  /** Newest first, like every list below. */
+  plan_changes: RecordPlanChange[];
+  subscriptions: RecordSubscription[];
+  payments: RecordPayment[];
+  lotes: RecordLote[];
+  alert_rules: RecordAlertRule[];
+}
+
+export type AccountEdit = Partial<Pick<AccountRecord, 'name' | 'email'>>;
+
+/** The one-click writes on a record, by the path they post to. */
+export type AccountActionPath =
+  | 'bloquear'
+  | 'desbloquear'
+  | 'superadmin/dar'
+  | 'superadmin/quitar'
+  | 'restablecer-contrasena'
+  | 'founder/dar'
+  | 'founder/quitar'
+  | 'suscripcion/sincronizar'
+  | 'suscripcion/cancelar';
+
+export const getAccount = (id: number) => backoffice<AccountRecord>(`cuentas/${id}/`);
+
+/** 400 with `email: ['Ya hay una cuenta con ese email.']` when another account has it. */
+export const updateAccount = (id: number, input: AccountEdit) =>
+  backoffice<AccountRecord>(`cuentas/${id}/`, { method: 'PATCH', body: input });
+
+/**
+ * 400 `{detail}` for what the rules refuse (yourself, a blocked account, already a founder);
+ * 404 with no subscription, 502 when Mercado Pago fails, 503 when payments are off.
+ */
+export const accountAction = (id: number, path: AccountActionPath) =>
+  backoffice<AccountRecord>(`cuentas/${id}/${path}/`, { method: 'POST' });
+
+/** `hasta` is a calendar date, `YYYY-MM-DD`, after today in Buenos Aires. */
+export const grantTrial = (id: number, hasta: string) =>
+  backoffice<AccountRecord>(`cuentas/${id}/prueba/`, { method: 'POST', body: { hasta } });

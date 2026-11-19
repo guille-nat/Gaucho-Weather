@@ -3,9 +3,10 @@ import { listActions, type ActionRow } from '../../api/backoffice';
 import { formatMoney } from '../../api/payments';
 import { LoadFailed, Loading } from '../../components/backoffice/Loading';
 import { Pager } from '../../components/backoffice/Pager';
-import { DASH } from '../../lib/format';
+import { DASH, formatDate } from '../../lib/format';
+import { founderLabel } from '../../lib/membership';
 import { queryKeys } from '../../query/keys';
-import { formatMoment, planName } from './format';
+import { formatMoment, planName, plural, subscriptionWord } from './format';
 import { useBackofficeQuery } from './queries';
 
 type Prices = { price_ars_month?: number | null; price_usd_month?: number | null } | undefined;
@@ -20,6 +21,23 @@ const asked = (payload: ActionRow['payload']) =>
   payload.kind === 'cancel'
     ? `baja a ${planName(payload.plan)}`
     : `pasar a ${planName(payload.plan)}`;
+
+type Fields = { name?: string; email?: string } | undefined;
+
+/** `nombre «Ana» → «Ana María»; email a@x.com → b@x.com`: only the fields that changed. */
+function edited(payload: ActionRow['payload']) {
+  const before = payload.before as Fields;
+  const after = payload.after as Fields;
+  const parts = [];
+  if (after?.name !== undefined) parts.push(`nombre «${before?.name ?? ''}» → «${after.name}»`);
+  if (after?.email !== undefined) parts.push(`email ${before?.email ?? ''} → ${after.email}`);
+  return parts.join('; ');
+}
+
+const calendarDay = (value: unknown) => (typeof value === 'string' ? formatDate(value) : DASH);
+
+const founderNumber = (value: unknown) =>
+  typeof value === 'number' ? founderLabel(value) : 'Founder';
 
 /** What was done, in words, from the payload each action stores (backoffice.md, "Registro"). */
 function describeAction({ action, payload }: ActionRow): string {
@@ -42,6 +60,43 @@ function describeAction({ action, payload }: ActionRow): string {
         `${price(before?.price_usd_month, 'USD')} → ${price(after?.price_usd_month, 'USD')}`
       );
     }
+    case 'account_update':
+      return `Datos editados: ${edited(payload)}`;
+    case 'account_block':
+      return 'Cuenta bloqueada';
+    case 'account_unblock':
+      return 'Cuenta desbloqueada';
+    case 'superadmin_grant':
+      return 'Super admin dado';
+    case 'superadmin_revoke':
+      return 'Super admin quitado';
+    case 'password_reset':
+      return 'Mail para restablecer la contraseña';
+    case 'trial_grant':
+      return (
+        `Prueba de Productor hasta el ${calendarDay(payload.until)} ` +
+        `(venía de ${planName(payload.from_plan)})`
+      );
+    case 'founder_grant':
+      return `${founderNumber(payload.number)} (venía de ${planName(payload.from_plan)})`;
+    case 'founder_revoke':
+      return `${founderNumber(payload.number)} quitado`;
+    case 'subscription_sync':
+      return (
+        'Suscripción sincronizada con Mercado Pago: ' +
+        `${subscriptionWord(payload.before)} → ${subscriptionWord(payload.after)}; ` +
+        plural(Number(payload.payments) || 0, 'pago', 'pagos')
+      );
+    case 'subscription_cancel':
+      return (
+        'Suscripción cancelada desde el backoffice: ' +
+        `${subscriptionWord(payload.before)} → ${subscriptionWord(payload.after)}`
+      );
+    case 'export':
+      return (
+        `Exportación CSV: ${String(payload.file)} ` +
+        `(${plural(Number(payload.rows) || 0, 'fila', 'filas')})`
+      );
     default:
       return String(action);
   }

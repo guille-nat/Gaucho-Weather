@@ -5,11 +5,11 @@ in the same transaction, so a change and its log row are saved together or not a
 Plan moves reuse apps.accounts.plans, the same code the Django admin runs.
 """
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -18,13 +18,19 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts import plans
+from apps.accounts import password_reset, plans
 from apps.accounts.models import FounderProgram, Plan, PlanChange, PlanRequest, User
+from apps.alerts.models import AlertRule
+from apps.payments import services as payment_services
 from apps.payments.models import Payment, ProviderSubscription
+from apps.payments.providers import get_provider
+from apps.payments.providers.base import ProviderError
 
 from .models import BackofficeAction
 from .permissions import IsSuperuser
 from .serializers import (
+    AccountEditSerializer,
+    AccountRecordSerializer,
     AccountRowSerializer,
     BackofficeActionSerializer,
     ChangePlanSerializer,
@@ -33,6 +39,7 @@ from .serializers import (
     RejectRequestSerializer,
     RequestRowSerializer,
     SubscriptionRowSerializer,
+    TrialSerializer,
 )
 
 NEW_ACCOUNTS_WINDOW = timedelta(days=30)
@@ -285,3 +292,325 @@ class PaymentListView(BackofficeListView):
         model = self.list_kind()[0]
         related = ["user", "plan"] if model is ProviderSubscription else ["user"]
         return model.objects.select_related(*related).order_by("-created_at", "-id")
+
+
+# --- backoffice-superadmin S1-S4: the account record and the manual changes ----------------
+
+SELF_REFUSED = "No podés hacer eso con tu propia cuenta."
+ACCOUNT_BLOCKED = "La cuenta está bloqueada."
+RESET_COOLDOWN = "Ya le mandamos un mail hace menos de 10 minutos. Probá de nuevo más tarde."
+FOUNDER_HAS_PRODUCTOR = "La cuenta es founder: ya tiene Productor sin vencimiento."
+ALREADY_FOUNDER = "La cuenta ya es founder (n.º {number})."
+NOT_FOUNDER = "La cuenta no es founder."
+NO_SUBSCRIPTION = "La cuenta no tiene una suscripción con Mercado Pago."
+EDITABLE_FIELDS = ("name", "email")
+
+
+class Refused(APIException):
+    """A 400 whose detail is shown as is."""
+
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_code = "refused"
+
+
+def account_record(pk: int) -> dict:
+    user = get_object_or_404(
+        User.objects.select_related("plan").prefetch_related(
+            Prefetch(
+                "plan_changes",
+                queryset=PlanChange.objects.select_related("from_plan", "to_plan", "by"),
+            ),
+            Prefetch(
+                "provider_subscriptions",
+                queryset=ProviderSubscription.objects.select_related("plan"),
+            ),
+            "payments",
+            "lotes",
+            Prefetch("alert_rules", queryset=AlertRule.objects.select_related("lote")),
+        ),
+        pk=pk,
+    )
+    return AccountRecordSerializer(user).data
+
+
+def locked_account(pk: int) -> User:
+    """The account, locked until the surrounding transaction ends. Call inside atomic()."""
+    return get_object_or_404(User.objects.select_for_update(), pk=pk)
+
+
+class AccountRecordView(BackofficeView):
+    """GET the record (S1); PATCH name and/or email, logged with only what changed."""
+
+    def get(self, request, pk):
+        return Response(account_record(pk))
+
+    def patch(self, request, pk):
+        target = get_object_or_404(User, pk=pk)
+        serializer = AccountEditSerializer(data=request.data, context={"account": target})
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            target = locked_account(pk)
+            before, after = {}, {}
+            for field in EDITABLE_FIELDS:
+                if field in serializer.validated_data:
+                    value = serializer.validated_data[field]
+                    if value != getattr(target, field):
+                        before[field], after[field] = getattr(target, field), value
+                        setattr(target, field, value)
+            if after:
+                target.save(update_fields=list(after))
+                BackofficeAction.record(
+                    request.user,
+                    BackofficeAction.Action.ACCOUNT_UPDATE,
+                    target,
+                    before=before,
+                    after=after,
+                )
+        return Response(account_record(pk))
+
+
+class AccountFlagView(BackofficeView):
+    """Set boolean fields on an account and log it; a no-op logs nothing (S2).
+
+    `fields` are set to `value`; `action` is what the log calls it. `self_refused` stops a super
+    admin from doing it to their own account (blocking or revoking themself).
+    """
+
+    fields: tuple[str, ...] = ()
+    value: bool = True
+    action: str = ""
+    self_refused = False
+
+    def post(self, request, pk):
+        if self.self_refused and pk == request.user.pk:
+            raise Refused(SELF_REFUSED)
+        with transaction.atomic():
+            target = locked_account(pk)
+            changed = [field for field in self.fields if getattr(target, field) != self.value]
+            if changed:
+                for field in self.fields:
+                    setattr(target, field, self.value)
+                target.save(update_fields=list(self.fields))
+                BackofficeAction.record(request.user, self.action, target)
+        return Response(account_record(pk))
+
+
+class BlockView(AccountFlagView):
+    """Django refuses inactive accounts: no login, and an open session stops working.
+
+    (A) A Mercado Pago subscription keeps running: cancelling it is a separate action.
+    """
+
+    fields = ("is_active",)
+    value = False
+    action = BackofficeAction.Action.ACCOUNT_BLOCK
+    self_refused = True
+
+
+class UnblockView(AccountFlagView):
+    fields = ("is_active",)
+    value = True
+    action = BackofficeAction.Action.ACCOUNT_UNBLOCK
+
+
+class SuperadminGrantView(AccountFlagView):
+    """`is_superuser` and `is_staff` move together: the backoffice and the Django admin."""
+
+    fields = ("is_superuser", "is_staff")
+    value = True
+    action = BackofficeAction.Action.SUPERADMIN_GRANT
+
+
+class SuperadminRevokeView(AccountFlagView):
+    fields = ("is_superuser", "is_staff")
+    value = False
+    action = BackofficeAction.Action.SUPERADMIN_REVOKE
+    self_refused = True
+
+
+class TooSoon(APIException):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    default_code = "too_soon"
+
+
+class PasswordResetView(BackofficeView):
+    """The same email as "Olvidé mi contraseña", with the same 10-minute cooldown (A)."""
+
+    def post(self, request, pk):
+        target = get_object_or_404(User, pk=pk)
+        if not target.is_active:
+            raise Refused(ACCOUNT_BLOCKED)
+        if not password_reset.send_reset_email(target.email):
+            raise TooSoon(RESET_COOLDOWN)
+        BackofficeAction.record(request.user, BackofficeAction.Action.PASSWORD_RESET, target)
+        return Response(account_record(pk))
+
+
+def end_of_day(day) -> datetime:
+    """23:59:59 of `day` in the project's time zone (Buenos Aires)."""
+    return timezone.make_aware(datetime.combine(day, time(23, 59, 59)))
+
+
+class TrialView(BackofficeView):
+    """Productor until the end of `hasta`: a new trial, or a longer one (S3).
+
+    The move goes through plans._switch as a staff change (which drops any expiry), and the
+    expiry is set right after, in the same transaction and under the same lock.
+    """
+
+    def post(self, request, pk):
+        get_object_or_404(User, pk=pk)
+        serializer = TrialSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        until = serializer.validated_data["hasta"]
+        with transaction.atomic():
+            target = locked_account(pk)
+            if target.is_founder:
+                raise Refused(FOUNDER_HAS_PRODUCTOR)
+            from_plan = target.plan_id
+            plans._switch(
+                target, Plan.PRODUCTOR, PlanChange.Reason.STAFF, timezone.now(), by=request.user
+            )
+            target.plan_expires_at = end_of_day(until)
+            target.save(update_fields=["plan_expires_at"])
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.TRIAL_GRANT,
+                target,
+                until=until.isoformat(),
+                from_plan=from_plan,
+            )
+        return Response(account_record(pk))
+
+
+class FounderGrantView(BackofficeView):
+    """The next founder number and Productor for good (S3).
+
+    Like plans.start_membership, the program row is locked while the number is taken, so two
+    grants never share one. (A) It works past the quota: the super admin decides by hand.
+    """
+
+    def post(self, request, pk):
+        get_object_or_404(User, pk=pk)
+        with transaction.atomic():
+            program, _ = FounderProgram.objects.select_for_update().get_or_create(pk=1)
+            target = locked_account(pk)
+            if target.is_founder:
+                raise Refused(ALREADY_FOUNDER.format(number=target.founder_number))
+            number = program.next_number
+            # A number set by hand in the Django admin is never handed out twice.
+            while User.objects.filter(founder_number=number).exists():
+                number += 1
+            program.next_number = number + 1
+            program.save(update_fields=["next_number"])
+            from_plan = target.plan_id
+            target.founder_number = number
+            target.save(update_fields=["founder_number"])
+            # A staff change drops any expiry: a trial on Productor becomes Productor for good.
+            plans._switch(
+                target, Plan.PRODUCTOR, PlanChange.Reason.STAFF, timezone.now(), by=request.user
+            )
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.FOUNDER_GRANT,
+                target,
+                number=number,
+                from_plan=from_plan,
+            )
+        return Response(account_record(pk))
+
+
+class FounderRevokeView(BackofficeView):
+    """Clears the number. (A) The plan stays, with no expiry: changing it is a separate step."""
+
+    def post(self, request, pk):
+        with transaction.atomic():
+            target = locked_account(pk)
+            if not target.is_founder:
+                raise Refused(NOT_FOUNDER)
+            number = target.founder_number
+            target.founder_number = None
+            target.save(update_fields=["founder_number"])
+            BackofficeAction.record(
+                request.user, BackofficeAction.Action.FOUNDER_REVOKE, target, number=number
+            )
+        return Response(account_record(pk))
+
+
+def provider_refusal(exc: payment_services.PaymentRefusal) -> Response:
+    if exc.status == status.HTTP_404_NOT_FOUND:
+        return Response({"detail": NO_SUBSCRIPTION}, status=exc.status)
+    return Response({"detail": exc.detail}, status=exc.status)
+
+
+def configured_provider(sub: ProviderSubscription):
+    provider = get_provider(sub.provider)
+    if not provider.is_configured():
+        raise payment_services.PaymentRefusal(503, payment_services.NOT_ENABLED)
+    return provider
+
+
+class SubscriptionSyncView(BackofficeView):
+    """Ask Mercado Pago again for the latest subscription and its charges (a lost webhook, S4).
+
+    Everything is read first; then the answer is applied with the same functions the webhook
+    uses, and logged, in one transaction.
+    """
+
+    def post(self, request, pk):
+        target = get_object_or_404(User, pk=pk)
+        sub = target.provider_subscriptions.order_by("-created_at", "-id").first()
+        try:
+            if sub is None:
+                raise payment_services.PaymentRefusal(404, NO_SUBSCRIPTION)
+            provider = configured_provider(sub)
+            try:
+                remote, charges = payment_services.fetch_subscription_state(provider, sub)
+            except ProviderError as exc:
+                raise payment_services.PaymentRefusal(502, payment_services.PROVIDER_DOWN) from exc
+        except payment_services.PaymentRefusal as exc:
+            return provider_refusal(exc)
+        before = sub.status
+        with transaction.atomic():
+            synced = payment_services.sync_subscription(provider.name, remote) or sub
+            recorded = [
+                payment_services.record_payment(provider.name, charge, sub.external_id)
+                for charge in charges
+            ]
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.SUBSCRIPTION_SYNC,
+                target,
+                subscription=sub.external_id,
+                before=before,
+                after=synced.status,
+                payments=sum(payment is not None for payment in recorded),
+            )
+        return Response(account_record(pk))
+
+
+class SubscriptionCancelView(BackofficeView):
+    """Cancel at Mercado Pago with payments.services.cancel, like the user's own button (S4)."""
+
+    def post(self, request, pk):
+        target = get_object_or_404(User, pk=pk)
+        sub = target.provider_subscriptions.filter(
+            status__in=payment_services.RUNNING, ended_at=None
+        ).first()
+        try:
+            if sub is None:
+                raise payment_services.PaymentRefusal(404, NO_SUBSCRIPTION)
+            configured_provider(sub)
+            with transaction.atomic():
+                cancelled = payment_services.cancel(target)
+                BackofficeAction.record(
+                    request.user,
+                    BackofficeAction.Action.SUBSCRIPTION_CANCEL,
+                    target,
+                    subscription=cancelled.external_id,
+                    before=sub.status,
+                    after=cancelled.status,
+                )
+        except payment_services.PaymentRefusal as exc:
+            return provider_refusal(exc)
+        return Response(account_record(pk))

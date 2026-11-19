@@ -274,6 +274,20 @@ def record_payment(
     return payment
 
 
+def fetch_subscription_state(
+    provider: PaymentProvider, sub: ProviderSubscription
+) -> tuple[RemoteSubscription, list[RemotePayment]]:
+    """Read a subscription and its charges from the provider, without saving anything.
+
+    For the backoffice's sync (backoffice-superadmin S4): every call happens before the caller
+    applies the answer, so a failure halfway leaves the local rows as they were. Raises
+    ProviderError.
+    """
+    remote = provider.fetch_subscription(sub.external_id)
+    payment_ids = provider.subscription_payment_ids(sub.external_id)
+    return remote, [provider.fetch_payment(payment_id) for payment_id in payment_ids]
+
+
 def current_subscription(user: User) -> ProviderSubscription | None:
     """The subscription the page shows: running, or cancelled but still in its paid month."""
     return (

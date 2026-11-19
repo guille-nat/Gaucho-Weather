@@ -1,5 +1,6 @@
 import type { MembershipStatus } from '../../api/backoffice';
-import type { PlanCode } from '../../api/types';
+import { SUBSCRIPTION_WORDS } from '../../api/payments';
+import type { PlanChangeReason, PlanCode, ProviderSubscriptionStatus } from '../../api/types';
 import { TIME_ZONE } from '../../lib/format';
 
 /** Names for plan codes in rows that carry only the code (the log's payload). */
@@ -47,3 +48,25 @@ export const formatCount = (value: number) => count.format(value);
 /** "1 cuenta", "3 cuentas". */
 export const plural = (n: number, one: string, many: string) =>
   `${formatCount(n)} ${n === 1 ? one : many}`;
+
+/** Why a plan changed, in the backoffice's third person (PlanChange.Reason in the backend). */
+export const REASON_WORDS: Record<PlanChangeReason, string> = {
+  founder: 'Alta como founder',
+  trial: 'Alta con prueba de Productor',
+  trial_ended: 'Fin de la prueba',
+  request: 'Pedido del usuario',
+  staff: 'Cambio del equipo',
+  payment: 'Pago aprobado',
+  payment_ended: 'Suscripción terminada',
+};
+
+/** A subscription status from a log payload, in the words Suscripción uses. */
+export const subscriptionWord = (status: unknown) =>
+  typeof status === 'string' && status in SUBSCRIPTION_WORDS
+    ? SUBSCRIPTION_WORDS[status as ProviderSubscriptionStatus]
+    : String(status);
+
+const isoDay = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE });
+
+/** Tomorrow in Buenos Aires as `YYYY-MM-DD`: the first day a trial can be given until. */
+export const tomorrowInBuenosAires = (now = Date.now()) => isoDay.format(now + 86_400_000);
