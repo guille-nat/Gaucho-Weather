@@ -104,7 +104,7 @@ Frontend:
 | T0 | scaffolding (action types and migration 0002, Informes stubs and wiring, `backofficeGate`) | inline | done | 452cb84, 2b8110c |
 | T1 | S1–S4 backend + frontend + docs | delegated writer A (parallel with T2) | done (verification pending) | 4d13fc6 |
 | T2 | S5–S8 backend + frontend + docs | delegated writer B (parallel with T1) | done (verification pending) | fce2b80 |
-| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | running | |
+| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | done: no blockers, every S# passes | 4bfc2de (guards) |
 
 Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and each is several hundred lines. They are launched together (Writer trigger a). The parent context is also past the backstop (b).
 
@@ -127,3 +127,13 @@ Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and
   - the charge search reads only Mercado Pago's first page;
   - `pagos_aprobados` and `pagos_rechazados` count every currency;
   - `founders.usados` is the program's `next_number - 1`.
+- **L6** (2026-11-19): T3 verifier found no blockers; S1–S8 all pass.
+  - Probes: 36 guard tests committed as `tests/test_backoffice_superadmin_guards.py` (4bfc2de). The baseline's 598 tests pass on HEAD, and the output of existing endpoints is identical byte for byte.
+  - Advisories:
+    1. A trial granted to an account already paying through Mercado Pago sets an expiry, so the nightly `expire_trials` would move a paying account to Básico.
+    2. A founder granted to a paying account keeps its Mercado Pago charge.
+    3. Cancel calls Mercado Pago inside the database transaction.
+    4. A race on the email check, or on two super admins revoking each other, ends in a 500 or in no super admin left.
+    5. An export GET writes a log row, so another site could trigger it.
+    6. Sync reads only the first page of charges.
+  - Native review: user granted consent, but START refused with `lens_context_budget_exceeded` (530dcef..HEAD, 6086 lines). No authority was created.
