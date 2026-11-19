@@ -77,8 +77,23 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - Payments show the amount actually charged.
 - Informes adds redemptions per coupon and referrals that converted.
 
+**S5 — Native apps later (iOS and Android).** User (L5): "pensa que estaria bueno poder subirlo a IOS y Android despues con apps nativas asi que hay que tener en cuenta eso".
+- Every source grants the plan the same way: founder, trial, credit, a Mercado Pago subscription, and later App Store and Google Play subscriptions. Each store is one more `PaymentProvider`/`ProviderSubscription.provider`, with the plan rules unchanged.
+- Coupons, referrals and credits are our own records. Each channel applies them its own way:
+  - Mercado Pago by changing the amount;
+  - the stores through their own offer mechanisms (Apple offer codes and promotional offers, Google Play promo codes and offers), within those mechanisms' limits.
+  - (A) Some promotions may be web-only. The terms must say which.
+- The founder upgrade needs, in each store, a separate "Empresa for founders" product at the difference price, so the promise is the same on every channel.
+- The terms (S0) state per channel:
+  - who charges;
+  - how to cancel ("Darme de baja" on the web; the store's subscription settings in the native apps);
+  - refunds, handled by the store for store purchases;
+  - that prices may differ by channel.
+- Native apps will need token authentication next to today's cookie session plus CSRF. That is a future task.
+- (A) Apple's and Google's rules for selling digital subscriptions in-app, and for web-bought access, are in flux and read in conflicting ways (checked 2026-11-19). They will be decided with the rules current when the apps are built.
+
 ## Open decisions (the user's)
-0. Founder moving up (proposed, L4): pays the Empresa − Productor difference ($35.000 today) as a permanent founder credit; cancelling returns to free Productor; the backoffice cannot approve Empresa for a founder through a request. Today's gaps:
+0. ~~Founder moving up~~ decided (L5):  pays the Empresa − Productor difference ($35.000 today) as a permanent founder credit; cancelling returns to free Productor; the backoffice cannot approve Empresa for a founder through a request. Today's gaps:
    - a founder cannot pay for anything (subscribe refuses every founder);
    - a request approved to Empresa would make it free forever;
    - `_end` skips founders, so cancelling would leave Empresa free.
@@ -105,3 +120,4 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - **L4** (2026-11-19): user asked: "y que pasa con un founder si se sube de plan, recorda que el founder tiene el plan productor gratis".
   - Verified today's gaps (decision 0 above) and proposed the founder credit.
   - User: "hay que aclarar todo esto, recorda que lo que no se aclara se da por sentado y eso lleva a que sea un problema legal y que al cliente no le guste". Added S0.
+- **L5** (2026-11-19): user: "si pensa que estaria bueno poder subirlo a IOS y Android despues con apps nativas asi que hay que tener en cuenta eso". The founder upgrade is decided (yes); S5 added.
