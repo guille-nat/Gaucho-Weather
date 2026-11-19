@@ -37,3 +37,5 @@
   lugares y ubicación inversa con Georef AR, sus términos y la caché.
 - [funcionalidades/backoffice.md](funcionalidades/backoffice.md): backoffice para
   super admins (resumen, cuentas, pedidos de plan, precios y registro de acciones).
+- [funcionalidades/pagos.md](funcionalidades/pagos.md): suscripciones mensuales en
+  pesos con Mercado Pago, el webhook, la baja y cómo probarlo en el sandbox.

@@ -15,6 +15,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.payments.providers import payments_enabled
+
 from . import password_reset, plans
 from .authentication import enforce_csrf
 from .models import FounderProgram, Plan
@@ -149,7 +151,7 @@ class PasswordChangeView(APIView):
 
 
 class PlansView(APIView):
-    """Public price table: the three plans and how many founder slots are left."""
+    """Public price table: the plans, founder slots left and whether payments are on."""
 
     permission_classes = [AllowAny]
     throttle_classes = [IPScopedRateThrottle]
@@ -162,6 +164,7 @@ class PlansView(APIView):
                 "plans": PlanSerializer(Plan.objects.all(), many=True).data,
                 "founders": {"limit": program.limit, "remaining": program.remaining},
                 "trial_days": program.trial_days,
+                "payments_enabled": payments_enabled(),
             }
         )
 

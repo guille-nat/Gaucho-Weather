@@ -167,6 +167,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "accounts.expire_trials",
         "schedule": crontab(minute=0, hour=9),
     },
+    "end-cancelled-subscriptions": {
+        # Hourly: a cancelled subscription keeps its plan until its paid month is over.
+        "task": "payments.end_cancelled_subscriptions",
+        "schedule": crontab(minute=30),
+    },
 }
 
 # --- Email (trial notices, password reset, alerts) ---
@@ -224,6 +229,13 @@ VAPID_SUBJECT = env("VAPID_SUBJECT") or "mailto:soporte@example.com"
 # --- Places (S10): Georef AR, CC BY 4.0, commercial use allowed ---
 GEOREF_API_URL = env("GEOREF_API_URL", "https://apis.datos.gob.ar/georef/api")
 PLACES_CACHE_SECONDS = env_int("PLACES_CACHE_SECONDS", 60 * 60 * 24)
+
+# --- Payments (pagos-backoffice S3): Mercado Pago subscriptions in pesos ---
+# Without both secrets payments are off: /api/planes/ says payments_enabled=false and
+# subscribing answers 503. Test credentials (TEST-...) go to the sandbox, same API URL.
+MERCADOPAGO_ACCESS_TOKEN = env("MERCADOPAGO_ACCESS_TOKEN")
+MERCADOPAGO_WEBHOOK_SECRET = env("MERCADOPAGO_WEBHOOK_SECRET")
+MERCADOPAGO_API_URL = (env("MERCADOPAGO_API_URL") or "https://api.mercadopago.com").rstrip("/")
 
 LOGGING = {
     "version": 1,

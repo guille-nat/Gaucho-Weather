@@ -135,6 +135,8 @@ class PlanChange(models.Model):
         TRIAL_ENDED = "trial_ended", "fin de la prueba"
         REQUEST = "request", "pedido del usuario"
         STAFF = "staff", "cambio de staff"
+        PAYMENT = "payment", "pago aprobado"
+        PAYMENT_ENDED = "payment_ended", "suscripción terminada"
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="plan_changes", verbose_name="usuario"

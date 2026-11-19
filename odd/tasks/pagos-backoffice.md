@@ -49,7 +49,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | paused (uncommitted in the tree) | the writer reported "All green" before writing Doc/funcionalidades/pagos.md |
+| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | done | parent re-run 2026-11-19: 576 passed (36 in test_payments.py), ruff and makemigrations --check clean; commit `feat(pagos)` below |
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T3 | S7 | delegated, unit A continued | pending | |
 | T4 | S5, S6 | delegated, unit C | pending | |
@@ -90,3 +90,7 @@ An independent verifier runs after T1–T4.
     3. T4 (frontend S5/S6; it must check `me.is_superuser` before calling `/api/backoffice/`, see L5).
     4. An independent verifier over T1–T4 (risk items 2, 3 and 5).
     5. Follow-up: the COALESCE upsert for history (auditoria-historico L6, advisory 3).
+- **L7** (2026-11-19, user, verbatim): "continua donde lo dejaste".
+  - Unit A re-verified by the parent: 576 passed, ruff check/format clean, no missing migrations.
+  - The parent wrote `Doc/funcionalidades/pagos.md` (flow, endpoints, settings, sandbox steps), indexed it, and marked the "planes sin cobro" decision in `planes.md` as replaced.
+  - T1 committed. Next: T3 (S7).
