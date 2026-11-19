@@ -37,7 +37,8 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 
 **S2 — Referrals.** Every account has a personal code, for example `GW-ANA7`, and a share link shown on Perfil.
 - The referee enters the code when subscribing (the same field as coupons) and gets a discount on their first charges.
-- When the referee's first charge is approved, the referrer gets a reward.
+- Referrer reward (decided, L3): each referee counts once their **second** approved charge arrives (anti-abuse: sign up with a discount, pay once, cancel). Each one that counts takes 1/3 of a month off the referrer's next charge, so three make a free month. Mercado Pago's minimum makes that charge $15, not $0.
+  - Perfil shows the progress, for example "Invitaste a 2 de 3: tu próximo mes sale $4.967".
 - Abuse guards:
   - no self-referral;
   - one referrer per account;
@@ -57,7 +58,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - Informes adds redemptions per coupon and referrals that converted.
 
 ## Open decisions (the user's)
-1. The referral reward for each side, for example: referee 50% for 1 month, referrer 1 free month.
+1. ~~Referrer reward~~ decided (L3). Still open: the referee's reward (proposal: 50% on the first month).
 2. Whether a coupon and a referral code stack, or only one applies (common SaaS default: only one).
 3. Whether coupons apply to Empresa as well as Productor.
 4. Whether founder and trial accounts can use coupons (founders don't pay; trial accounts would on subscribing).
@@ -74,3 +75,5 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 ## Log
 - **L1** (2026-11-19): request quoted above. User agreed ("dale") to run the sandbox experiment and design in parallel.
 - **L2** (2026-11-19): lab preapproval `8324c91c792549e193da03d7cec5ed86` (daily, $15, test buyer) created directly at Mercado Pago, outside the local database. Waiting for the user to authorize it. Then: pause right after the first charge, resume after the next charge date, and record what Mercado Pago does.
+- **L3** (2026-11-19): user: "si que invite a 3 personas gana 1 mes, que pensas?"
+  - Recommended the same cost spread per referral (1/3 of a month each), counted from the referee's second approved charge. User: "si".
