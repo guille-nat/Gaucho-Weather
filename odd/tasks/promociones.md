@@ -107,7 +107,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
    - a request approved to Empresa would make it free forever;
    - `_end` skips founders, so cancelling would leave Empresa free.
 1. ~~Referral rewards~~ decided: referrer (L3) and referee, 50% on the first month (L6).
-2. Whether a coupon and a referral code stack, or only one applies (common SaaS default: only one).
+2. ~~Stacking~~ decided (L7): a coupon and a referral code never stack. Only one applies, the one better for the customer, and the screen says which.
 3. Whether coupons apply to Empresa as well as Productor.
 4. Whether founder and trial accounts can use coupons (founders don't pay; trial accounts would on subscribing).
 
@@ -133,3 +133,4 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - **L6** (2026-11-19): user: "si va el 50%. pensa que en apple pay y google pay la app debe de cobrar en dolares y bueno si es por la web asi si en pesos. Tambien hay que pensar que se debe de poder compartir la info de la cuenta, si uno adquiere el plan empresa desde la web en pesos, no importa si el usa la app desde un android o IOS debe de tener su cuenta con su plan que pago."
   - Referee reward decided.
   - Currency by channel, the account-level plan, one subscription per account, and cancel-where-billed were added to S5.
+- **L7** (2026-11-19): user: "no se puede juntar". Proposal accepted: the one better for the customer applies, and the screen says which.
