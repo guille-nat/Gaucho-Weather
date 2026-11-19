@@ -363,6 +363,35 @@ def test_a_webhook_with_a_non_ascii_signature_is_401(user):
     assert not route.called
 
 
+@pytest.mark.parametrize("body", ['{"data": "x"}', '{"data": ["x"]}', '{"data": 7}'])
+@respx.mock
+def test_an_unsigned_webhook_with_a_malformed_body_is_401(user, body):
+    subscription(user)
+
+    response = APIClient(raise_request_exception=False).post(
+        WEBHOOK, data=body, content_type="application/json"
+    )
+
+    assert response.status_code == 401
+    assert ProviderSubscription.objects.get().status == "pending"
+
+
+@respx.mock
+def test_a_signed_webhook_with_an_odd_type_is_acknowledged_and_ignored(user):
+    subscription(user)
+    route = respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = APIClient(raise_request_exception=False).post(
+        f"{WEBHOOK}?data.id={PREAPPROVAL_ID}",
+        data=json.dumps({"type": ["payment"], "data": {"id": PREAPPROVAL_ID}}),
+        content_type="application/json",
+        **sign(PREAPPROVAL_ID),
+    )
+
+    assert response.status_code == 200
+    assert not route.called
+
+
 @pytest.mark.parametrize(
     "headers",
     [

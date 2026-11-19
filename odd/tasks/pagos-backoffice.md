@@ -129,3 +129,10 @@ An independent verifier runs after T1–T4.
     6. "Aplicar" acts at once, while "Rechazar" opens a dialog for a note;
     7. the wording of the notices;
     8. Planes.tsx still says "Todavía no cobramos" and "Próximamente" even with payments on (open question).
+- **L13** (2026-11-19): independent verifier over T1–T4.
+  - Verdicts: S1, S2, S4, S5, S6 and S7 PASS; S3 PARTIAL because of blocker B1.
+  - B1: an unsigned webhook whose `data` is not a dict answered 500 instead of 401, at `mercadopago.py:170`.
+  - Invariants hold: the touched endpoints differ from the baseline only by the added `payments_enabled` and `resumen.payments`.
+  - One correction batch fixed B1 and advisory 1 (a non-string `type`). RED was 4 failed; GREEN is a suite of 593 passed.
+  - The recheck is those 4 tests.
+  - Advisories 2 (a provider 404 gives 502 and Mercado Pago keeps retrying) and 3 (the wording of a 4xx) are logged in `pagos.md`.

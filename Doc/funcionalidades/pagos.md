@@ -49,7 +49,8 @@ Rechazos de `suscribirme/` (todos con `detail` en español):
 siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambios.
 
 ### Webhook
-- Firma inválida o ausente: 401. Sin credenciales configuradas: 503.
+- Firma inválida o ausente: 401, aunque el cuerpo venga malformado (el cuerpo se lee antes de
+  verificar la firma, así que nunca se asume su forma). Sin credenciales configuradas: 503.
 - Si la API de Mercado Pago falla, responde 502 para que Mercado Pago reintente.
 - Es idempotente: la suscripción se busca por su `external_id` con `select_for_update`, y el
   pago se guarda con `update_or_create` sobre su id único.
@@ -163,9 +164,14 @@ la misma.
   ventana de tiempo sin confirmar cómo manda `ts` Mercado Pago en los reintentos.
 - Un pago cuya suscripción todavía no se conoce se responde 200 y no se reintenta: puede
   faltar en el historial (no afecta el plan).
+- Una notificación firmada de un recurso que Mercado Pago responde 404 da 502, y Mercado Pago
+  la sigue reintentando; podría responderse 200.
+- Si Mercado Pago rechaza el alta con un 4xx, el usuario lee "No pudimos conectar con Mercado
+  Pago…", que no es exacto.
 
 ## Historial
 - 2026-11-19: versión inicial (feature `pagos-backoffice`, T1).
 - 2026-11-19: un checkout pendiente por cuenta y firma comparada en bytes (review de T1).
 - 2026-11-19: la cancelación remota de un checkout viejo no se pierde si falla el nuevo (review del fix).
 - 2026-11-19: pantalla de pagos en Tu suscripción (T4).
+- 2026-11-19: el webhook responde 401, no 500, ante un cuerpo malformado sin firma (verificación de T1–T4).
