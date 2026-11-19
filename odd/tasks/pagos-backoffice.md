@@ -44,6 +44,9 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
   - "Darme de baja" uses `/api/pagos/cancelar/` when a provider subscription exists.
   - The payment history is listed on the page.
   - `/backoffice`, only for superusers (others are redirected), has tabs Resumen, Cuentas, Pedidos, Pagos, Precios and Registro. It is reached from Perfil by a link shown only to superusers. It is Operate mode in the "Cielo vivo" system and uses the width on desktop.
+- **S8 — Follow-ups decided by the user** (L15):
+  - Planes: with `payments_enabled`, a logged-in user's paid plan leads to Suscripción instead of "Todavía no cobramos" / "Próximamente".
+  - A `paused` subscription is treated like a cancelled one: it keeps the plan until `next_payment_at`, then moves to Básico with `payment_ended`.
 - **S7 — Backoffice payments** (unit A, after phase 1): `GET /api/backoffice/pagos/` lists payments and subscriptions; `resumen` adds monthly ARS revenue from authorized subscriptions and payments this month.
 
 ## Tasks
@@ -53,6 +56,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
 | T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
+| T5 | S8 | inline | done | backend RED 4 → GREEN, suite 598; frontend RED 3 → GREEN, suite 288 with one known flaky timeout (passes alone) |
 | T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | done | RED 26/31 → GREEN 31/31; parent spot check 74/74 in the six related files |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
@@ -140,3 +144,11 @@ An independent verifier runs after T1–T4.
   - The advisory: Pedidos stayed on a page that no longer existed after its last request was resolved.
   - Fixed: Pedidos now steps back a page. RED was re-checked against the old code; GREEN is a frontend suite of 283/283.
   - Open questions for the user: Planes still says "Todavía no cobramos" with payments on; and what a `paused` subscription does to the plan.
+- **L15** (2026-11-19, user, verbatim): "dale, hacé el 1 y el 2 y yo busco credenciales de test para MP".
+  - 1 = Planes leads to Suscripción when payments are on.
+  - 2 = paused is treated like cancelled (the parent's proposal, accepted).
+- **L16** (2026-11-19): T5 (S8) done.
+  - Paused is now treated like cancelled.
+  - A paused subscription that ended revives on `authorized`; an ended cancelled one never does.
+  - Re-subscribing cancels an ended paused subscription first.
+  - Planes leads to Suscripción ("Suscribirme") when payments are on. It does not for Básico, a founder, or the plan already paid. A trial keeps the link under its note.

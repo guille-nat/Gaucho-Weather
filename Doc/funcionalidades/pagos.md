@@ -17,13 +17,13 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
 4. Mercado Pago llama al webhook. El backend verifica la firma, **pide el recurso a la API**
    (no confía en el cuerpo) y aplica la regla:
    - suscripción `authorized`: `change_plan(..., reason="payment")`, que termina la prueba;
-   - suscripción `cancelled`: la cuenta conserva el plan hasta `next_payment_at` y después
-     pasa a Básico con `payment_ended`. Si nunca se pagó (venía de `pending`), se cierra sin
+   - suscripción `cancelled` o `paused`: la cuenta conserva el plan hasta `next_payment_at` y
+     después pasa a Básico con `payment_ended`. Si nunca se pagó (venía de `pending`), se cierra sin
      tocar el plan;
    - pagos (`payment` y `subscription_authorized_payment`): se crea o actualiza el `Payment`
      por su id de Mercado Pago. Un pago rechazado no baja el plan.
 5. La tarea `payments.end_cancelled_subscriptions` corre cada hora (minuto 30) y pasa a
-   Básico las suscripciones canceladas cuyo mes pago ya terminó.
+   Básico las suscripciones canceladas o pausadas cuyo mes pago ya terminó.
 
 ### Endpoints
 | Método y ruta | Qué hace |
@@ -127,6 +127,16 @@ la misma.
 - **Decisión:** al cancelar, el plan sigue hasta `next_payment_at`.
   **Por qué:** el productor ya pagó ese mes. Se usa una tarea propia porque
   `accounts.expire_trials` solo maneja pruebas.
+- **Decisión:** una suscripción pausada se trata como una cancelada: conserva el plan hasta
+  `next_payment_at` (la guardada, porque Mercado Pago puede no mandarla al pausar) y después
+  pasa a Básico.
+  **Por qué:** decisión del usuario (2026-11-19). Al pausar se cortan los cobros; antes la
+  cuenta se quedaba con el plan pago sin fecha de fin.
+  Una pausada se puede reanudar en Mercado Pago:
+  - si vuelve a `authorized` después de terminada, el plan vuelve;
+  - si la persona se suscribe de nuevo, la pausada terminada se cancela antes en Mercado Pago,
+    para que reanudarla no cobre dos veces.
+  Una cancelada terminada no se revive.
 - **Decisión:** un pago rechazado no baja el plan.
   **Por qué:** Mercado Pago reintenta el cobro y cancela la suscripción si sigue fallando;
   esa cancelación es la que baja el plan.
@@ -158,7 +168,6 @@ la misma.
 - Tests: `backend/tests/test_payments.py` (la API de Mercado Pago está simulada).
 
 ## Pendientes
-- Una suscripción `paused` mantiene el plan pago sin fecha de fin (falta decidir qué hacer).
 - `ts` de la firma no se valida por antigüedad: una notificación capturada puede repetirse.
   El daño es acotado porque el estado siempre se vuelve a pedir a la API. No se agregó una
   ventana de tiempo sin confirmar cómo manda `ts` Mercado Pago en los reintentos.
@@ -175,3 +184,4 @@ la misma.
 - 2026-11-19: la cancelación remota de un checkout viejo no se pierde si falla el nuevo (review del fix).
 - 2026-11-19: pantalla de pagos en Tu suscripción (T4).
 - 2026-11-19: el webhook responde 401, no 500, ante un cuerpo malformado sin firma (verificación de T1–T4).
+- 2026-11-19: una suscripción pausada se trata como cancelada (S8).

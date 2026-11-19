@@ -30,8 +30,10 @@ class ProviderSubscriptionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_ends_at(self, sub: ProviderSubscription):
-        """When a cancelled subscription stops giving the plan: the end of its paid month."""
-        if sub.status != ProviderSubscription.Status.CANCELLED or sub.ended_at is not None:
+        """When a cancelled or paused subscription stops giving the plan: the end of its paid
+        month."""
+        stopped = (ProviderSubscription.Status.CANCELLED, ProviderSubscription.Status.PAUSED)
+        if sub.status not in stopped or sub.ended_at is not None:
             return None
         return serializers.DateTimeField().to_representation(sub.next_payment_at)
 
