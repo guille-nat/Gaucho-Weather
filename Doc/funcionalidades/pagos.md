@@ -108,6 +108,15 @@ la misma.
 - **Decisión:** un pago rechazado no baja el plan.
   **Por qué:** Mercado Pago reintenta el cobro y cancela la suscripción si sigue fallando;
   esa cancelación es la que baja el plan.
+- **Decisión:** un solo checkout pendiente por cuenta. Suscribirse de nuevo al mismo plan
+  devuelve el mismo `checkout_url`; elegir otro plan cancela antes el pendiente en Mercado
+  Pago (si no se puede, 502 y no se crea el nuevo). Se serializa con `select_for_update`
+  sobre la fila del usuario.
+  **Por qué:** el review de T1 mostró que un doble clic creaba dos preapprovals y el
+  pagador podía autorizar las dos: dos cobros por mes.
+- **Decisión:** la firma se compara en bytes.
+  **Por qué:** `hmac.compare_digest` con `str` no ASCII lanza `TypeError`; el webhook daba
+  500 en vez de 401.
 - **Decisión:** `Payment.payload` guarda solo campos del pago (`PAYLOAD_KEYS`).
   **Por qué:** no guardar datos del pagador, la tarjeta ni la dirección.
 
@@ -117,5 +126,14 @@ la misma.
 - El plan cambia solo por `plans.change_plan`; no escribir `user.plan` directo.
 - Tests: `backend/tests/test_payments.py` (la API de Mercado Pago está simulada).
 
+## Pendientes
+- Una suscripción `paused` mantiene el plan pago sin fecha de fin (falta decidir qué hacer).
+- `ts` de la firma no se valida por antigüedad: una notificación capturada puede repetirse.
+  El daño es acotado porque el estado siempre se vuelve a pedir a la API. No se agregó una
+  ventana de tiempo sin confirmar cómo manda `ts` Mercado Pago en los reintentos.
+- Un pago cuya suscripción todavía no se conoce se responde 200 y no se reintenta: puede
+  faltar en el historial (no afecta el plan).
+
 ## Historial
 - 2026-11-19: versión inicial (feature `pagos-backoffice`, T1).
+- 2026-11-19: un checkout pendiente por cuenta y firma comparada en bytes (review de T1).

@@ -82,6 +82,37 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         raise PaymentRefusal(400, plans.ALREADY_ON_PLAN.format(name=plan.name))
     if not plan.price_ars_month:
         raise PaymentRefusal(409, NO_ARS_PRICE)
+    with transaction.atomic():
+        # One checkout per account at a time: a double click or a plan switch must never
+        # leave two preapprovals the payer could authorize (two monthly charges).
+        User.objects.select_for_update().get(pk=user.pk)
+        open_checkouts = user.provider_subscriptions.select_for_update().filter(
+            status=S.PENDING, ended_at=None
+        )
+        reusable = open_checkouts.filter(
+            plan=plan, currency=currency, amount=plan.price_ars_month
+        ).first()
+        if reusable is not None:
+            return reusable
+        for stale in open_checkouts:
+            _drop_checkout(provider, stale)
+        return _start(provider, user, plan, currency)
+
+
+def _drop_checkout(provider: PaymentProvider, sub: ProviderSubscription) -> None:
+    """Cancel a checkout that was never paid; if Mercado Pago cannot, refuse the new one."""
+    try:
+        provider.cancel_subscription(sub.external_id)
+    except ProviderError as exc:
+        raise PaymentRefusal(502, PROVIDER_DOWN) from exc
+    sub.status = S.CANCELLED
+    sub.ended_at = timezone.now()
+    sub.save(update_fields=["status", "ended_at", "updated_at"])
+
+
+def _start(
+    provider: PaymentProvider, user: User, plan: Plan, currency: str
+) -> ProviderSubscription:
     try:
         checkout = provider.start_subscription(
             payer_email=user.email,

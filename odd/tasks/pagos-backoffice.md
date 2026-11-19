@@ -51,6 +51,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 |---|---|---|---|---|
 | T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | done | parent re-run 2026-11-19: 576 passed (36 in test_payments.py), ruff and makemigrations --check clean; commit `feat(pagos)` below |
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
+| T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
 | T3 | S7 | delegated, unit A continued | pending | |
 | T4 | S5, S6 | delegated, unit C | pending | |
 
@@ -94,3 +95,11 @@ An independent verifier runs after T1–T4.
   - Unit A re-verified by the parent: 576 passed, ruff check/format clean, no missing migrations.
   - The parent wrote `Doc/funcionalidades/pagos.md` (flow, endpoints, settings, sandbox steps), indexed it, and marked the "planes sin cobro" decision in `planes.md` as replaced.
   - T1 committed. Next: T3 (S7).
+- **L8** (2026-11-19): T1 was committed as deefdd4. The native review ran on that commit alone, base 822431b; the user answered "Revisar este cambio".
+  - The lenses were risk, resilience and reliability, under lineage review-cad75bbc227fd50a.
+  - The review was approved and acknowledged, which burned its authority. It left 7 advisories.
+  - Fixed inline as T1b:
+    - double subscribe: one pending checkout per account; a plan switch cancels the old one first;
+    - non-ASCII `x-signature` gave a 500: it now answers 401.
+  - Left as follow-ups in `pagos.md`: no `ts` freshness check; a payment that arrives before its subscription is lost.
+  - Open question for the user: what a `paused` subscription does to the plan.

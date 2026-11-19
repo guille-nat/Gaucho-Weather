@@ -188,7 +188,8 @@ class MercadoPago(PaymentProvider):
         expected = hmac.new(
             settings.MERCADOPAGO_WEBHOOK_SECRET.encode(), manifest.encode(), hashlib.sha256
         ).hexdigest()
-        if not hmac.compare_digest(expected, received):
+        # Bytes, not str: compare_digest raises TypeError on non-ASCII str (a 500, not a 401).
+        if not hmac.compare_digest(expected.encode(), received.encode()):
             raise InvalidSignature("x-signature does not match")
         topic = request.query_params.get("type") or request.query_params.get("topic")
         kind = WEBHOOK_TOPICS.get(topic or body.get("type"))

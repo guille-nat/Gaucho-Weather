@@ -154,6 +154,65 @@ def test_subscribing_creates_a_pending_preapproval_and_returns_the_checkout_url(
     assert user.plan_id == "basico"  # nothing changes until Mercado Pago authorizes it
 
 
+@respx.mock
+def test_subscribing_twice_to_the_same_plan_reuses_the_pending_checkout(user):
+    route = respx.post(f"{API}/preapproval").mock(
+        return_value=httpx.Response(201, json=preapproval())
+    )
+    client = client_for(user)
+
+    first = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+    second = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+
+    assert first.status_code == second.status_code == 201
+    assert second.json() == first.json()
+    assert route.call_count == 1  # one preapproval: the payer cannot authorize two
+    assert ProviderSubscription.objects.count() == 1
+
+
+@respx.mock
+def test_subscribing_to_another_plan_cancels_the_pending_checkout(user):
+    old = subscription(user, plan=Plan.EMPRESA)
+    cancel = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+    respx.post(f"{API}/preapproval").mock(
+        return_value=httpx.Response(201, json=preapproval(external_id="new-preapproval"))
+    )
+
+    response = client_for(user).post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+    )
+
+    assert response.status_code == 201
+    assert json.loads(cancel.calls.last.request.content) == {"status": "cancelled"}
+    old.refresh_from_db()
+    assert old.status == "cancelled"
+    assert old.ended_at is not None
+    new = ProviderSubscription.objects.get(external_id="new-preapproval")
+    assert (new.plan_id, new.status) == ("productor", "pending")
+    user.refresh_from_db()
+    assert user.plan_id == "basico"
+
+
+@respx.mock
+def test_subscribing_when_the_old_checkout_cannot_be_cancelled_is_502(user):
+    subscription(user, plan=Plan.EMPRESA)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
+    create = respx.post(f"{API}/preapproval")
+
+    response = client_for(user).post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "No pudimos conectar con Mercado Pago. Probá de nuevo en un rato."
+    }
+    assert not create.called
+    assert ProviderSubscription.objects.get().status == "pending"
+
+
 def test_subscribing_needs_a_session(api_client):
     response = api_client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
 
@@ -268,6 +327,21 @@ def test_subscribing_when_mercadopago_fails_is_502_and_records_nothing(user):
 
 
 # --- POST /api/pagos/mercadopago/webhook/ --------------------------------------------------
+
+
+@respx.mock
+def test_a_webhook_with_a_non_ascii_signature_is_401(user):
+    subscription(user)
+    route = respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = notify(
+        "subscription_preapproval",
+        PREAPPROVAL_ID,
+        headers={"HTTP_X_SIGNATURE": "ts=1742505638683,v1=ñandú", "HTTP_X_REQUEST_ID": "req-1"},
+    )
+
+    assert response.status_code == 401
+    assert not route.called
 
 
 @pytest.mark.parametrize(
