@@ -108,7 +108,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
    - `_end` skips founders, so cancelling would leave Empresa free.
 1. ~~Referral rewards~~ decided: referrer (L3) and referee, 50% on the first month (L6).
 2. ~~Stacking~~ decided (L7): a coupon and a referral code never stack. Only one applies, the one better for the customer, and the screen says which.
-3. Whether coupons apply to Empresa as well as Productor.
+3. ~~Plans per coupon~~ decided (L8): each coupon names the plans it applies to, chosen when it is created in the backoffice (for example `CAMPO50` Productor only, `COOPERATIVA20` Empresa only).
 4. Whether founder and trial accounts can use coupons (founders don't pay; trial accounts would on subscribing).
 
 ## Tasks
@@ -134,3 +134,4 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - Referee reward decided.
   - Currency by channel, the account-level plan, one subscription per account, and cancel-where-billed were added to S5.
 - **L7** (2026-11-19): user: "no se puede juntar". Proposal accepted: the one better for the customer applies, and the screen says which.
+- **L8** (2026-11-19): user: "si". Each coupon names its plans.
