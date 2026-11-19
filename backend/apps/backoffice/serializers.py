@@ -3,6 +3,8 @@ from rest_framework import serializers
 from apps.accounts import plans
 from apps.accounts.models import Plan, PlanRequest, User
 from apps.accounts.serializers import PlanNameSerializer
+from apps.payments.models import Payment, ProviderSubscription
+from apps.payments.serializers import ProviderSubscriptionSerializer
 
 from .models import BackofficeAction
 
@@ -94,3 +96,63 @@ class BackofficeActionSerializer(serializers.ModelSerializer):
         model = BackofficeAction
         fields = ["id", "action", "actor", "target_user", "payload", "at"]
         read_only_fields = fields
+
+
+# --- S7: payments ---------------------------------------------------------------------------
+
+
+class PayerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "name", "email"]
+        read_only_fields = fields
+
+
+class PaymentRowSerializer(serializers.ModelSerializer):
+    """One row of GET /api/backoffice/pagos/. No payload: the provider's answer stays private."""
+
+    user = PayerSerializer(read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "user",
+            "provider",
+            "external_id",
+            "subscription",
+            "amount",
+            "currency",
+            "status",
+            "paid_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class SubscriptionRowSerializer(serializers.ModelSerializer):
+    """One row of GET /api/backoffice/pagos/?tipo=suscripciones. No checkout link."""
+
+    user = PayerSerializer(read_only=True)
+    plan = PlanNameSerializer(read_only=True)
+    ends_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProviderSubscription
+        fields = [
+            "id",
+            "user",
+            "plan",
+            "provider",
+            "external_id",
+            "currency",
+            "amount",
+            "status",
+            "next_payment_at",
+            "ends_at",
+            "ended_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    get_ends_at = ProviderSubscriptionSerializer.get_ends_at

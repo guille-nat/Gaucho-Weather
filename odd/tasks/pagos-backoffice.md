@@ -52,7 +52,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | done | parent re-run 2026-11-19: 576 passed (36 in test_payments.py), ruff and makemigrations --check clean; commit `feat(pagos)` below |
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
-| T3 | S7 | delegated, unit A continued | pending | |
+| T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
 | T4 | S5, S6 | delegated, unit C | pending | |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
@@ -107,3 +107,8 @@ An independent verifier runs after T1–T4.
   - All three lenses flagged the same thing: the local cancel was rolled back after the cancel at Mercado Pago succeeded.
   - Fixed: the refusal is raised after the block commits (RED 1 failed, then GREEN, suite 581 passed).
   - Accepted and documented: the user row stays locked while the Mercado Pago HTTP call runs.
+- **L10** (2026-11-19): 63568b5 was reviewed under lineage review-4c066015ecfc942c: approved with no findings, acknowledged.
+  - T3 (S7) was done inline.
+  - `GET /api/backoffice/pagos/?tipo=pagos|suscripciones` is paginated; an unknown tipo is a 400.
+  - `resumen.payments` gives `active_subscriptions`, `monthly_ars`, `month_payments` and `month_ars`, in ARS only, with the month in Buenos Aires time.
+  - Amounts are numbers, following `COERCE_DECIMAL_TO_STRING: False`.

@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 from apps.accounts import plans
 from apps.accounts.models import FounderProgram, Plan, PlanChange, PlanRequest, User
 from apps.backoffice.models import BackofficeAction
+from apps.payments.models import Payment, ProviderSubscription
 
 from .conftest import PASSWORD
 from .test_lotes import make_lote
@@ -23,6 +24,7 @@ ACCOUNTS = f"{BASE}cuentas/"
 REQUESTS = f"{BASE}pedidos/"
 PRICES = f"{BASE}precios/"
 LOG = f"{BASE}registro/"
+PAYMENTS = f"{BASE}pagos/"
 ADMIN_REQUESTS = "/api/admin/accounts/planrequest/"
 
 
@@ -65,6 +67,8 @@ ENDPOINTS = [
     ("get", PRICES, None),
     ("put", f"{PRICES}productor/", {"price_ars_month": 1, "price_usd_month": 1}),
     ("get", LOG, None),
+    ("get", PAYMENTS, None),
+    ("get", f"{PAYMENTS}?tipo=suscripciones", None),
 ]
 
 
@@ -132,6 +136,12 @@ class TestSummary:
             "founders_left": 3,
             "pending_requests": 1,
             "new_accounts_last_30_days": 7,
+            "payments": {
+                "active_subscriptions": 0,
+                "monthly_ars": 0,
+                "month_payments": 0,
+                "month_ars": 0,
+            },
         }
 
     def test_status_counts_match_membership_status(self, admin_client):
@@ -524,3 +534,121 @@ class TestLog:
         assert plan["target_user"] == {"id": ana.pk, "name": "Ana", "email": "ana@example.com"}
         assert plan["payload"] == {"from": "basico", "to": "empresa", "note": ""}
         assert set(plan) == {"id", "action", "actor", "target_user", "payload", "at"}
+
+
+# --- S7: payments in the backoffice ---------------------------------------------------------
+
+
+def provider_subscription(user, external_id, status="authorized", plan="productor", **fields):
+    return ProviderSubscription.objects.create(
+        user=user,
+        plan_id=plan,
+        provider="mercadopago",
+        currency="ARS",
+        amount={"productor": 14900, "empresa": 49900}[plan],
+        external_id=external_id,
+        status=status,
+        **fields,
+    )
+
+
+def payment(user, external_id, amount="14900.00", status="approved", paid_at=NOW, sub=None):
+    return Payment.objects.create(
+        user=user,
+        subscription=sub,
+        provider="mercadopago",
+        external_id=external_id,
+        amount=amount,
+        currency="ARS",
+        status=status,
+        paid_at=paid_at,
+        payload={"payer": {"email": "secreto@example.com"}},
+    )
+
+
+class TestPaymentsSummary:
+    @time_machine.travel(NOW, tick=False)
+    def test_adds_monthly_ars_revenue_and_this_months_payments(self, admin_client):
+        ana = account("ana@example.com")
+        beto = account("beto@example.com")
+        provider_subscription(ana, "sub-a")
+        provider_subscription(beto, "sub-b", plan="empresa")
+        provider_subscription(beto, "sub-c", status="pending")
+        provider_subscription(beto, "sub-d", status="cancelled", ended_at=NOW)
+        payment(ana, "p1")
+        payment(beto, "p2", amount="49900.00")
+        payment(beto, "p3", status="rejected")
+        # 2026-11-01 02:00 UTC is still October 31 in Buenos Aires.
+        payment(ana, "p4", paid_at=datetime(2026, 11, 1, 2, tzinfo=UTC))
+
+        response = admin_client.get(SUMMARY)
+
+        assert response.status_code == 200
+        assert response.json()["payments"] == {
+            "active_subscriptions": 2,
+            "monthly_ars": 14900 + 49900,
+            "month_payments": 2,
+            "month_ars": 64800,
+        }
+
+
+class TestPaymentList:
+    def test_lists_payments_newest_first_without_the_provider_payload(self, admin_client):
+        ana = account("ana@example.com", name="Ana")
+        sub = provider_subscription(ana, "sub-a")
+        older = payment(ana, "p1", sub=sub)
+        Payment.objects.filter(pk=older.pk).update(created_at=NOW - timedelta(days=30))
+        newer = payment(ana, "p2", status="rejected", paid_at=None, sub=sub)
+
+        response = admin_client.get(PAYMENTS)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["count"] == 2
+        assert [row["id"] for row in body["results"]] == [newer.pk, older.pk]
+        assert body["results"][0] == {
+            "id": newer.pk,
+            "user": {"id": ana.pk, "name": "Ana", "email": "ana@example.com"},
+            "provider": "mercadopago",
+            "external_id": "p2",
+            "subscription": sub.pk,
+            "amount": 14900,
+            "currency": "ARS",
+            "status": "rejected",
+            "paid_at": None,
+            "created_at": body["results"][0]["created_at"],
+        }
+        assert "payload" not in body["results"][0]
+
+    def test_lists_subscriptions(self, admin_client):
+        ana = account("ana@example.com", name="Ana")
+        sub = provider_subscription(
+            ana, "sub-a", status="cancelled", next_payment_at=NOW + timedelta(days=9)
+        )
+
+        response = admin_client.get(PAYMENTS, {"tipo": "suscripciones"})
+
+        assert response.status_code == 200
+        row = response.json()["results"][0]
+        assert row == {
+            "id": sub.pk,
+            "user": {"id": ana.pk, "name": "Ana", "email": "ana@example.com"},
+            "plan": {"code": "productor", "name": "Productor"},
+            "provider": "mercadopago",
+            "external_id": "sub-a",
+            "currency": "ARS",
+            "amount": 14900,
+            "status": "cancelled",
+            "next_payment_at": row["next_payment_at"],
+            "ends_at": row["next_payment_at"],
+            "ended_at": None,
+            "created_at": row["created_at"],
+        }
+        assert row["next_payment_at"] is not None
+        assert "checkout_url" not in row
+
+    def test_an_unknown_tipo_is_400(self, admin_client):
+        response = admin_client.get(PAYMENTS, {"tipo": "otra"})
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "Tipo inválido: usá pagos o suscripciones."}

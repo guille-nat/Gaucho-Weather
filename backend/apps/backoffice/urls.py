@@ -20,4 +20,5 @@ urlpatterns = [
     path("precios/", views.PriceListView.as_view(), name="backoffice-prices"),
     path("precios/<slug:code>/", views.PriceDetailView.as_view(), name="backoffice-price"),
     path("registro/", views.ActionLogView.as_view(), name="backoffice-log"),
+    path("pagos/", views.PaymentListView.as_view(), name="backoffice-payments"),
 ]

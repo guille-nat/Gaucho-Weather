@@ -1,4 +1,4 @@
-"""The backoffice API (S4): super admins run accounts, plan requests and prices.
+"""The backoffice API (S4, S7): super admins run accounts, plan requests, prices and payments.
 
 Every view requires `is_superuser` (IsSuperuser), and every write records a BackofficeAction
 in the same transaction, so a change and its log row are saved together or not at all.
@@ -6,9 +6,10 @@ Plan moves reuse apps.accounts.plans, the same code the Django admin runs.
 """
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -19,6 +20,7 @@ from rest_framework.views import APIView
 
 from apps.accounts import plans
 from apps.accounts.models import FounderProgram, Plan, PlanChange, PlanRequest, User
+from apps.payments.models import Payment, ProviderSubscription
 
 from .models import BackofficeAction
 from .permissions import IsSuperuser
@@ -26,15 +28,18 @@ from .serializers import (
     AccountRowSerializer,
     BackofficeActionSerializer,
     ChangePlanSerializer,
+    PaymentRowSerializer,
     PlanPriceSerializer,
     RejectRequestSerializer,
     RequestRowSerializer,
+    SubscriptionRowSerializer,
 )
 
 NEW_ACCOUNTS_WINDOW = timedelta(days=30)
 BAD_STATUS = "Estado inválido: usá founder, trial o active."
 ALREADY_ON_PLAN = "La cuenta ya está en el plan {name}."
 NOT_PENDING = "El pedido ya no está pendiente."
+BAD_TIPO = "Tipo inválido: usá pagos o suscripciones."
 
 # The same rule as plans.membership_status, as a filter: a founder number wins over an expiry.
 STATUS_FILTERS = {
@@ -97,8 +102,29 @@ class SummaryView(BackofficeView):
                     status=PlanRequest.Status.PENDING
                 ).count(),
                 "new_accounts_last_30_days": users.filter(date_joined__gte=since).count(),
+                "payments": payments_summary(),
             }
         )
+
+
+def payments_summary() -> dict:
+    """Revenue in pesos: what authorized subscriptions bill a month, and what came in this
+    calendar month (Buenos Aires time). Amounts in other currencies are left out."""
+    running = ProviderSubscription.objects.filter(
+        status=ProviderSubscription.Status.AUTHORIZED, ended_at=None, currency="ARS"
+    )
+    month_start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    paid = Payment.objects.filter(
+        status=Payment.Status.APPROVED, currency="ARS", paid_at__gte=month_start
+    )
+    # A number, like every amount here (REST_FRAMEWORK COERCE_DECIMAL_TO_STRING is False).
+    month_ars = paid.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    return {
+        "active_subscriptions": running.count(),
+        "monthly_ars": running.aggregate(total=Sum("amount"))["total"] or 0,
+        "month_payments": paid.count(),
+        "month_ars": float(month_ars),
+    }
 
 
 class AccountListView(BackofficeListView):
@@ -236,3 +262,26 @@ class PriceDetailView(BackofficeView):
 class ActionLogView(BackofficeListView):
     serializer_class = BackofficeActionSerializer
     queryset = BackofficeAction.objects.select_related("actor", "target_user")
+
+
+class PaymentListView(BackofficeListView):
+    """Payments (default) or provider subscriptions (`?tipo=suscripciones`), newest first."""
+
+    LISTS = {
+        "pagos": (Payment, PaymentRowSerializer),
+        "suscripciones": (ProviderSubscription, SubscriptionRowSerializer),
+    }
+
+    def list_kind(self):
+        kind = self.request.query_params.get("tipo") or "pagos"
+        if kind not in self.LISTS:
+            raise ValidationError({"detail": BAD_TIPO})
+        return self.LISTS[kind]
+
+    def get_serializer_class(self):
+        return self.list_kind()[1]
+
+    def get_queryset(self):
+        model = self.list_kind()[0]
+        related = ["user", "plan"] if model is ProviderSubscription else ["user"]
+        return model.objects.select_related(*related).order_by("-created_at", "-id")

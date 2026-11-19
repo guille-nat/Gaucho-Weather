@@ -1,5 +1,5 @@
 # Backoffice
-> Última actualización: 2026-11-17
+> Última actualización: 2026-11-19
 
 ## Qué hace
 Una API para que los super admins administren cuentas, pedidos de plan y precios sin entrar
@@ -29,7 +29,7 @@ backoffice solo a quien puede usarlo. El campo es de solo lectura.
 
 | Método y ruta | Qué hace |
 |---|---|
-| `GET resumen/` | Totales de cuentas, cupos de founder libres, pedidos pendientes y altas de los últimos 30 días. |
+| `GET resumen/` | Totales de cuentas, cupos de founder libres, pedidos pendientes, altas de los últimos 30 días e ingresos en pesos. |
 | `GET cuentas/?q=&plan=&estado=&page=` | Lista paginada de cuentas. |
 | `POST cuentas/{id}/plan/` | Cambia el plan de una cuenta. |
 | `GET pedidos/?page=` | Pedidos de plan pendientes, del más viejo al más nuevo. |
@@ -38,6 +38,7 @@ backoffice solo a quien puede usarlo. El campo es de solo lectura.
 | `GET precios/` | Los tres planes con su precio en pesos y en dólares. |
 | `PUT precios/{code}/` | Actualiza los dos precios de un plan. |
 | `GET registro/?page=` | Registro de acciones del backoffice, de la más nueva a la más vieja. |
+| `GET pagos/?tipo=pagos\|suscripciones&page=` | Pagos (por defecto) o suscripciones de Mercado Pago, de la más nueva a la más vieja. |
 
 Las listas paginadas devuelven `{count, next, previous, results}` con 50 filas por página.
 
@@ -50,12 +51,26 @@ Las listas paginadas devuelven `{count, next, previous, results}` con 50 filas p
   },
   "founders_left": 3,
   "pending_requests": 1,
-  "new_accounts_last_30_days": 7
+  "new_accounts_last_30_days": 7,
+  "payments": {
+    "active_subscriptions": 2, "monthly_ars": 64800,
+    "month_payments": 2, "month_ars": 64800.0
+  }
 }
 ```
 El estado de cada cuenta sigue la misma regla que `plans.membership_status`: con número de
 founder es `founder`; si no, con vencimiento es `trial`; si no, `active`. `active` se separa
 por plan.
+
+`payments` (S7), solo en pesos:
+- `active_subscriptions` y `monthly_ars`: suscripciones `authorized` que siguen vigentes y
+  lo que facturan por mes (el ingreso mensual recurrente).
+- `month_payments` y `month_ars`: pagos `approved` desde el día 1 del mes en hora de Buenos
+  Aires, y su total.
+
+**Por qué en hora de Buenos Aires:** un pago del 1 de noviembre a las 2:00 UTC es del 31 de
+octubre para el negocio. Los montos son números, como en el resto de la API
+(`COERCE_DECIMAL_TO_STRING` es `False`).
 
 ### Cuentas
 - `q` busca en nombre y email, sin importar mayúsculas.
@@ -105,6 +120,18 @@ campo. Plan inexistente: 404. Es la actualización trimestral de precios; ver
 Cada fila: `id`, `action`, `actor` (`{id, name, email}` o `null`), `target_user` (igual, o
 `null`), `payload` y `at`.
 
+### Pagos
+- `tipo=pagos` (por defecto): `id`, `user` (`{id, name, email}`), `provider`, `external_id`,
+  `subscription` (id o `null`), `amount`, `currency`, `status`, `paid_at`, `created_at`.
+- `tipo=suscripciones`: `id`, `user`, `plan` (`{code, name}`), `provider`, `external_id`,
+  `currency`, `amount`, `status`, `next_payment_at`, `ends_at` (hasta cuándo conserva el plan
+  una cancelada), `ended_at`, `created_at`.
+- Otro `tipo`: 400 `{"detail": "Tipo inválido: usá pagos o suscripciones."}`.
+
+No se devuelven `payload` (la respuesta cruda de Mercado Pago) ni `checkout_url`.
+**Por qué:** el backoffice no los necesita, y el payload puede traer datos del pago que no
+hace falta mostrar. `external_id` sirve para buscar el pago en el panel de Mercado Pago.
+
 ## Por qué se registra cada escritura
 Cada escritura guarda un `BackofficeAction` (quién, qué acción, sobre qué cuenta, con qué
 datos y cuándo) en la misma transacción que el cambio: se guardan los dos o ninguno.
@@ -124,4 +151,8 @@ Las acciones hechas desde el admin de Django no entran en este registro: el admi
 su propio historial y el `PlanChange` registra quién movió el plan.
 
 ## Pendiente
-- Pagos e ingresos del mes en el backoffice (S7, `apps.payments`).
+- Nada del lado del backend; la pantalla `/backoffice` es la tarea T4.
+
+## Historial
+- 2026-11-17: versión inicial (S4).
+- 2026-11-19: pagos y suscripciones (`pagos/`) e ingresos en pesos en `resumen/` (S7).
