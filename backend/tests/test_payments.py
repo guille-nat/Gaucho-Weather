@@ -213,6 +213,25 @@ def test_subscribing_when_the_old_checkout_cannot_be_cancelled_is_502(user):
     assert ProviderSubscription.objects.get().status == "pending"
 
 
+@respx.mock
+def test_a_cancelled_old_checkout_stays_cancelled_when_the_new_one_fails(user):
+    old = subscription(user, plan=Plan.EMPRESA)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+    respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(500))
+
+    response = client_for(user).post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+    )
+
+    assert response.status_code == 502
+    old.refresh_from_db()
+    assert old.status == "cancelled"  # it is dead at Mercado Pago: never offer it again
+    assert old.ended_at is not None
+    assert ProviderSubscription.objects.count() == 1
+
+
 def test_subscribing_needs_a_session(api_client):
     response = api_client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
 

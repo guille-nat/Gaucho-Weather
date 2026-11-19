@@ -103,3 +103,7 @@ An independent verifier runs after T1–T4.
     - non-ASCII `x-signature` gave a 500: it now answers 401.
   - Left as follow-ups in `pagos.md`: no `ts` freshness check; a payment that arrives before its subscription is lost.
   - Open question for the user: what a `paused` subscription does to the plan.
+- **L9** (2026-11-19): a7c75af was reviewed under lineage review-decda5d3ebff0bc0, approved and acknowledged.
+  - All three lenses flagged the same thing: the local cancel was rolled back after the cancel at Mercado Pago succeeded.
+  - Fixed: the refusal is raised after the block commits (RED 1 failed, then GREEN, suite 581 passed).
+  - Accepted and documented: the user row stays locked while the Mercado Pago HTTP call runs.

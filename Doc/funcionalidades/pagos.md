@@ -114,6 +114,15 @@ la misma.
   sobre la fila del usuario.
   **Por qué:** el review de T1 mostró que un doble clic creaba dos preapprovals y el
   pagador podía autorizar las dos: dos cobros por mes.
+- **Decisión:** si Mercado Pago ya canceló el checkout viejo y después falla crear el nuevo,
+  la cancelación local se guarda igual (el bloque hace commit y recién después responde 502).
+  **Por qué:** la cancelación remota no se puede deshacer; con rollback la fila quedaba
+  `pending` apuntando a un checkout muerto.
+- **Decisión:** el lock del usuario se mantiene durante las llamadas HTTP a Mercado Pago.
+  **Por qué:** es lo que garantiza un solo checkout por cuenta. El costo es que un Mercado
+  Pago lento retiene la fila del usuario hasta el timeout (20 s); solo bloquea a esa cuenta.
+  **Alternativas descartadas:** soltar el lock antes de llamar (vuelve la carrera del doble
+  clic).
 - **Decisión:** la firma se compara en bytes.
   **Por qué:** `hmac.compare_digest` con `str` no ASCII lanza `TypeError`; el webhook daba
   500 en vez de 401.
@@ -137,3 +146,4 @@ la misma.
 ## Historial
 - 2026-11-19: versión inicial (feature `pagos-backoffice`, T1).
 - 2026-11-19: un checkout pendiente por cuenta y firma comparada en bytes (review de T1).
+- 2026-11-19: la cancelación remota de un checkout viejo no se pierde si falla el nuevo (review del fix).

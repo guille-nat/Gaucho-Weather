@@ -94,9 +94,15 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         ).first()
         if reusable is not None:
             return reusable
-        for stale in open_checkouts:
-            _drop_checkout(provider, stale)
-        return _start(provider, user, plan, currency)
+        # A remote cancel cannot be rolled back, so a failure after it must not roll back
+        # its local record either: keep the refusal, let the block commit, then raise it.
+        try:
+            for stale in open_checkouts:
+                _drop_checkout(provider, stale)
+            return _start(provider, user, plan, currency)
+        except PaymentRefusal as exc:
+            refusal = exc
+    raise refusal
 
 
 def _drop_checkout(provider: PaymentProvider, sub: ProviderSubscription) -> None:
