@@ -88,17 +88,33 @@ vacías los pagos están apagados: `payments_enabled` es `false` y suscribirse r
   pagos con fecha, monto y estado.
 
 ## Probar en el sandbox
-1. En el panel de Mercado Pago, "Tus integraciones", creá (o abrí) la aplicación con
-   suscripciones, y creá un vendedor y un comprador de prueba.
-2. Copiá el access token `TEST-...` del vendedor de prueba en `MERCADOPAGO_ACCESS_TOKEN`.
-3. En "Webhooks > Configurar notificaciones" cargá la URL pública
-   `https://<tu-dominio>/api/pagos/mercadopago/webhook/` con los eventos de suscripciones y
-   pagos, y copiá la clave secreta en `MERCADOPAGO_WEBHOOK_SECRET`. En local hace falta un
-   túnel (por ejemplo ngrok o cloudflared) hacia el backend.
-4. Reiniciá `backend` y `worker`, suscribite desde la app con el email del comprador de
-   prueba y pagá con una tarjeta de prueba.
-5. En el admin (`/api/admin/`, sección `Payments`) tienen que aparecer la suscripción `authorized` y el
-   pago, y la cuenta en el plan elegido.
+Probado de punta a punta en local el 2026-11-19 (alta, pago aprobado, plan cambiado, pago
+registrado).
+
+1. En el panel (https://www.mercadopago.com.ar/developers/panel/app) creá una aplicación con la
+   solución **Suscripciones**. En "Cuentas de prueba" tenés (o creás) un vendedor y un
+   comprador de Argentina.
+2. Copiá el access token de la app en `MERCADOPAGO_ACCESS_TOKEN`. Aunque sea de prueba empieza
+   con `APP_USR-`; `GET /users/me` con ese token tiene que traer el tag `test_user`.
+3. `.env` local: `PUBLIC_APP_URL=http://127.0.0.1:5173` y abrí la app en esa dirección.
+   Mercado Pago rechaza un `back_url` con `localhost` ("Invalid value for back_url").
+4. `docker compose up -d backend worker` (con `restart` no se relee el `.env`).
+5. El usuario local que se suscribe tiene que tener el email del comprador de prueba:
+   `test_user_<números del nickname TESTUSER...>@testuser.com` (no es el User ID; el panel no
+   lo muestra). Con un email real, Mercado Pago responde "Both payer and collector must be
+   real or test users". `POST /users/test_user {"site_id": "MLA"}` crea un comprador nuevo y
+   devuelve su email.
+6. En el checkout, entrá con el comprador de prueba y pagá con una tarjeta de prueba
+   (titular `APRO`, DNI 12345678 para un pago aprobado).
+7. Webhook: con URL pública, cargala en "Webhooks > Configurar notificaciones" con los
+   eventos "Planes y suscripciones" y "Pagos" y copiá la clave secreta en
+   `MERCADOPAGO_WEBHOOK_SECRET`. Sin túnel, usá cualquier secreto y mandá vos la notificación
+   firmada al backend: `POST /api/pagos/mercadopago/webhook/?type=subscription_preapproval&data.id=<preapproval>`
+   con `x-request-id` y `x-signature: ts=<ts>,v1=<HMAC-SHA256 de "id:<data.id>;request-id:<x-request-id>;ts:<ts>;">`.
+   Para el cobro, lo mismo con `type=subscription_authorized_payment` y el id que devuelve
+   `GET /authorized_payments/search?preapproval_id=<preapproval>`.
+8. En el admin (`/api/admin/`, sección `Payments`) o en el backoffice tienen que aparecer la
+   suscripción `authorized` y el pago, y la cuenta en el plan elegido.
 
 En producción se usan las credenciales `APP_USR-...` de la cuenta real; la URL de la API es
 la misma.
@@ -185,3 +201,4 @@ la misma.
 - 2026-11-19: pantalla de pagos en Tu suscripción (T4).
 - 2026-11-19: el webhook responde 401, no 500, ante un cuerpo malformado sin firma (verificación de T1–T4).
 - 2026-11-19: una suscripción pausada se trata como cancelada (S8).
+- 2026-11-19: prueba de punta a punta en el sandbox, en local y sin túnel; receta corregida.

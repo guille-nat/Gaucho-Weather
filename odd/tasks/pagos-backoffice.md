@@ -155,3 +155,8 @@ An independent verifier runs after T1–T4.
 - **L17** (2026-11-19): 6d5a615..530dcef was reviewed with the risk and reliability lenses: approved with no findings and acknowledged.
   - The reviewed boundary is now 530dcef.
   - Next: the end-to-end Mercado Pago sandbox test, once the user loads `TEST-...` credentials.
+- **L18** (2026-11-19): end-to-end sandbox test passed locally, without a tunnel.
+  - User: "lo vamos a probar en local".
+  - Real MP sandbox: preapproval created from the app, test buyer paid $14.900 (approved), signed simulated webhooks moved the subscription to `authorized`, the account to Productor, and saved the approved Payment 14900 ARS.
+  - Findings: MP rejects a `localhost` back_url (use 127.0.0.1); test users' email is `test_user_<nickname digits>@testuser.com`; test app tokens start with `APP_USR-`. Recipe updated in `Doc/funcionalidades/pagos.md`.
+  - Next (user's decision): production webhook URL and credentials, push/PR.
