@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon';
 import { useMe } from '../query/hooks';
 import { Cuentas } from './backoffice/Cuentas';
+import { Informes } from './backoffice/Informes';
 import { Pagos } from './backoffice/Pagos';
 import { Pedidos } from './backoffice/Pedidos';
 import { Precios } from './backoffice/Precios';
@@ -16,13 +17,14 @@ const TABS = [
   { id: 'pagos', label: 'Pagos', Panel: Pagos },
   { id: 'precios', label: 'Precios', Panel: Precios },
   { id: 'registro', label: 'Registro', Panel: Registro },
+  { id: 'informes', label: 'Informes', Panel: Informes },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
 const PARAM = 'seccion';
 
 /**
- * The six sections as ARIA tabs (modern-web-guidance `tabs`). Selection is by activation: the
+ * The sections as ARIA tabs (modern-web-guidance `tabs`). Selection is by activation: the
  * arrows move focus and Enter or a click opens the tab, because opening one fetches its data and
  * changes the address. Only the open panel is mounted, so a tab asks the API only when opened.
  */

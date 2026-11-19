@@ -186,9 +186,12 @@ const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 const isPrice = (value: unknown) =>
   value === null || (typeof value === 'number' && Number.isInteger(value) && value >= 0);
 
-export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): HttpHandler[] {
-  /** Records the request, then answers 403 unless a super admin is signed in. */
-  async function gate(request: Request): Promise<Response | null> {
+/**
+ * Records the request, then answers 403 unless a super admin is signed in (IsSuperuser), and
+ * checks CSRF on writes. Shared by every backoffice mock, reports included.
+ */
+export function backofficeGate(db: BackofficeHost, csrf: CsrfCheck) {
+  return async function gate(request: Request): Promise<Response | null> {
     const url = new URL(request.url);
     const body =
       request.method === 'GET'
@@ -208,8 +211,11 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       return HttpResponse.json({ detail: NOT_SUPERUSER }, { status: 403 });
     }
     return request.method === 'GET' ? null : csrf(request);
-  }
+  };
+}
 
+export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): HttpHandler[] {
+  const gate = backofficeGate(db, csrf);
   const actor = (): Person => ({ id: db.user!.id, name: db.user!.name, email: db.user!.email });
   const record = (
     action: BackofficeActionKind,
