@@ -30,7 +30,9 @@ package = false
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
 testpaths = ["tests"]
-addopts = "--reuse-db"
+# --ds wins over the DJANGO_SETTINGS_MODULE env var (config.settings.dev inside the dev
+# container), which would otherwise beat the ini value above.
+addopts = "--reuse-db --ds=config.settings.test"
 filterwarnings = ["ignore:No directory at:UserWarning"]
 
 [tool.ruff]
