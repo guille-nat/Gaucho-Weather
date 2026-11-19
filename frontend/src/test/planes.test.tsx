@@ -123,6 +123,60 @@ describe('Planes (S1, S8)', () => {
   });
 });
 
+describe('Planes when payments are on (pagos-backoffice S8)', () => {
+  const basico = account({ id: 4, email: 'b@x.com', name: 'B', plan: planOf('basico') });
+
+  it('leads a logged-in account from a paid plan to Suscripción', async () => {
+    renderApp('/planes', createMockDb({ user: basico, paymentsEnabled: true }));
+
+    const empresa = await screen.findByRole('article', { name: 'Plan Empresa' });
+    expect(within(empresa).getByRole('link', { name: 'Suscribirme' })).toHaveAttribute(
+      'href',
+      '/perfil/suscripcion',
+    );
+    expect(within(card('Productor')).getByRole('link', { name: 'Suscribirme' })).toHaveAttribute(
+      'href',
+      '/perfil/suscripcion',
+    );
+    expect(within(card('Básico')).queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Próximamente' })).toBeNull();
+  });
+
+  it('says how the paid plans are charged instead of "Todavía no cobramos"', async () => {
+    renderApp('/planes', createMockDb({ user: basico, paymentsEnabled: true }));
+
+    await screen.findByRole('article', { name: 'Plan Empresa' });
+    expect(screen.queryByText(/Todavía no cobramos/)).toBeNull();
+    expect(
+      screen.getByText(/Los planes pagos se cobran en pesos con Mercado Pago, todos los meses/),
+    ).toBeInTheDocument();
+  });
+
+  it('lets a trial account subscribe to the plan it is trying', async () => {
+    const expires = new Date(Date.now() + 12 * 86_400_000).toISOString();
+    const trial = account({ id: 3, email: 'c@x.com', name: 'C', plan_expires_at: expires });
+    renderApp('/planes', createMockDb({ user: trial, paymentsEnabled: true }));
+
+    const productor = await screen.findByRole('article', { name: 'Plan Productor' });
+    expect(within(productor).getByRole('link', { name: 'Suscribirme' })).toBeInTheDocument();
+  });
+
+  it('offers a founder no subscription: Productor is free for good', async () => {
+    renderApp('/planes', createMockDb({ user: demoUser, paymentsEnabled: true }));
+
+    await screen.findByRole('article', { name: 'Plan Productor' });
+    expect(screen.queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+  });
+
+  it('offers no Suscribirme on the paid plan an account already pays', async () => {
+    const paying = account({ id: 5, email: 'p@x.com', name: 'P', plan: planOf('empresa') });
+    renderApp('/planes', createMockDb({ user: paying, paymentsEnabled: true }));
+
+    const empresa = await screen.findByRole('article', { name: 'Plan Empresa' });
+    expect(within(empresa).queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+  });
+});
+
 describe('Planes in pesos or dollars (precios-productor S5)', () => {
   it('starts in pesos', async () => {
     renderApp('/planes', createMockDb({ plans: pricedPlans }));
