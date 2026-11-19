@@ -150,9 +150,27 @@ lectura.
 Las acciones hechas desde el admin de Django no entran en este registro: el admin ya guarda
 su propio historial y el `PlanChange` registra quién movió el plan.
 
+## Pantalla `/backoffice` (frontend)
+`frontend/src/pages/Backoffice.tsx`, las pestañas en `frontend/src/pages/backoffice/` y la
+API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
+"Backoffice" que solo ve un super admin.
+
+- Sin `me.is_superuser` redirige a `/perfil` sin llamar a la API (la SPA trata un 403 que
+  no es de CSRF como sesión perdida). Si igual llega un 403, se vuelve a pedir `me` y se
+  sale sin cerrar la sesión.
+- Pestañas: Resumen, Cuentas (búsqueda, plan y estado; "Cambiar plan" con nota),
+  Pedidos (Aplicar; Rechazar con nota), Pagos (pagos o suscripciones), Precios (los dos
+  precios de cada plan; vacío es `null`) y Registro. La pestaña abierta queda en
+  `?seccion=`.
+- Las escrituras usan `apiFetch`, que manda el CSRF. Después de cada una se vuelven a
+  pedir todas las listas y el resumen.
+- Es modo Operate de "Cielo vivo" y usa todo el ancho de la columna. En el teléfono, las
+  tablas pasan a bloques con etiquetas.
+
 ## Pendiente
-- Nada del lado del backend; la pantalla `/backoffice` es la tarea T4.
+- Nada del lado del backend.
 
 ## Historial
 - 2026-11-17: versión inicial (S4).
 - 2026-11-19: pagos y suscripciones (`pagos/`) e ingresos en pesos en `resumen/` (S7).
+- 2026-11-19: pantalla `/backoffice` en el frontend (T4).

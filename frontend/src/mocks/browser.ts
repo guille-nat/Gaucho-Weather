@@ -7,7 +7,8 @@ import { createHandlers, createMockDb } from './handlers';
 /**
  * `pnpm dev:mock`: the app runs against an in-memory API with three synthetic lotes.
  * `?escenario=vacio` starts with no lotes; `?escenario=anonimo` starts logged out
- * (log in with the demo email and the password `demo1234`).
+ * (log in with the demo email and the password `demo1234`); `?escenario=admin` makes the demo
+ * account a super admin, for `/backoffice`. Payments are on, as with Mercado Pago configured.
  * `?cielo=sol|lluvia|noche` picks the weather (default `sol`) of Inicio and of every lote; the
  * place name comes from the coordinates. `?ahora=sol|parcial|nublado|lluvia|tormenta` overrides
  * the sky of this hour everywhere, to see the animated background (`?cielo=noche&ahora=sol` is a
@@ -33,10 +34,12 @@ export function startMockApi() {
   const now = (['sol', 'parcial', 'nublado', 'lluvia', 'tormenta'] as const).find(
     (s) => s === params.get('ahora'),
   );
+  const me = scenario === 'admin' ? { ...demoUser, is_superuser: true } : demoUser;
   const db = createMockDb({
-    user: scenario === 'anonimo' ? null : demoUser,
-    accounts: [{ email: demoUser.email, password: 'demo1234', user: demoUser }],
+    user: scenario === 'anonimo' ? null : me,
+    accounts: [{ email: me.email, password: 'demo1234', user: me }],
     lotes: scenario === 'vacio' ? [] : demoLotes(),
+    paymentsEnabled: true,
   });
   /** The chosen weather on a forecast, keeping what is the lote's own (its decisions). */
   const withWeather = <T extends Forecast>(base: T): T => {

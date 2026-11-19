@@ -69,6 +69,23 @@ siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambi
 `MERCADOPAGO_API_URL` (por defecto `https://api.mercadopago.com`). Con las dos primeras
 vacías los pagos están apagados: `payments_enabled` es `false` y suscribirse responde 503.
 
+### En la app (frontend)
+`frontend/src/pages/Suscripcion.tsx`, API en `frontend/src/api/payments.ts`:
+- Con `payments_enabled` y pesos elegidos, cada plan pago dice "Suscribirme". El botón
+  hace `POST suscribirme/` con `{plan, currency: "ARS"}` y lleva al `checkout_url` con
+  `window.location.assign`. Un rechazo muestra el `detail` tal cual.
+- Con dólares elegidos dice "Pagar en dólares: próximamente" (deshabilitado).
+- Un founder sigue con el pedido al equipo: la API rechaza su suscripción.
+- En prueba, el plan que prueba también ofrece "Suscribirme" en vez de "Quedarme con".
+- Con los pagos apagados todo sigue como antes: "Pedir este plan" y el aviso de que el
+  equipo aplica el pedido a mano, en las dos monedas.
+- `?pago=ok|pendiente|error` (la vuelta de Mercado Pago) muestra un aviso arriba.
+- "Darme de baja" usa `POST cancelar/` si hay una suscripción `authorized` o `paused`, y
+  avisa hasta cuándo sigue el plan. Sin suscripción usa el pedido de baja de siempre. Una
+  suscripción ya cancelada no muestra el botón: el plan termina solo.
+- "Tus pagos" muestra la suscripción (estado, monto por mes, próximo cobro o fin) y los
+  pagos con fecha, monto y estado.
+
 ## Probar en el sandbox
 1. En el panel de Mercado Pago, "Tus integraciones", creá (o abrí) la aplicación con
    suscripciones, y creá un vendedor y un comprador de prueba.
@@ -86,6 +103,10 @@ En producción se usan las credenciales `APP_USR-...` de la cuenta real; la URL 
 la misma.
 
 ## Decisiones y por qué
+- **Decisión:** en la app, el aviso "próximamente" en dólares aparece solo con los pagos
+  encendidos.
+  **Por qué:** con los pagos apagados no se cobra online en ninguna moneda; el pedido al
+  equipo cubre las dos. (Interpretación de S5/S6 sin confirmar con el usuario.)
 - **Decisión:** solo pesos con Mercado Pago; dólares quedan "próximamente".
   **Por qué:** la documentación oficial solo muestra `currency_id: "ARS"` para
   `auto_recurring`, y Mercado Pago no convierte: mandar 10 por "USD 10" cobra $10.
@@ -147,3 +168,4 @@ la misma.
 - 2026-11-19: versión inicial (feature `pagos-backoffice`, T1).
 - 2026-11-19: un checkout pendiente por cuenta y firma comparada en bytes (review de T1).
 - 2026-11-19: la cancelación remota de un checkout viejo no se pierde si falla el nuevo (review del fix).
+- 2026-11-19: pantalla de pagos en Tu suscripción (T4).

@@ -53,7 +53,7 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
 | T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
-| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | in progress | |
+| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | done | RED 26/31 → GREEN 31/31; parent spot check 74/74 in the six related files |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
 
@@ -115,3 +115,17 @@ An independent verifier runs after T1–T4.
 - **L11** (2026-11-19): RDD assess of 3566828 (T3): medium, `under_budget` (290 lines), so it stays pending in the open slice.
   - T4 was delegated to one bounded writer under the context backstop.
   - Allowed edit surfaces: the frontend pages, api, mocks, tests and styles, plus the three docs.
+- **L12** (2026-11-19): unit C (T4) is done, about 3.5k lines, one behaviour across six tabs and with its tests.
+  - Verification:
+    - `npm test`: 281/282, with one flaky 1s timeout that also fails at HEAD;
+    - `npm run typecheck` and `npm run build`: fail only on `src/sw.ts`, because `workbox-*` is declared in package.json but not installed in the host `node_modules` (environment, also at HEAD);
+    - `npm run lint`: eslint and prettier are clean on `src`; the only failure is the git-ignored `.impeccable/hook.cache.json`.
+  - Choices the writer made, pending the user's confirmation:
+    1. "próximamente" for dollars is shown only when payments are on;
+    2. a founder keeps the request flow;
+    3. a trial account sees "Suscribirme";
+    4. a cancelled subscription inside its paid month hides "Darme de baja";
+    5. a non-superuser is redirected to /perfil;
+    6. "Aplicar" acts at once, while "Rechazar" opens a dialog for a note;
+    7. the wording of the notices;
+    8. Planes.tsx still says "Todavía no cobramos" and "Próximamente" even with payments on (open question).

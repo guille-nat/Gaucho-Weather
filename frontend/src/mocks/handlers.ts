@@ -12,17 +12,21 @@ import type {
   Lote,
   LoteHistory,
   LoteInput,
+  MyPayments,
+  Payment,
   Plan,
   Planting,
   PlantingInput,
   PlanChange,
   PlanRequest,
   PlanRequestInput,
+  ProviderSubscription,
   PublicForecast,
   PushSubscriptionInput,
   Subscription,
   User,
 } from '../api/types';
+import { createBackofficeHandlers, demoBackoffice, type BackofficeDb } from './backoffice';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
 import { checkHistoryRange, demoLoteHistory, localToday } from './history';
@@ -69,6 +73,18 @@ export interface MockDb {
   planRequest: PlanRequest | null;
   /** Plan changes, newest first; undefined derives the sign-up from `user` (see subscriptionOf). */
   planHistory?: PlanChange[];
+  /** Mercado Pago configured on the server (pagos-backoffice S3): `payments_enabled`. */
+  paymentsEnabled: boolean;
+  /** The account's Mercado Pago subscription as `GET /api/pagos/` shows it, or null. */
+  providerSubscription: ProviderSubscription | null;
+  /** The account's payments, newest first. */
+  payments: Payment[];
+  /** What `POST /api/pagos/suscribirme/` answers when it accepts. */
+  checkoutUrl: string;
+  /** The backoffice's data (src/mocks/backoffice.ts). */
+  backoffice: BackofficeDb;
+  /** Every request to /api/backoffice/ and /api/pagos/, with its query string and body. */
+  sent: { method: string; path: string; body: unknown }[];
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -139,8 +155,58 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
     pushPublicKey:
       'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
     planRequest: null,
+    paymentsEnabled: false,
+    providerSubscription: null,
+    payments: [],
+    checkoutUrl:
+      'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=2c938084-mock',
+    backoffice: demoBackoffice(),
+    sent: [],
     ...partial,
   };
+}
+
+/** Like services.subscribe: the refusal of `POST /api/pagos/suscribirme/`, if any. */
+function subscribeRefusal(
+  input: { plan?: string; currency?: string },
+  user: User,
+  db: MockDb,
+): [number, string] | null {
+  if (input.currency === 'USD') return [409, 'Pagar en dólares todavía no está disponible.'];
+  if (!db.paymentsEnabled) return [503, 'Los pagos todavía no están habilitados.'];
+  const plan = db.plans.find((p) => p.code === input.plan);
+  if (!plan) return [400, 'Ese plan no existe.'];
+  if (plan.code === 'basico') return [400, 'El plan Básico es gratis: no hace falta suscribirse.'];
+  if (user.founder_number != null) {
+    return [400, 'Como founder ya tenés Productor gratis para siempre.'];
+  }
+  const sub = db.providerSubscription;
+  if (sub && (sub.status === 'authorized' || sub.status === 'paused')) {
+    return [400, 'Ya tenés una suscripción activa. Date de baja antes de cambiar de plan.'];
+  }
+  if (user.plan?.code === plan.code && !user.plan_expires_at && sub?.status !== 'cancelled') {
+    return [400, `Ya estás en el plan ${plan.name}.`];
+  }
+  if (!plan.price_ars_month) return [409, 'Ese plan todavía no tiene precio en pesos.'];
+  return null;
+}
+
+const myPayments = (db: MockDb): MyPayments => ({
+  payments_enabled: db.paymentsEnabled,
+  subscription: db.providerSubscription,
+  payments: db.payments,
+});
+
+async function recordSent(request: Request, db: MockDb) {
+  const url = new URL(request.url);
+  const body =
+    request.method === 'GET'
+      ? undefined
+      : await request
+          .clone()
+          .json()
+          .catch(() => undefined);
+  db.sent.push({ method: request.method, path: url.pathname + url.search, body });
 }
 
 /** The account as the backend serialises it, with its usage counted from the mock's lotes. */
@@ -491,8 +557,48 @@ export function createHandlers(db: MockDb): HttpHandler[] {
     }),
 
     http.get('*/api/planes/', () =>
-      HttpResponse.json({ plans: db.plans, founders: db.founders, trial_days: db.trialDays }),
+      HttpResponse.json({
+        plans: db.plans,
+        founders: db.founders,
+        trial_days: db.trialDays,
+        payments_enabled: db.paymentsEnabled,
+      }),
     ),
+
+    http.get('*/api/pagos/', async ({ request }) => {
+      await recordSent(request, db);
+      return db.user ? HttpResponse.json(myPayments(db)) : forbidden();
+    }),
+
+    http.post('*/api/pagos/suscribirme/', async ({ request }) => {
+      await recordSent(request, db);
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const input = (await request.json()) as { plan?: string; currency?: string };
+      const refusal = subscribeRefusal(input, db.user, db);
+      if (refusal) return HttpResponse.json({ detail: refusal[1] }, { status: refusal[0] });
+      return HttpResponse.json({ checkout_url: db.checkoutUrl }, { status: 201 });
+    }),
+
+    http.post('*/api/pagos/cancelar/', async ({ request }) => {
+      await recordSent(request, db);
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      const sub = db.providerSubscription;
+      if (!sub || (sub.status !== 'authorized' && sub.status !== 'paused')) {
+        return HttpResponse.json(
+          { detail: 'No tenés una suscripción con Mercado Pago.' },
+          { status: 404 },
+        );
+      }
+      // The paid month is kept: the plan ends at the next charge that will not happen.
+      db.providerSubscription = { ...sub, status: 'cancelled', ends_at: sub.next_payment_at };
+      return HttpResponse.json(myPayments(db));
+    }),
+
+    ...createBackofficeHandlers(db, (request) => csrfFailure(request, db)),
 
     http.get('*/api/auth/suscripcion/', () =>
       db.user ? HttpResponse.json(subscriptionOf(db.user, db)) : forbidden(),

@@ -22,6 +22,8 @@ export interface PlansInfo {
   plans: Plan[];
   founders: { limit: number; remaining: number };
   trial_days: number;
+  /** Mercado Pago is configured (pagos-backoffice S3); absent from an API older than payments. */
+  payments_enabled?: boolean;
 }
 
 export interface User {
@@ -37,6 +39,8 @@ export interface User {
   usage?: { lotes: number; alert_rules?: number };
   notify_push?: boolean;
   notify_email?: boolean;
+  /** Only super admins open the backoffice (pagos-backoffice S4); absent in an older `me`. */
+  is_superuser?: boolean;
 }
 
 export const CROPS = ['soja', 'maiz', 'trigo', 'girasol', 'cebada', 'sorgo', 'otro'] as const;
@@ -350,7 +354,8 @@ export interface PlanRequest {
   created_at: string;
 }
 
-export type PlanChangeReason = 'founder' | 'trial' | 'trial_ended' | 'request' | 'staff';
+export type PlanChangeReason =
+  'founder' | 'trial' | 'trial_ended' | 'request' | 'staff' | 'payment' | 'payment_ended';
 
 /** One recorded plan change; `from_plan` is null at sign-up. */
 export interface PlanChange {
@@ -373,3 +378,43 @@ export interface Subscription {
 
 /** `POST /api/auth/suscripcion/pedido/`. */
 export type PlanRequestInput = { kind: 'change'; plan: PlanCode } | { kind: 'cancel' };
+
+/** The state of a provider subscription (pagos-backoffice S2). */
+export type ProviderSubscriptionStatus = 'pending' | 'authorized' | 'paused' | 'cancelled';
+
+export type PaymentStatus = 'approved' | 'pending' | 'rejected' | 'refunded' | 'cancelled';
+
+/** The account's Mercado Pago subscription, as `GET /api/pagos/` gives it. */
+export interface ProviderSubscription {
+  id: number;
+  plan: PlanCode;
+  plan_name: string;
+  provider: string;
+  currency: string;
+  /** Pesos a month, an integer. */
+  amount: number;
+  status: ProviderSubscriptionStatus;
+  next_payment_at: string | null;
+  /** Set on a cancelled subscription still in its paid month: when the plan ends. */
+  ends_at: string | null;
+  created_at: string;
+}
+
+/** One charge of the account (no provider payload). */
+export interface Payment {
+  id: number;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  paid_at: string | null;
+  created_at: string;
+}
+
+/** `GET /api/pagos/` and the answer of `POST /api/pagos/cancelar/`. */
+export interface MyPayments {
+  payments_enabled: boolean;
+  /** Running, or cancelled but still in its paid month; null otherwise. */
+  subscription: ProviderSubscription | null;
+  /** The newest 50, newest first. */
+  payments: Payment[];
+}

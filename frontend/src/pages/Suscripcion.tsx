@@ -1,22 +1,38 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import {
+  cancelSubscription,
+  formatMoney,
+  getMyPayments,
+  goToCheckout,
+  PAYMENT_WORDS,
+  subscribe,
+  SUBSCRIPTION_WORDS,
+} from '../api/payments';
 import type {
+  MyPayments,
+  Payment,
+  PaymentStatus,
   Plan,
   PlanChange,
   PlanChangeReason,
   PlanCode,
   PlanRequestInput,
+  ProviderSubscription,
+  ProviderSubscriptionStatus,
   Subscription,
 } from '../api/types';
 import { FormAlert } from '../components/Field';
 import { FounderBadge, FounderStory } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
 import { CurrencyChoice, PricingCard } from '../components/PricingCard';
-import { StatusChip } from '../components/StatusChip';
+import { StatusChip, type ChipTone } from '../components/StatusChip';
 import { useCurrency } from '../lib/currency';
 import { TIME_ZONE } from '../lib/format';
 import { trialLine } from '../lib/membership';
 import { featuredFirst, planFeatures } from '../lib/planFeatures';
+import { queryKeys } from '../query/keys';
 import { usePlans, useRequestPlan, useSubscription, useWithdrawPlanRequest } from '../query/hooks';
 import { Saved, Section } from './Perfil';
 
@@ -34,7 +50,65 @@ const REASONS: Record<PlanChangeReason, string> = {
   trial_ended: 'Terminó la prueba',
   request: 'Se aplicó tu pedido',
   staff: 'Cambio hecho por el equipo',
+  payment: 'Se aprobó tu pago',
+  payment_ended: 'Terminó tu suscripción',
 };
+
+/** The account's Mercado Pago subscription and payments (pagos-backoffice S3, S6). */
+const useMyPayments = () => useQuery({ queryKey: queryKeys.payments, queryFn: getMyPayments });
+
+/** A running subscription is what "Darme de baja" cancels at Mercado Pago. */
+const isRunning = (sub: ProviderSubscription | null | undefined): sub is ProviderSubscription =>
+  sub?.status === 'authorized' || sub?.status === 'paused';
+
+/** Starts the checkout and leaves for Mercado Pago, which comes back with `?pago=`. */
+function useSubscribe() {
+  return useMutation({
+    mutationFn: (plan: PlanCode) => subscribe(plan),
+    onSuccess: ({ checkout_url }) => goToCheckout(checkout_url),
+  });
+}
+
+/** Cancels at Mercado Pago; the answer is the new state of the payments, shown at once. */
+function useCancelSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: (payments: MyPayments) => {
+      queryClient.setQueryData(queryKeys.payments, payments);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
+}
+
+/** Where Mercado Pago sends the payer back (`back_url`): said once, at the top of the page. */
+const RETURN_NOTICES: Record<string, { icon: 'check' | 'clock' | 'alertCircle'; text: string }> = {
+  ok: {
+    icon: 'check',
+    text: 'Listo: Mercado Pago está procesando tu suscripción. Tu plan cambia apenas lo confirme.',
+  },
+  pendiente: {
+    icon: 'clock',
+    text: 'Tu pago quedó pendiente en Mercado Pago. Cuando se acredite, tu plan cambia solo.',
+  },
+  error: {
+    icon: 'alertCircle',
+    text: 'El pago no se completó en Mercado Pago. Podés intentarlo de nuevo.',
+  },
+};
+
+function ReturnNotice() {
+  const [params] = useSearchParams();
+  const notice = RETURN_NOTICES[params.get('pago') ?? ''];
+  if (!notice) return null;
+  return (
+    <div className="notice sub-return" role="status">
+      <Icon name={notice.icon} size={22} strokeWidth={2.4} />
+      <p>{notice.text}</p>
+    </div>
+  );
+}
 
 /** "1 de 15 lotes", or "2 reglas de alerta, sin límite" when the plan has no cap. */
 function usageLine(count: number, max: number | null, [one, many]: [string, string]) {
@@ -176,6 +250,7 @@ function CancelPlan({
   usage,
   trial,
   founderNumber,
+  paid,
   disabled,
   onConfirm,
 }: {
@@ -185,6 +260,8 @@ function CancelPlan({
   trial: boolean;
   /** A founder keeps the number on Básico (plans.change_plan) and can ask to come back. */
   founderNumber: number | null;
+  /** Paid with Mercado Pago: the baja cancels there, and the paid month is kept (S3). */
+  paid: { until: string | null } | null;
   disabled: boolean;
   onConfirm: () => void;
 }) {
@@ -216,7 +293,7 @@ function CancelPlan({
         disabled={disabled}
         onClick={open}
       >
-        {trial ? 'Terminar la prueba ahora' : 'Darme de baja'}
+        {trial && !paid ? 'Terminar la prueba ahora' : 'Darme de baja'}
       </button>
       <dialog
         ref={dialogRef}
@@ -227,11 +304,20 @@ function CancelPlan({
         {/* The look lives on this box: a display rule on <dialog> itself would show it closed. */}
         <div className="confirm sub-cancel">
           <h2 id={titleId} className="confirm-text">
-            {trial
-              ? `¿Terminar la prueba y pasar a ${basico.name}?`
-              : `¿Pasar al plan ${basico.name}?`}
+            {paid
+              ? `¿Darte de baja de ${current.name}?`
+              : trial
+                ? `¿Terminar la prueba y pasar a ${basico.name}?`
+                : `¿Pasar al plan ${basico.name}?`}
           </h2>
-          {trial ? <p>La prueba termina ahora, sin esperar al último día.</p> : null}
+          {paid ? (
+            <p>
+              {paid.until
+                ? `Seguís con ${current.name} hasta el ${formatWhen(paid.until)}, el mes que ya pagaste. Después pasás a ${basico.name} y no te cobramos más.`
+                : `Pasás a ${basico.name} y no te cobramos más.`}
+            </p>
+          ) : null}
+          {trial && !paid ? <p>La prueba termina ahora, sin esperar al último día.</p> : null}
           <p>Seguís con el pronóstico, tus lotes, tus reglas y el histórico.</p>
           {founderNumber !== null ? (
             <p>
@@ -253,7 +339,7 @@ function CancelPlan({
               disabled={disabled}
               onClick={() => dialogRef.current?.close('confirm')}
             >
-              {trial ? 'Sí, terminar la prueba' : 'Sí, pedir la baja'}
+              {paid ? 'Sí, darme de baja' : trial ? 'Sí, terminar la prueba' : 'Sí, pedir la baja'}
             </button>
             <button
               ref={safeRef}
@@ -273,6 +359,8 @@ function CancelPlan({
 function ChangePlan({
   sub,
   plans,
+  paymentsEnabled,
+  provider,
   foundersLeft,
   saved,
   onSaved,
@@ -280,15 +368,28 @@ function ChangePlan({
 }: {
   sub: Subscription;
   plans: Plan[] | undefined;
+  /** Mercado Pago is on (`payments_enabled` of /api/planes/). */
+  paymentsEnabled: boolean;
+  /** The account's Mercado Pago subscription, once known. */
+  provider: ProviderSubscription | null | undefined;
   foundersLeft: number;
   saved: string | null;
   onSaved: (message: string | null) => void;
   onRequested: () => void;
 }) {
   const request = useRequestPlan();
+  const pay = useSubscribe();
+  const cancel = useCancelSubscription();
   const currency = useCurrency();
   const blocked = request.isPending || sub.pending_request !== null;
   const basico = plans?.find((p) => p.code === 'basico');
+  // A founder already has Productor free and changes plan through the team (the API refuses a
+  // founder's subscription); everyone else pays online once payments are on (S6).
+  const payable = paymentsEnabled && sub.status !== 'founder';
+  // Leaving for Mercado Pago: the button stays off until the page is gone.
+  const paying = pay.isPending || pay.isSuccess;
+  const running = isRunning(provider) ? provider : null;
+  const ending = provider?.status === 'cancelled';
   const ask = (input: PlanRequestInput) => {
     onSaved(null);
     request.mutate(input, {
@@ -298,12 +399,49 @@ function ChangePlan({
       },
     });
   };
+  const startPayment = (plan: PlanCode) => {
+    onSaved(null);
+    cancel.reset();
+    pay.mutate(plan);
+  };
+  const cancelPayment = () => {
+    onSaved(null);
+    pay.reset();
+    cancel.mutate(undefined, {
+      onSuccess: ({ subscription }) =>
+        onSaved(
+          subscription?.ends_at
+            ? `Te diste de baja. Seguís con ${sub.plan.name} hasta el ${formatWhen(subscription.ends_at)}.`
+            : 'Te diste de baja.',
+        ),
+    });
+  };
+
+  const payButton = (plan: Plan) =>
+    currency === 'usd' ? (
+      // No gateway in dollars yet (S5): the user picks one later (L4).
+      <button type="button" className="btn btn--secondary btn--block" disabled>
+        Pagar en dólares: próximamente
+      </button>
+    ) : (
+      <button
+        type="button"
+        className={`btn btn--block ${plan.highlighted ? 'btn--primary' : 'btn--secondary'}`}
+        disabled={paying}
+        onClick={() => startPayment(plan.code)}
+      >
+        {pay.isPending && pay.variables === plan.code ? 'Abriendo Mercado Pago…' : 'Suscribirme'}
+      </button>
+    );
 
   // The three plans as pricing cards (precios-productor S3): the account's plan marked, the
-  // others one request away. Going down to Básico stays the cancel flow below.
+  // others one request (or, with payments on, one checkout) away. Going down to Básico stays
+  // the cancel flow below.
   const actionFor = (plan: Plan) => {
     if (plan.code === sub.plan.code) {
-      return sub.status === 'trial' ? (
+      if (sub.status !== 'trial') return null;
+      if (payable) return payButton(plan);
+      return (
         <button
           type="button"
           className="btn btn--primary btn--block"
@@ -312,11 +450,12 @@ function ChangePlan({
         >
           Quedarme con {plan.name}
         </button>
-      ) : null;
+      );
     }
     if (plan.code === 'basico') {
       return <p className="fine">Es el plan al que pasás si te das de baja.</p>;
     }
+    if (payable) return payButton(plan);
     return (
       <button
         type="button"
@@ -329,10 +468,13 @@ function ChangePlan({
     );
   };
 
+  const error = request.error ?? pay.error ?? cancel.error;
   return (
     <Section title="Cambiar de plan">
       <p className="fine">
-        Todavía no cobramos online: el equipo aplica tu pedido a mano y te avisa por email.
+        {payable
+          ? 'Pagás en pesos con Mercado Pago, todos los meses.'
+          : 'Todavía no cobramos online: el equipo aplica tu pedido a mano y te avisa por email.'}
       </p>
       {sub.pending_request ? (
         <p className="fine">Ya tenés un pedido pendiente: retiralo si querés pedir otro.</p>
@@ -368,7 +510,7 @@ function ChangePlan({
                     ) : trial ? (
                       <p className="fine">
                         Cuando termine la prueba pasás a Básico. Si querés seguir con {plan.name},
-                        pedilo ahora.
+                        {payable ? ' suscribite ahora.' : ' pedilo ahora.'}
                       </p>
                     ) : null
                   }
@@ -378,19 +520,91 @@ function ChangePlan({
           </div>
         </>
       ) : null}
-      <FormAlert message={request.error?.message} />
+      <FormAlert message={error?.message} />
       <Saved message={saved} />
-      {basico && sub.plan.code !== 'basico' ? (
+      {basico && sub.plan.code !== 'basico' && !ending ? (
         <CancelPlan
           basico={basico}
           current={sub.plan}
           usage={sub.usage}
           trial={sub.status === 'trial'}
           founderNumber={sub.status === 'founder' ? sub.founder_number : null}
-          disabled={blocked}
-          onConfirm={() => ask({ kind: 'cancel' })}
+          paid={running ? { until: running.next_payment_at } : null}
+          disabled={running ? cancel.isPending : blocked}
+          onConfirm={running ? cancelPayment : () => ask({ kind: 'cancel' })}
         />
       ) : null}
+    </Section>
+  );
+}
+
+// The word carries the state; the chip's icon and fill only confirm it.
+const SUBSCRIPTION_TONES: Record<ProviderSubscriptionStatus, ChipTone> = {
+  pending: 'pending',
+  authorized: 'ok',
+  paused: 'pending',
+  cancelled: 'pending',
+};
+
+const PAYMENT_TONES: Record<PaymentStatus, ChipTone> = {
+  approved: 'ok',
+  pending: 'pending',
+  rejected: 'caution',
+  refunded: 'caution',
+  cancelled: 'caution',
+};
+
+export function SubscriptionStatusChip({ status }: { status: ProviderSubscriptionStatus }) {
+  return <StatusChip tone={SUBSCRIPTION_TONES[status]}>{SUBSCRIPTION_WORDS[status]}</StatusChip>;
+}
+
+export function PaymentStatusChip({ status }: { status: PaymentStatus }) {
+  return <StatusChip tone={PAYMENT_TONES[status]}>{PAYMENT_WORDS[status]}</StatusChip>;
+}
+
+function PaymentItem({ payment }: { payment: Payment }) {
+  const when = payment.paid_at ?? payment.created_at;
+  return (
+    <li className="sub-payment">
+      <time className="sub-payment-date" dateTime={when}>
+        {formatWhen(when)}
+      </time>
+      <span className="sub-payment-amount">{formatMoney(payment.amount, payment.currency)}</span>
+      <PaymentStatusChip status={payment.status} />
+    </li>
+  );
+}
+
+/** The Mercado Pago subscription and the payment history (S6). */
+function PaymentsSection({ data }: { data: MyPayments }) {
+  const { subscription, payments } = data;
+  return (
+    <Section title="Tus pagos">
+      {subscription ? (
+        <div className="sub-provider">
+          <div className="sub-plan-head">
+            <p className="sub-provider-plan">{subscription.plan_name}</p>
+            <SubscriptionStatusChip status={subscription.status} />
+          </div>
+          <p className="sub-usage-line">
+            {formatMoney(subscription.amount, subscription.currency)} / mes con Mercado Pago
+          </p>
+          {subscription.ends_at ? (
+            <p className="fine">Termina el {formatWhen(subscription.ends_at)}</p>
+          ) : subscription.next_payment_at && subscription.status === 'authorized' ? (
+            <p className="fine">Próximo cobro el {formatWhen(subscription.next_payment_at)}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {payments.length ? (
+        <ul className="sub-payments" aria-label="Pagos">
+          {payments.map((payment) => (
+            <PaymentItem key={payment.id} payment={payment} />
+          ))}
+        </ul>
+      ) : (
+        <p className="fine">Todavía no hay pagos.</p>
+      )}
     </Section>
   );
 }
@@ -412,10 +626,15 @@ function HistoryItem({ change }: { change: PlanChange }) {
   );
 }
 
+/** Shown once there is something to show, or a way to pay; a founder without payments has neither. */
+const showPayments = (data: MyPayments, sub: Subscription, enabled = false) =>
+  data.subscription !== null || data.payments.length > 0 || (enabled && sub.status !== 'founder');
+
 /** My subscription (cuenta-planes-alertas S14): plan, status, usage, requests and history. */
 export function Suscripcion() {
   const sub = useSubscription();
   const plans = usePlans();
+  const payments = useMyPayments();
   const [saved, setSaved] = useState<string | null>(null);
   const [focusPending, setFocusPending] = useState(false);
   const focused = useCallback(() => setFocusPending(false), []);
@@ -430,6 +649,7 @@ export function Suscripcion() {
         </Link>
         <h1 className="page-title">Tu suscripción</h1>
       </header>
+      <ReturnNotice />
       {data ? (
         <>
           <CurrentPlan sub={data} />
@@ -443,6 +663,8 @@ export function Suscripcion() {
           <ChangePlan
             sub={data}
             plans={plans.data?.plans}
+            paymentsEnabled={plans.data?.payments_enabled ?? false}
+            provider={payments.data?.subscription}
             foundersLeft={plans.data?.founders.remaining ?? 0}
             saved={saved}
             onSaved={setSaved}
@@ -458,6 +680,9 @@ export function Suscripcion() {
               </div>
             ) : null}
             <div className="page-col">
+              {payments.data && showPayments(payments.data, data, plans.data?.payments_enabled) ? (
+                <PaymentsSection data={payments.data} />
+              ) : null}
               <Section title="Historial">
                 {data.history.length ? (
                   <ol className="timeline" aria-label="Cambios de plan">

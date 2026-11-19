@@ -95,6 +95,20 @@ function PlanSection({ me }: { me: User }) {
   );
 }
 
+/** Only a super admin sees the way in (pagos-backoffice S6); the page checks again. */
+function BackofficeSection() {
+  return (
+    <Section title="Backoffice">
+      <p className="fine">Cuentas, pedidos, pagos y precios de todas las cuentas.</p>
+      <div className="account-links">
+        <Link className="account-link" to="/backoffice">
+          Abrir el backoffice
+        </Link>
+      </div>
+    </Section>
+  );
+}
+
 /** The `name` that makes "Tus datos" open one row at a time (perfil-ux S3). */
 const DATOS_GROUP = 'account-data';
 
@@ -551,6 +565,7 @@ export function Perfil() {
           <div className="page-col">
             <AvisosSection me={me.data} />
             <PlanSection me={me.data} />
+            {me.data.is_superuser ? <BackofficeSection /> : null}
           </div>
         ) : null}
         <div className="page-col">

@@ -1,5 +1,5 @@
 # Frontend PWA
-> Última actualización: 2026-11-16
+> Última actualización: 2026-11-19
 
 ## Qué hace
 App web instalable (PWA), mobile first. Primero es una app del clima (S8): al abrirla
@@ -21,6 +21,15 @@ señal se siguen viendo los últimos datos.
   - Con cuenta (`RequireAuth`): `/lotes` Mis lotes, `/lotes/nuevo`, `/lotes/:id`,
     `/lotes/:id/editar`, `/alertas` y `/perfil`. Anónimo, estas pestañas llevan a
     `/ingresar` y vuelven después.
+  - `/perfil/suscripcion` (`Suscripcion.tsx`): con `payments_enabled` (de `/api/planes/`)
+    y pesos elegidos, un plan pago muestra "Suscribirme", que hace
+    `POST /api/pagos/suscribirme/` y lleva al `checkout_url` de Mercado Pago. En dólares
+    dice "Pagar en dólares: próximamente". Al volver, `?pago=ok|pendiente|error` muestra un
+    aviso. "Tus pagos" lista la suscripción y los pagos de `GET /api/pagos/`. Detalle en
+    [pagos.md](pagos.md).
+  - `/backoffice` (`Backoffice.tsx` y `pages/backoffice/`), solo super admins: pestañas
+    Resumen, Cuentas, Pedidos, Pagos, Precios y Registro. Detalle en
+    [backoffice.md](backoffice.md).
   - El detalle del lote reusa el layout de Inicio (`components/ForecastView.tsx`) con
     `GET /api/lotes/{id}/pronostico/` (S5) y el bloque completo de decisiones.
 - **Ubicación y lugares:** al abrir Inicio se pide la ubicación del navegador, salvo que
@@ -294,6 +303,23 @@ señal se siguen viendo los últimos datos.
   `.maplibregl-map { position: relative }` le ganaba a `.map-canvas` por orden: el mapa
   quedaba con 0 px de alto. Con dos clases la regla propia pesa más.
 
+- **Decisión:** `/backoffice` no llama a `/api/backoffice/` hasta que `me.is_superuser`
+  es `true`; si no, redirige a `/perfil`. Un 403 de esa API se convierte en
+  `BackofficeForbidden` (`src/api/backoffice.ts`), que vuelve a pedir `me` en vez de
+  cerrar la sesión.
+  **Por qué:** el cliente de queries trata todo 403 que no sea de CSRF como sesión
+  perdida (`src/query/client.ts`). Sin las dos defensas, un productor que abre la URL, o
+  un super admin degradado con un `me` viejo, quedaba deslogueado.
+- **Decisión:** los datos del backoffice nunca se persisten (`backoffice` no está en
+  `PERSISTED_ROOTS`); los pagos propios (`pagos`) sí, como la suscripción.
+  **Por qué:** son datos de todas las cuentas y no deben quedar en IndexedDB de un
+  teléfono.
+- **Decisión:** las pestañas del backoffice son pestañas ARIA con selección por
+  activación y la sección abierta en `?seccion=`; solo se monta el panel abierto.
+  **Por qué:** abrir una pestaña pide datos a la API y cambia la dirección
+  (modern-web-guidance `tabs`). Las tablas pasan a bloques con etiquetas debajo de
+  640 px de ancho propio (`responsive-table`).
+
 ## Cómo modificarlo
 - **Contrato de la API:** los tipos están en `src/api/types.ts` y el mock en
   `src/mocks/handlers.ts`.
@@ -310,6 +336,10 @@ señal se siguen viendo los últimos datos.
   400/503, escala de lluvia, veredicto, sin ensamble, pestaña Lotes anónima).
   `session.test.tsx` cubre el borrado de datos al terminar o empezar una sesión;
   `src/test/localData.ts` siembra IndexedDB y simula `caches`.
+  `pagos.test.tsx` cubre Suscribirme, dólares, los avisos `?pago=`, las dos bajas y el
+  historial de pagos; `backoffice.test.tsx` cubre quién entra (sin pedir nada a la API),
+  el enlace de Perfil, cada pestaña y cada escritura. El mock del backoffice está en
+  `src/mocks/backoffice.ts` y `db.sent` guarda cada pedido con su cuerpo.
   Ejecutalos con `pnpm test`.
 - **Mapa:** `src/lib/outline.ts` (área, centroide, GeoJSON y estados del dibujo) tiene
   sus tests en `outline.test.ts`. `src/test/loteForm.test.tsx` reemplaza el mapa por un
@@ -321,6 +351,8 @@ señal se siguen viendo los últimos datos.
   `api-lotes` o `api-publico`, o el header `X-From-SW-Cache`, hay que cambiar también
   `src/query/session.ts` y `src/api/client.ts`. Ningún test cubre el worker: después de
   tocarlo, compará el `dist/sw.js` del build y probalo sin red en el navegador.
+- **Mock:** `pnpm dev:mock` tiene los pagos encendidos; `?escenario=admin` hace super
+  admin a la cuenta demo para ver `/backoffice`.
 - **Proxy de desarrollo:** `VITE_API_PROXY_TARGET`. Por defecto es
   `http://localhost:8001`; en compose es `http://backend:8000`.
 
@@ -348,3 +380,5 @@ señal se siguen viendo los últimos datos.
   del cielo (feature `cielo-animado`).
 - 2026-11-17: barra de pestañas de vidrio líquido y pasada de motion: lente que viaja,
   entrada del pronóstico, diálogos y acordeones (feature `motion-pass`).
+- 2026-11-19: pagos con Mercado Pago en Tu suscripción y pantalla `/backoffice` para
+  super admins (feature `pagos-backoffice`, T4).

@@ -21,6 +21,15 @@ export const queryKeys = {
   alertInbox: ['alertas', 'eventos'] as const,
   /** Push state of this browser, not of the server: never persisted, cleared at session end. */
   pushHere: ['push'] as const,
+  /** The account's Mercado Pago subscription and payments: private, persisted like `suscripcion`. */
+  payments: ['pagos'] as const,
+  /**
+   * Super admin data of every account: never persisted (it must not sit on a phone), cleared at
+   * session end. Each list is keyed by its filters and page.
+   */
+  backoffice: ['backoffice'] as const,
+  backofficeList: (list: string, params: Record<string, string | number>) =>
+    ['backoffice', list, params] as const,
 };
 
 /**
@@ -32,6 +41,7 @@ export const PERSISTED_ROOTS = new Set<string>([
   'lotes',
   'alertas',
   'suscripcion',
+  'pagos',
   'pronostico',
 ]);
 
