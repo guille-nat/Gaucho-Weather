@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 from apps.accounts import password_reset, plans
 from apps.accounts.models import FounderProgram, Plan, PlanChange, PlanRequest, User
 from apps.alerts.models import AlertRule
+from apps.payments import price_changes
 from apps.payments import services as payment_services
 from apps.payments.models import Payment, ProviderSubscription
 from apps.payments.providers import get_provider
@@ -36,6 +37,7 @@ from .serializers import (
     ChangePlanSerializer,
     PaymentRowSerializer,
     PlanPriceSerializer,
+    PriceChangeSerializer,
     RejectRequestSerializer,
     RequestRowSerializer,
     SubscriptionRowSerializer,
@@ -272,6 +274,43 @@ class PriceDetailView(BackofficeView):
                 after={field: getattr(plan, field) for field in PRICE_FIELDS},
             )
         return Response(serializer.data)
+
+
+class PriceChangeView(BackofficeView):
+    """A scheduled peso price for a plan (avisos-cambios S1): POST schedules it and emails the
+    subscribers it reaches, DELETE cancels the pending one. Both answer the plan's prices."""
+
+    def post(self, request, code):
+        plan = get_object_or_404(Plan, code=code)
+        serializer = PriceChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            with transaction.atomic():
+                change = price_changes.schedule(request.user, plan, **serializer.validated_data)
+                self.record(request.user, BackofficeAction.Action.PRICE_SCHEDULE, change)
+        except payment_services.PaymentRefusal as exc:
+            return Response({"detail": exc.detail}, status=exc.status)
+        return Response(PlanPriceSerializer(plan).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, code):
+        plan = get_object_or_404(Plan, code=code)
+        try:
+            with transaction.atomic():
+                change = price_changes.cancel(plan)
+                self.record(request.user, BackofficeAction.Action.PRICE_UNSCHEDULE, change)
+        except payment_services.PaymentRefusal as exc:
+            return Response({"detail": exc.detail}, status=exc.status)
+        return Response(PlanPriceSerializer(plan).data)
+
+    @staticmethod
+    def record(actor, action, change) -> None:
+        BackofficeAction.record(
+            actor,
+            action,
+            plan=change.plan_id,
+            price_ars_month=change.price_ars_month,
+            effective_on=change.effective_on.isoformat(),
+        )
 
 
 class ActionLogView(BackofficeListView):

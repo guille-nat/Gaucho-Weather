@@ -79,6 +79,35 @@ siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambi
   pago se guarda con `update_or_create` sobre su id único.
 - Una notificación de una suscripción o un pago desconocido se ignora con 200.
 
+### Cambios de precio programados
+Los términos dicen: "Un cambio de precio se avisa por email con al menos 30 días de
+anticipación y rige desde el cobro siguiente a ese plazo". Por eso se hace así
+(`apps/payments/price_changes.py`, feature `avisos-cambios`):
+- Desde el backoffice se programa un `PriceChange`, al menos 30 días antes de su fecha.
+- Al programarlo se crea un `PriceNotice` por cada suscripción `authorized` o `paused` cuyo
+  monto cambia, y los emails salen en una tarea apenas se confirma la transacción.
+- El monto nuevo sale del cambio programado, nunca del precio de hoy: el `PUT precios/` inmediato
+  solo cambia lo que pagan los checkouts nuevos. Un suscriptor del plan pasa al precio del cambio.
+  Un founder en Empresa paga Empresa menos Productor, cada uno según su último cambio programado,
+  así que un cambio en Productor le llega solo a los founders de Empresa y no al resto.
+- El aviso es por suscripción: su monto cambia 30 días después de que salió su email, y nunca
+  antes de la fecha del cambio. Así, quien se suscribe al precio viejo mientras el cambio está
+  pendiente también recibe sus 30 días de aviso.
+- La tarea diaria `payments.price_notices` (08:00) crea los avisos de esos suscriptores nuevos y
+  reintenta los emails que fallaron. Un aviso sale una sola vez (`sent_at`, con
+  `select_for_update`). Mientras su email no salió, la suscripción sigue con el monto viejo.
+- Un cambio cancelado no manda nada más y nunca se aplica.
+- La tarea diaria `payments.apply_price_changes` (07:00) aplica lo que venció:
+  - Desde la fecha del cambio, el precio del plan pasa a ser el nuevo, así que los checkouts
+    nuevos ya lo pagan.
+  - Cada suscripción avisada cambia de monto en su fecha: primero en Mercado Pago
+    (`PUT /preapproval/{id}` con `auto_recurring.transaction_amount`) y después en `amount`.
+    Solo cuenta una respuesta que trae el monto nuevo, porque Mercado Pago a veces responde 200
+    e ignora el campo.
+  - Si Mercado Pago lo rechaza, se reintenta al día siguiente y las demás siguen.
+  - Una suscripción cancelada mientras tanto no se toca, y un cambio viejo nunca pisa a uno más
+    nuevo que ya se aplicó.
+
 ### Archivos
 - `providers/base.py`: la interfaz `PaymentProvider` (iniciar, cancelar, consultar
   suscripción, pago y cobro, y verificar el webhook).
@@ -256,3 +285,6 @@ cobro hecho (próximo cobro el 19/12):
   Productor (promociones SF).
 - 2026-11-19: `suscribirme/` exige `acepta_terminos`, la SPA muestra el resumen antes de pagar y
   la suscripción autorizada manda un email de confirmación (feature `promociones`, S0b, S0d, S0e).
+- 2026-11-20: borrar la cuenta cancela antes la suscripción en Mercado Pago.
+- 2026-11-20: cambios de precio programados y su email de aviso (feature `avisos-cambios`, T1).
+- 2026-11-20: el cambio de precio se aplica en Mercado Pago en su fecha (`avisos-cambios`, T2).

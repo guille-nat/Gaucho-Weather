@@ -78,6 +78,13 @@ class PaymentProvider(ABC):
     def cancel_subscription(self, external_id: str) -> RemoteSubscription: ...
 
     @abstractmethod
+    def change_amount(self, external_id: str, amount: int, currency: str) -> None:
+        """Set the amount of a subscription's next charges (avisos-cambios S3).
+
+        Raises ProviderError when the provider refuses it or answers another amount.
+        """
+
+    @abstractmethod
     def fetch_subscription(self, external_id: str) -> RemoteSubscription: ...
 
     @abstractmethod

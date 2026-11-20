@@ -258,3 +258,29 @@ class TermsAcceptance(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} aceptó {self.version} ({self.get_context_display()})"
+
+
+class TermsNotice(models.Model):
+    """The email announcing a terms version before its date (avisos-cambios S5).
+
+    One per account and version; `sent_at` stays empty until the email went out, so a lost one
+    is retried by the next daily run.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="terms_notices", verbose_name="usuario"
+    )
+    version = models.CharField("versión", max_length=20)
+    sent_at = models.DateTimeField("aviso enviado", null=True, blank=True)
+    created_at = models.DateTimeField("creado", default=timezone.now)
+
+    class Meta:
+        verbose_name = "aviso de términos"
+        verbose_name_plural = "avisos de términos"
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "version"], name="one_terms_notice_per_version")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user}: {self.version}"

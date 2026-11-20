@@ -432,18 +432,26 @@ class TestPrices:
 
         assert response.status_code == 200
         assert response.json() == [
-            {"code": "basico", "name": "Básico", "price_ars_month": None, "price_usd_month": None},
+            {
+                "code": "basico",
+                "name": "Básico",
+                "price_ars_month": None,
+                "price_usd_month": None,
+                "pending_change": None,
+            },
             {
                 "code": "productor",
                 "name": "Productor",
                 "price_ars_month": 14900,
                 "price_usd_month": 15,
+                "pending_change": None,
             },
             {
                 "code": "empresa",
                 "name": "Empresa",
                 "price_ars_month": None,
                 "price_usd_month": None,
+                "pending_change": None,
             },
         ]
 
@@ -462,6 +470,7 @@ class TestPrices:
             "name": "Productor",
             "price_ars_month": 16500,
             "price_usd_month": None,
+            "pending_change": None,
         }
         plan = Plan.objects.get(code="productor")
         assert (plan.price_ars_month, plan.price_usd_month) == (16500, None)

@@ -1,6 +1,6 @@
 from celery import shared_task
 
-from . import password_reset, plans
+from . import password_reset, plans, terms
 
 
 @shared_task(name="accounts.expire_trials")
@@ -16,3 +16,9 @@ def expire_trials() -> int:
 )
 def send_password_reset(email: str) -> bool:
     return password_reset.send_reset_email(email)
+
+
+@shared_task(name="accounts.terms_notices")
+def terms_notices() -> int:
+    """Daily: the email about a terms version before its date (avisos-cambios S5)."""
+    return terms.send_notices()

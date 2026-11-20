@@ -15,6 +15,9 @@ class BackofficeAction(models.Model):
         REQUEST_APPLY = "request_apply", "pedido aplicado"
         REQUEST_REJECT = "request_reject", "pedido rechazado"
         PRICE_UPDATE = "price_update", "precio actualizado"
+        # avisos-cambios S1
+        PRICE_SCHEDULE = "price_schedule", "cambio de precio programado"
+        PRICE_UNSCHEDULE = "price_unschedule", "cambio de precio cancelado"
         # backoffice-superadmin S1-S4, S8
         ACCOUNT_UPDATE = "account_update", "datos de la cuenta editados"
         ACCOUNT_BLOCK = "account_block", "cuenta bloqueada"

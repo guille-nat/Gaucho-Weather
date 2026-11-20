@@ -67,17 +67,20 @@ def _ending(user: User):
     return user.provider_subscriptions.filter(status=S.CANCELLED, ended_at=None)
 
 
-def founder_empresa_price() -> int | None:
+def ars_prices() -> dict[str, int | None]:
+    """Every plan's monthly peso price, by code."""
+    return dict(Plan.objects.values_list("code", "price_ars_month"))
+
+
+def founder_empresa_price(prices: dict[str, int | None] | None = None) -> int | None:
     """What a founder pays a month for Empresa: the difference with Productor (SF1).
 
     A founder already has Productor for free, so only the rest is charged. None when a price
-    is missing or the difference is not positive.
+    is missing or the difference is not positive. `prices` (by plan code) prices it with other
+    prices than today's, for a scheduled change (avisos-cambios S2).
     """
-    prices = dict(
-        Plan.objects.filter(code__in=(Plan.PRODUCTOR, Plan.EMPRESA)).values_list(
-            "code", "price_ars_month"
-        )
-    )
+    if prices is None:
+        prices = ars_prices()
     empresa, productor = prices.get(Plan.EMPRESA), prices.get(Plan.PRODUCTOR)
     if empresa is None or productor is None:
         return None
@@ -85,15 +88,17 @@ def founder_empresa_price() -> int | None:
     return difference if difference > 0 else None
 
 
-def price_for(user: User, plan: Plan) -> int | None:
+def price_for(user: User, plan: Plan, prices: dict[str, int | None] | None = None) -> int | None:
     """The monthly peso amount `user` pays for `plan`; None when it cannot be charged.
 
-    The one place that prices a subscription: the preapproval, its ProviderSubscription and
-    the pending-checkout reuse check all use it.
+    The one place that prices a subscription: the preapproval, its ProviderSubscription, the
+    pending-checkout reuse check and a scheduled price change all use it. `prices` (by plan
+    code) replaces today's prices.
     """
     if user.is_founder:
-        return founder_empresa_price() if plan.code == Plan.EMPRESA else None
-    return plan.price_ars_month or None
+        return founder_empresa_price(prices) if plan.code == Plan.EMPRESA else None
+    price = plan.price_ars_month if prices is None else prices.get(plan.code)
+    return price or None
 
 
 def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription:

@@ -6,6 +6,7 @@ from apps.accounts.models import Plan, PlanChange, PlanRequest, User
 from apps.accounts.serializers import PlanNameSerializer
 from apps.alerts.models import AlertRule
 from apps.lotes.models import Lote
+from apps.payments import price_changes
 from apps.payments.models import Payment, ProviderSubscription
 from apps.payments.serializers import ProviderSubscriptionSerializer
 
@@ -72,16 +73,45 @@ class RejectRequestSerializer(serializers.Serializer):
 
 
 class PlanPriceSerializer(serializers.ModelSerializer):
-    """Both prices are required on every PUT: null means "Precio a confirmar", 0 means free."""
+    """Both prices are required on every PUT: null means "Precio a confirmar", 0 means free.
+
+    `pending_change` is the scheduled peso price (avisos-cambios S4): how many subscriptions it
+    reaches and how many notices went out, or null.
+    """
+
+    pending_change = serializers.SerializerMethodField()
 
     class Meta:
         model = Plan
-        fields = ["code", "name", "price_ars_month", "price_usd_month"]
+        fields = ["code", "name", "price_ars_month", "price_usd_month", "pending_change"]
         read_only_fields = ["code", "name"]
         extra_kwargs = {
             "price_ars_month": {"required": True, "allow_null": True, "min_value": 0},
             "price_usd_month": {"required": True, "allow_null": True, "min_value": 0},
         }
+
+    def get_pending_change(self, plan: Plan) -> dict | None:
+        change = price_changes.pending_change(plan)
+        if change is None:
+            return None
+        return {
+            "price_ars_month": change.price_ars_month,
+            "effective_on": change.effective_on.isoformat(),
+            "notices": change.notices.count(),
+            "notices_sent": change.notices.exclude(sent_at=None).count(),
+        }
+
+
+class PriceChangeSerializer(serializers.Serializer):
+    """A scheduled peso price (avisos-cambios S1): at least 30 days ahead."""
+
+    price_ars_month = serializers.IntegerField(min_value=1)
+    effective_on = serializers.DateField()
+
+    def validate_effective_on(self, value):
+        if value < price_changes.earliest_date():
+            raise serializers.ValidationError(price_changes.TOO_SOON)
+        return value
 
 
 class PersonSerializer(serializers.ModelSerializer):

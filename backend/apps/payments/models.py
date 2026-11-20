@@ -102,3 +102,83 @@ class Payment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user}: {self.amount} {self.currency} ({self.get_status_display()})"
+
+
+class PriceChange(models.Model):
+    """A new monthly peso price for a plan, scheduled at least 30 days ahead (avisos-cambios S1).
+
+    New checkouts use it from `effective_on`. Each running subscription changes amount through
+    its PriceNotice, 30 days after the notice went out and never before `effective_on` (S3).
+    """
+
+    plan = models.ForeignKey(
+        "accounts.Plan",
+        to_field="code",
+        on_delete=models.PROTECT,
+        related_name="price_changes",
+        verbose_name="plan",
+    )
+    price_ars_month = models.PositiveIntegerField("precio nuevo por mes (ARS)")
+    effective_on = models.DateField("rige desde")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+        verbose_name="programado por",
+    )
+    created_at = models.DateTimeField("programado", default=timezone.now)
+    cancelled_at = models.DateTimeField("cancelado", null=True, blank=True)
+    # Set when the plan's price became the new one (new checkouts pay it from then on).
+    applied_at = models.DateTimeField("aplicado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "cambio de precio"
+        verbose_name_plural = "cambios de precio"
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan"],
+                condition=models.Q(cancelled_at=None, applied_at=None),
+                name="one_pending_price_change_per_plan",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.plan_id}: {self.price_ars_month} desde {self.effective_on}"
+
+
+class PriceNotice(models.Model):
+    """The email telling one subscription its new amount (avisos-cambios S2, S3).
+
+    `sent_at` is the 30 days' notice: without it the subscription keeps its amount.
+    """
+
+    change = models.ForeignKey(
+        PriceChange, on_delete=models.CASCADE, related_name="notices", verbose_name="cambio"
+    )
+    subscription = models.ForeignKey(
+        ProviderSubscription,
+        on_delete=models.CASCADE,
+        related_name="price_notices",
+        verbose_name="suscripción",
+    )
+    old_amount = models.PositiveIntegerField("monto actual")
+    new_amount = models.PositiveIntegerField("monto nuevo")
+    sent_at = models.DateTimeField("aviso enviado", null=True, blank=True)
+    # Set when Mercado Pago charges the new amount (T2).
+    applied_at = models.DateTimeField("aplicado", null=True, blank=True)
+    created_at = models.DateTimeField("creado", default=timezone.now)
+
+    class Meta:
+        verbose_name = "aviso de precio"
+        verbose_name_plural = "avisos de precio"
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["change", "subscription"], name="one_notice_per_change_and_subscription"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.subscription} · {self.old_amount} → {self.new_amount}"
