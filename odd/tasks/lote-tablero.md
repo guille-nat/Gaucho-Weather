@@ -29,7 +29,7 @@ User's request (L1), verbatim: "http://127.0.0.1:5173/lotes/11 me parece que no 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1 backend: wind direction stored and fetched, hourly spray in the forecast payload | delegated writer (parallel units: disjoint backend surface) | done | 8557863 |
-| T2 | S2–S6 frontend, built on the S1 contract through the mock | delegated writer (parallel units: disjoint frontend surface) | pending | |
+| T2 | S2–S6 frontend, built on the S1 contract through the mock | delegated writer (parallel units: disjoint frontend surface) | done | 7247a5d |
 
 Risk: none expected (adds fields, changes layout); the parent re-checks after both. One seam check (both suites) at the end.
 
@@ -37,3 +37,14 @@ Risk: none expected (adds fields, changes layout); the parent re-checks after bo
 - **L1** (2026-11-20): user's request (S above). A read-only critique (impeccable, rendered at 390 and 1280 px with lote 11's data) found: decisions start below the fold and in a fixed order; spraying repeats its window and shows no wind, gusts, Delta T or inversion; the 2 m frost value (median) looks contradictory next to "Ver modelos"; the evidence sits screens away from its decision; the forecast's time is at the bottom without its date (20 hours old in the sample); static data and "Borrar" outweigh the tools; the Histórico link sits after the credits. Screenshots in the session scratchpad.
 - **L2** (2026-11-20): asked the scope; the user chose "Todo junto". The order "most urgent first" comes from the accepted proposal sketch.
 - **L3** (2026-11-20): T1 done (8557863): every hourly item has `wind_direction_deg` and `spray` (`delta_t_c` rounded to 0.1). Backend 965 passed. Accepted deviations: (1) the wind direction was already fetched and stored in the raw forecast JSON, so no new field or migration was needed, and old forecasts return it too; (2) only daylight hours (sunrise ≤ hour < sunset, today and tomorrow) are rated, other hours get `spray: null`, and today's rated hours match "Pulverizar hoy"; (3) `inversion` is true for both "posible" and "probable", and the causes tell which; (4) `now` keeps `wind_dir_deg`.
+- **L4** (2026-11-20): T2 done (7247a5d). Seam check run by the parent: backend 965 passed; frontend 382 passed, 1 failed (the known terminos drift test); `/lotes/11` answers 200. Accepted deviations:
+  1. Inicio keeps its old layout; the board applies to lotes only.
+  2. "Cambiar cultivos" now lives in the folded lote data.
+  3. When spraying is not good, its cause comes from the backend's reason.
+  4. "Dan helada: N de M" moved into "Ver modelos".
+  5. The hours table shows 24 rows, with "Ver las 48 horas" for the rest.
+  6. The screenshots used made-up spray values, because they were taken before T1 data existed.
+  7. Unused CSS removed.
+  8. One commit of about 1,380 lines, as asked.
+
+  Seen in the 1280 px screenshot: the "Lluvia" column is cut at the right edge, to check live. The sample forecast was 20 hours old ("Pronóstico jue 19 · 18:00"): the board now shows it plainly.
