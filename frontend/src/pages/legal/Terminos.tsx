@@ -130,8 +130,8 @@ export function Terminos() {
             suscripción, el plan sigue hasta el final del mes pagado.
           </li>
           <li>
-            Los precios pueden cambiar. Un cambio de precio se avisa por email con al menos{' '}
-            <Ph>PLAZO</Ph> de anticipación y rige desde el cobro siguiente a ese plazo.
+            Los precios pueden cambiar. Un cambio de precio se avisa por email con al menos 30 días
+            de anticipación y rige desde el cobro siguiente a ese plazo.
           </li>
         </ul>
       </Clause>

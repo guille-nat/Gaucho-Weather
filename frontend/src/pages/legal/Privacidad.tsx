@@ -100,10 +100,7 @@ export function Privacidad() {
             , que envía los emails: el email y el contenido del mensaje.
           </li>
           <li>
-            <strong>
-              <Ph>PROVEEDOR DE HOSTING</Ph>
-            </strong>
-            , donde funcionan los servidores y se guardan los datos.
+            <strong>Hostinger</strong>, donde funcionan los servidores y se guardan los datos.
           </li>
           <li>Las autoridades, cuando una ley o una orden judicial lo exija.</li>
         </ul>

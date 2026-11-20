@@ -78,8 +78,9 @@ un abogado los revisa antes de salir a producción (Ley 24.240 y Ley 25.326).
   a ver el diálogo.
 - Cupones, referidos y meses gratis suman sus reglas a `/reglas` cuando se lancen.
 - Marcadores a completar: `[RAZÓN SOCIAL]`, `[CUIT]`, `[DOMICILIO]`, `[EMAIL DE CONTACTO]`,
-  `[JURISDICCIÓN]`, `[PLAZO]` (aviso de cambio de precio, copias de seguridad, registros del
-  servidor), `[PROVEEDOR DE EMAIL]` y `[PROVEEDOR DE HOSTING]`.
+  `[JURISDICCIÓN]`, `[PLAZO]` (copias de seguridad y registros del servidor) y
+  `[PROVEEDOR DE EMAIL]`. Completados el 2026-11-19: hosting = Hostinger; aviso de cambio de
+  precio = 30 días.
 - Tests: `backend/tests/test_terms.py` y `frontend/src/test/terminos.test.tsx`.
 
 ## Pendientes
