@@ -34,6 +34,23 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - Today the app promises "Tenés el plan Productor gratis para siempre." (`FounderBadge.tsx:19`, `Suscripcion.tsx:508`) without any terms page. Existing founders must keep at least that.
 - (A) The texts are drafted by us and **must be reviewed by a lawyer** before going live. Ley 24.240's duty to inform and the "botón de baja" are the reference points.
 
+**SF — Founder moving up to Empresa** (decision 0; user approved with "si" in L5 and "dale, arrancá con el founder" in L11).
+- **SF1 Subscribe.**
+  - A founder can subscribe to **Empresa** through Mercado Pago. The amount is `Empresa.price_ars_month − Productor.price_ars_month` ($35.000 today). The preapproval, the `ProviderSubscription.amount`, and the pending-checkout reuse check all use that amount.
+  - Subscribing to Productor is still refused, with the existing "Como founder ya tenés Productor gratis para siempre.".
+  - If the difference is not positive, or a price is missing, the subscription is refused with the existing "Ese plan todavía no tiene precio en pesos." (409).
+- **SF2 Authorized.** The webhook moves the founder to Empresa (reason `payment`). The founder keeps `founder_number`, and `plan_expires_at` stays empty.
+- **SF3 End.** When a founder's Empresa subscription ends (cancelled or paused, and its paid month is over, via `_end`), the account goes back to **Productor** (reason `payment_ended`), never to Básico, and never keeps Empresa. A non-founder still goes back to Básico, as today.
+- **SF4 No free Empresa by hand.**
+  - A founder's plan request to Empresa (`plans.request_plan`, kind `change`) is refused with 400 "Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia.".
+  - The backoffice also refuses, with that same message, applying a pending request of that kind (`pedidos/<id>/aplicar/`) and a direct plan change of a founder to Empresa (`cuentas/<id>/plan/`). (A) The direct change is included, because the user's intent was "que nadie se la regale por error".
+  - Moving a founder back to Productor by hand still works.
+- **SF5 Screens.**
+  - Planes shows a founder the Empresa card with "Suscribirme" and the note "Como founder pagás solo la diferencia: $35.000 por mes." (the amount comes from the API, not hard-coded).
+  - Suscripción lets a founder subscribe to Empresa, showing that amount.
+  - A founder never sees "Suscribirme" for Productor or Básico.
+- **SF6 Docs.** Update `Doc/funcionalidades/pagos.md` and `planes.md` with the rule and its "Por qué".
+
 **S1 — Coupons.** A super admin creates codes in the backoffice.
 - Each code has:
   - `code`: unique and case-insensitive;
@@ -123,7 +140,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
 | T0 | S0 clear terms (pages, acceptance, pre-checkout summary, emails) | tbd | blocked on the texts and the lawyer review | |
-| TF | founder upgrade (decision 0): founders subscribe to Empresa for the difference; cancelling returns to Productor; no Empresa-by-request for founders | tbd | ready | |
+| TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) | in progress | |
 | T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
 | T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
 | T3 | S3 credits | tbd | blocked on the lab result | |
@@ -148,3 +165,4 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - The user's authorization to start implementing.
 - **L10** (2026-11-19): user: "le podriamos pausar las sub y reanudarle despues sin cobrar el mes pasado, hablo del cobro de mercado pago, pero la app si recibe y maneja que esta habilitada su sub".
   - Accepted as the preferred credit mechanism, including the free month earned by referrals, if the lab shows that resume does not charge the skipped period. Otherwise the $15 discount is the fallback.
+- **L11** (2026-11-19): user: "dale, arrancá con el founder". SF1–SF6 written; TF is delegated to one writer, because of the long-session context backstop.
