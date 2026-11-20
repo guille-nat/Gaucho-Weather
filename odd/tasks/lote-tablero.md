@@ -28,7 +28,7 @@ User's request (L1), verbatim: "http://127.0.0.1:5173/lotes/11 me parece que no 
 ## Tasks
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1 backend: wind direction stored and fetched, hourly spray in the forecast payload | delegated writer (parallel units: disjoint backend surface) | pending | |
+| T1 | S1 backend: wind direction stored and fetched, hourly spray in the forecast payload | delegated writer (parallel units: disjoint backend surface) | done | 8557863 |
 | T2 | S2–S6 frontend, built on the S1 contract through the mock | delegated writer (parallel units: disjoint frontend surface) | pending | |
 
 Risk: none expected (adds fields, changes layout); the parent re-checks after both. One seam check (both suites) at the end.
@@ -36,3 +36,4 @@ Risk: none expected (adds fields, changes layout); the parent re-checks after bo
 ## Log
 - **L1** (2026-11-20): user's request (S above). A read-only critique (impeccable, rendered at 390 and 1280 px with lote 11's data) found: decisions start below the fold and in a fixed order; spraying repeats its window and shows no wind, gusts, Delta T or inversion; the 2 m frost value (median) looks contradictory next to "Ver modelos"; the evidence sits screens away from its decision; the forecast's time is at the bottom without its date (20 hours old in the sample); static data and "Borrar" outweigh the tools; the Histórico link sits after the credits. Screenshots in the session scratchpad.
 - **L2** (2026-11-20): asked the scope; the user chose "Todo junto". The order "most urgent first" comes from the accepted proposal sketch.
+- **L3** (2026-11-20): T1 done (8557863): every hourly item has `wind_direction_deg` and `spray` (`delta_t_c` rounded to 0.1). Backend 965 passed. Accepted deviations: (1) the wind direction was already fetched and stored in the raw forecast JSON, so no new field or migration was needed, and old forecasts return it too; (2) only daylight hours (sunrise ≤ hour < sunset, today and tomorrow) are rated, other hours get `spray: null`, and today's rated hours match "Pulverizar hoy"; (3) `inversion` is true for both "posible" and "probable", and the causes tell which; (4) `now` keeps `wind_dir_deg`.
