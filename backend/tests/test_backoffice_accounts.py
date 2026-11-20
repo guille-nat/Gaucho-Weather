@@ -182,6 +182,7 @@ class TestRecord:
             "is_superuser": False,
             "date_joined": body["date_joined"],
             "last_login": "2026-11-16T06:00:00-03:00",
+            "courtesy": None,
         }
         assert [change["note"] for change in body["plan_changes"]] == ["extendida", ""]
         assert body["plan_changes"][0] == {

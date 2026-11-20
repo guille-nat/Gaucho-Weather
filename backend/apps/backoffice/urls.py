@@ -30,6 +30,11 @@ urlpatterns = [
     ),
     path("cuentas/<int:pk>/prueba/", views.TrialView.as_view(), name="backoffice-account-trial"),
     path(
+        "cuentas/<int:pk>/cortesia/",
+        views.CourtesyView.as_view(),
+        name="backoffice-account-courtesy",
+    ),
+    path(
         "cuentas/<int:pk>/founder/dar/",
         views.FounderGrantView.as_view(),
         name="backoffice-account-founder-grant",

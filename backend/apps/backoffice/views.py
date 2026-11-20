@@ -13,7 +13,7 @@ from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,6 +35,7 @@ from .serializers import (
     AccountRowSerializer,
     BackofficeActionSerializer,
     ChangePlanSerializer,
+    CourtesySerializer,
     PaymentRowSerializer,
     PlanPriceSerializer,
     PriceChangeSerializer,
@@ -155,7 +156,14 @@ class AccountListView(BackofficeListView):
         return rows
 
 
+USE_COURTESY = "Para dar un plan pago sin cobrar, usá una cortesía."
+
+
 class AccountPlanView(BackofficeView):
+    """Only down to the free plan (cortesias S4): Básico, or Productor for a founder, whose
+    free plan it is. A paid plan for free is a cortesía, with an end date. Moving down ends an
+    active cortesía (plans._switch does it)."""
+
     def post(self, request, pk):
         target = get_object_or_404(User, pk=pk)
         serializer = ChangePlanSerializer(data=request.data)
@@ -165,10 +173,13 @@ class AccountPlanView(BackofficeView):
             raise ValidationError({"detail": plans.NO_SUCH_PLAN})
         note = serializer.validated_data["note"]
         with transaction.atomic():
+            locked = locked_account(target.pk)
             try:
-                plans.refuse_free_empresa(locked_account(target.pk), plan.code)
+                plans.refuse_free_empresa(locked, plan.code)
             except plans.PlanRequestError as exc:
                 raise ValidationError({"detail": str(exc)}) from exc
+            if plan.code not in (Plan.BASICO, plans.free_plan(locked)):
+                raise Refused(USE_COURTESY)
             change = plans.change_plan(
                 target, plan.code, PlanChange.Reason.STAFF, by=request.user, note=note
             )
@@ -549,6 +560,61 @@ class TrialView(BackofficeView):
                 target,
                 until=until.isoformat(),
                 from_plan=from_plan,
+            )
+        return Response(account_record(pk))
+
+
+COURTESY_SELF = "No podés darte una cortesía a vos mismo."
+NO_COURTESY = "La cuenta no tiene una cortesía activa."
+
+
+class CourtesyView(BackofficeView):
+    """POST gives a paid plan for free until a date, or changes the active one; DELETE ends it
+    now (cortesias S1, S2). Every rule is checked here, under the account's lock."""
+
+    def post(self, request, pk):
+        get_object_or_404(User, pk=pk)
+        if pk == request.user.pk:
+            raise Refused(COURTESY_SELF)
+        serializer = CourtesySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan, until, reason = (serializer.validated_data[f] for f in ("plan", "hasta", "motivo"))
+        with transaction.atomic():
+            target = locked_account(pk)
+            if target.is_founder and plan == Plan.PRODUCTOR:
+                raise Refused(FOUNDER_HAS_PRODUCTOR)
+            refuse_if_paying(target, trial=True)
+            try:
+                _, from_plan = plans.grant_courtesy(
+                    target, plan, end_of_day(until), reason, by=request.user
+                )
+            except plans.CourtesyError as exc:
+                raise Refused(str(exc)) from exc
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.COURTESY_GRANT,
+                target,
+                plan=plan,
+                until=until.isoformat(),
+                reason=reason,
+                from_plan=from_plan,
+            )
+        return Response(account_record(pk))
+
+    def delete(self, request, pk):
+        with transaction.atomic():
+            target = locked_account(pk)
+            revoked = plans.revoke_courtesy(target, by=request.user)
+            if revoked is None:
+                raise NotFound(NO_COURTESY)
+            courtesy, change = revoked
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.COURTESY_REVOKE,
+                target,
+                plan=courtesy.plan_id,
+                until=timezone.localdate(courtesy.ends_at).isoformat(),
+                to_plan=change.to_plan_id,
             )
         return Response(account_record(pk))
 

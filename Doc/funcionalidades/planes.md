@@ -1,5 +1,5 @@
 # Planes, founders y prueba
-> Última actualización: 2026-11-19
+> Última actualización: 2026-11-20
 
 ## Qué hace
 Cada cuenta tiene uno de tres planes que limitan lotes, reglas de alerta y
@@ -82,9 +82,42 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 - La tarea `accounts.expire_trials` corre todos los días a las 09:00 (beat,
   hora argentina). Pasa a Básico las pruebas vencidas y le manda un email al
   usuario con los límites reales de Básico y el enlace a `/planes`.
-- Solo toca pruebas: Productor, sin número de founder y con vencimiento. Un
-  vencimiento que staff puso en otro plan queda para staff.
+- Antes de las pruebas, la misma tarea termina las cortesías vencidas y manda el aviso de
+  una semana antes (ver "Cortesías").
+- Solo toca pruebas: Productor, sin número de founder, con vencimiento y sin cortesía
+  activa. Un vencimiento que staff puso en otro plan queda para staff.
 - Es idempotente, y si el email falla el cambio de plan no se deshace.
+
+### Cortesías
+- Un super admin da un plan pago gratis hasta una fecha (como mucho un año) desde el
+  backoffice; es el único camino para regalar un plan pago. Detalle de la API en
+  [backoffice.md](backoffice.md#cortesías-cortesias-s1-s3).
+- Modelo `Courtesy`; mientras está activa, `plan_expires_at` es su fecha de fin. Para
+  `membership_status` una cuenta no founder en cortesía figura como `trial` (tiene
+  vencimiento).
+- Al vencer pasa a Básico (Productor para un founder) con motivo `courtesy_ended` y un email
+  con el enlace a `/planes`; una semana antes, un aviso.
+- Cualquier otro cambio de plan la termina (`plans._switch`). Por eso suscribirse durante
+  una cortesía la termina sin mover el plan dos veces. `subscribe` acepta el mismo plan si la
+  cuenta tiene vencimiento: un founder en cortesía de Empresa puede pagar Empresa.
+
+### Cuentas con plan pago sin cobrar
+Antes de las cortesías, el backoffice regalaba planes pagos sin vencimiento. Esas cuentas
+quedaron como estaban. Para listarlas (`docker compose exec backend python manage.py shell`):
+
+```python
+from apps.accounts.models import User
+from apps.payments.models import ProviderSubscription
+
+paying = ProviderSubscription.objects.filter(ended_at=None).exclude(status="pending")
+User.objects.filter(plan_expires_at=None, plan_id__in=["productor", "empresa"]).exclude(
+    founder_number__isnull=False, plan_id="productor"
+).exclude(pk__in=paying.values("user_id"))
+```
+
+Son las cuentas en Productor o Empresa sin vencimiento, sin suscripción que pague y que no son
+founders en su Productor. En el backoffice se ven con `estado=active` y el plan, mirando sus
+suscripciones en la ficha.
 
 ### Límites
 - `check_limit(user, kind)` corre en la transacción que crea el lote o la
@@ -113,7 +146,8 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 - Se registra un `PlanChange` en el alta (`founder` o `trial`, en
   `start_membership`), al vencer la prueba (`trial_ended`, en
   `expire_trials`), al aplicar un pedido (`request`) y cuando staff cambia el
-  plan en el admin de Usuarios (`staff`). Los dos últimos pasan por
+  plan en el admin de Usuarios (`staff`). Una cortesía suma `courtesy` al darla y
+  `courtesy_ended` al vencer o revocarla. Los dos últimos pasan por
   `plans.change_plan`, que borra el vencimiento salvo que staff lo haya
   cambiado en la misma edición.
 - API (sesión + CSRF):
@@ -229,3 +263,6 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
   pagás solo la diferencia: $35.000 por mes." (monto de `founder_empresa_price_ars`); paga solo
   la diferencia, vuelve a Productor al darse de baja, y no puede recibir Empresa por pedido ni
   a mano en el backoffice (promociones SF).
+- 2026-11-20 — Cortesías: un plan pago gratis hasta una fecha de como mucho un año, con motivo
+  y tope de 20 activas; el cambio de plan del backoffice solo baja al plan gratis
+  (feature `cortesias`, S1-S4).

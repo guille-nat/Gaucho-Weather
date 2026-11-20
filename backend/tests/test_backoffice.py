@@ -61,6 +61,12 @@ ENDPOINTS = [
     ("get", SUMMARY, None),
     ("get", ACCOUNTS, None),
     ("post", f"{ACCOUNTS}{{user}}/plan/", {"plan": "empresa"}),
+    (
+        "post",
+        f"{ACCOUNTS}{{user}}/cortesia/",
+        {"plan": "empresa", "hasta": "2030-01-01", "motivo": "x"},
+    ),
+    ("delete", f"{ACCOUNTS}{{user}}/cortesia/", None),
     ("get", REQUESTS, None),
     ("post", f"{REQUESTS}{{request}}/aplicar/", {}),
     ("post", f"{REQUESTS}{{request}}/rechazar/", {}),
@@ -230,22 +236,22 @@ class TestAccounts:
 
 
 class TestChangePlan:
-    def test_goes_through_change_plan_as_staff(self, admin_client, admin_user):
+    def test_moves_down_to_basico_through_change_plan_as_staff(self, admin_client, admin_user):
         ana = account("ana@example.com", plan_id="productor", plan_expires_at=NOW)
 
         response = admin_client.post(
-            f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "empresa", "note": "acuerdo"}, format="json"
+            f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "basico", "note": "acuerdo"}, format="json"
         )
 
         assert response.status_code == 200
-        assert response.json()["plan"] == {"code": "empresa", "name": "Empresa"}
+        assert response.json()["plan"] == {"code": "basico", "name": "Básico"}
         assert response.json()["status"] == "active"
         ana.refresh_from_db()
-        assert (ana.plan_id, ana.plan_expires_at) == ("empresa", None)
+        assert (ana.plan_id, ana.plan_expires_at) == ("basico", None)
         change = PlanChange.objects.get(user=ana)
         assert (change.from_plan_id, change.to_plan_id, change.reason) == (
             "productor",
-            "empresa",
+            "basico",
             "staff",
         )
         assert (change.by, change.note) == (admin_user, "acuerdo")
@@ -255,10 +261,10 @@ class TestChangePlan:
             "plan_change",
             ana,
         )
-        assert action.payload == {"from": "productor", "to": "empresa", "note": "acuerdo"}
+        assert action.payload == {"from": "productor", "to": "basico", "note": "acuerdo"}
 
     def test_calls_the_shared_change_plan(self, admin_client, admin_user, monkeypatch):
-        ana = account("ana@example.com")
+        ana = account("ana@example.com", plan_id="productor")
         calls = []
         real = plans.change_plan
 
@@ -268,9 +274,9 @@ class TestChangePlan:
 
         monkeypatch.setattr(plans, "change_plan", spy)
 
-        admin_client.post(f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "empresa"}, format="json")
+        admin_client.post(f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "basico"}, format="json")
 
-        assert calls == [(ana.pk, "empresa", "staff", {"by": admin_user, "note": ""})]
+        assert calls == [(ana.pk, "basico", "staff", {"by": admin_user, "note": ""})]
 
     def test_an_unknown_plan_is_a_400(self, admin_client):
         ana = account("ana@example.com")
@@ -524,8 +530,8 @@ class TestPrices:
 
 class TestLog:
     def test_lists_recent_actions_newest_first(self, admin_client, admin_user):
-        ana = account("ana@example.com", name="Ana")
-        admin_client.post(f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "empresa"}, format="json")
+        ana = account("ana@example.com", name="Ana", plan_id="productor")
+        admin_client.post(f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "basico"}, format="json")
         admin_client.put(
             f"{PRICES}empresa/", {"price_ars_month": 1, "price_usd_month": 2}, format="json"
         )
@@ -541,7 +547,7 @@ class TestLog:
         assert plan["action"] == "plan_change"
         assert plan["actor"] == {"id": admin_user.pk, "name": "Jefe", "email": "jefe@example.com"}
         assert plan["target_user"] == {"id": ana.pk, "name": "Ana", "email": "ana@example.com"}
-        assert plan["payload"] == {"from": "basico", "to": "empresa", "note": ""}
+        assert plan["payload"] == {"from": "productor", "to": "basico", "note": ""}
         assert set(plan) == {"id", "action", "actor", "target_user", "payload", "at"}
 
 

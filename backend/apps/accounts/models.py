@@ -137,6 +137,9 @@ class PlanChange(models.Model):
         STAFF = "staff", "cambio de staff"
         PAYMENT = "payment", "pago aprobado"
         PAYMENT_ENDED = "payment_ended", "suscripción terminada"
+        # cortesias S1-S3
+        COURTESY = "courtesy", "cortesía"
+        COURTESY_ENDED = "courtesy_ended", "fin de la cortesía"
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="plan_changes", verbose_name="usuario"
@@ -173,6 +176,52 @@ class PlanChange(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} → {self.to_plan_id} ({self.reason})"
+
+
+class Courtesy(models.Model):
+    """A paid plan for free until a date, given by a super admin (cortesias S1-S3).
+
+    Active while `ended_at` is empty, and at most one active per account. The account's
+    `plan_expires_at` mirrors `ends_at` while it is active, like a trial. `starts_at` is the
+    first grant: giving it again changes the plan or the date, but never past a year from it.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="courtesies", verbose_name="usuario"
+    )
+    plan = models.ForeignKey(
+        Plan, to_field="code", on_delete=models.PROTECT, related_name="+", verbose_name="plan"
+    )
+    reason = models.CharField("motivo", max_length=200)
+    starts_at = models.DateTimeField("desde", default=timezone.now)
+    ends_at = models.DateTimeField("hasta")
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="dada por",
+    )
+    ended_at = models.DateTimeField(
+        "terminó", null=True, blank=True, help_text="Vacío = activa. Vencida, revocada o pagada."
+    )
+    reminder_sent_at = models.DateTimeField("aviso de fin enviado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "cortesía"
+        verbose_name_plural = "cortesías"
+        ordering = ["-starts_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(ended_at=None),
+                name="one_active_courtesy_per_user",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user}: {self.plan_id} hasta {self.ends_at:%d/%m/%Y}"
 
 
 class PlanRequest(models.Model):

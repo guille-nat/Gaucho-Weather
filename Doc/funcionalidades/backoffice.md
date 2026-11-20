@@ -1,5 +1,5 @@
 # Backoffice
-> Última actualización: 2026-11-19
+> Última actualización: 2026-11-20
 
 ## Qué hace
 Una API para que los super admins administren cuentas, pedidos de plan y precios sin entrar
@@ -33,11 +33,13 @@ backoffice solo a quien puede usarlo. El campo es de solo lectura.
 | `GET cuentas/?q=&plan=&estado=&page=` | Lista paginada de cuentas. |
 | `GET cuentas/{id}/` | Ficha de una cuenta: perfil, historial de planes, suscripciones, pagos, lotes y alertas. |
 | `PATCH cuentas/{id}/` | Edita nombre y/o email. |
-| `POST cuentas/{id}/plan/` | Cambia el plan de una cuenta. |
+| `POST cuentas/{id}/plan/` | Baja la cuenta a su plan gratis (Básico, o Productor para un founder). |
 | `POST cuentas/{id}/bloquear/` y `desbloquear/` | Bloquea o desbloquea la cuenta (`is_active`). |
 | `POST cuentas/{id}/superadmin/dar/` y `superadmin/quitar/` | Da o quita super admin (`is_superuser` e `is_staff`). |
 | `POST cuentas/{id}/restablecer-contrasena/` | Manda el mail para restablecer la contraseña. |
 | `POST cuentas/{id}/prueba/` | Da o extiende la prueba de Productor hasta una fecha. |
+| `POST cuentas/{id}/cortesia/` | Da una cortesía (un plan pago gratis hasta una fecha) o cambia la activa. |
+| `DELETE cuentas/{id}/cortesia/` | Revoca la cortesía activa. |
 | `POST cuentas/{id}/founder/dar/` y `founder/quitar/` | Marca o quita founder. |
 | `POST cuentas/{id}/suscripcion/sincronizar/` | Vuelve a pedirle a Mercado Pago la última suscripción y sus cobros. |
 | `POST cuentas/{id}/suscripcion/cancelar/` | Cancela la suscripción en Mercado Pago. |
@@ -106,6 +108,8 @@ octubre para el negocio. Los montos son números, como en el resto de la API
 - `lotes`: `{id, name, created_at}`;
 - `alert_rules`: `{id, variable, name, lote, enabled}` (`name` es la variable en palabras,
   `lote` el nombre del lote).
+- `courtesy`: la cortesía activa, `{plan: {code, name}, starts_at, ends_at, reason,
+  granted_by: {id, name, email} | null}`, o `null` si no tiene.
 
 Nunca devuelve contraseñas, `checkout_url` ni el `payload` de Mercado Pago. Cuenta
 inexistente: 404. **Por qué una sola respuesta:** el super admin abre la ficha para decidir
@@ -181,6 +185,57 @@ es un super admin, no el dueño de la cuenta; el registro deja constancia del ca
     plan. **Por qué:** quitar el founder y cambiar el plan son dos decisiones; el plan se
     cambia aparte si hace falta.
 
+### Cortesías (cortesias S1-S3)
+Una cortesía es un plan pago (Productor o Empresa) gratis hasta una fecha, para unas pocas
+cuentas que sirven de enganche. Es el único camino para dar un plan pago sin cobrar, y
+siempre vence. La guarda el modelo `accounts.Courtesy` (plan, `starts_at`, `ends_at`, motivo,
+quién la dio, `ended_at` y `reminder_sent_at`); como mucho una activa por cuenta (`ended_at`
+vacío, restricción única condicional). Mientras está activa, `plan_expires_at` de la cuenta
+es su `ends_at`, igual que una prueba. La lógica está en `apps/accounts/plans.py`
+(`grant_courtesy`, `revoke_courtesy`, `end_courtesies`, `remind_courtesies`).
+
+- `POST cortesia/` con `{"plan": "empresa", "hasta": "2026-12-31", "motivo": "Cliente de
+  enganche"}` pone la cuenta en ese plan hasta el final de `hasta` en hora de Buenos Aires
+  (23:59:59). Queda un `PlanChange` con motivo `courtesy`, `by=<super admin>` y el motivo como
+  nota, y un `BackofficeAction` `courtesy_grant`. Responde la ficha.
+  - `plan` solo `productor` o `empresa`: si no, 400 `{"plan": ["\"basico\" no es una
+    elección válida."]}`.
+  - `hasta` de hoy o pasada: 400 `{"hasta": ["La fecha tiene que ser futura."]}`. Más de 365
+    días después de hoy: 400 `{"hasta": ["La cortesía dura como máximo un año: elegí una
+    fecha hasta el 16/11/2027."]}`.
+  - `motivo` obligatorio, no en blanco, hasta 200 caracteres (errores de campo).
+  - La propia cuenta del super admin: 400 `{"detail": "No podés darte una cortesía a vos
+    mismo."}`.
+  - Un founder que pide Productor: 400 `{"detail": "La cuenta es founder: ya tiene Productor
+    sin vencimiento."}`. Empresa sí se le puede dar: la cortesía es la excepción explícita del
+    super admin y no pasa por `refuse_free_empresa`.
+  - Una cuenta que paga o con días pagos de una cancelada: los mismos 400 que `prueba/`
+    (`refuse_if_paying(..., trial=True)`).
+  - Con 20 cortesías activas: 400 `{"detail": "Ya hay 20 cortesías activas. Revocá alguna
+    antes de dar otra."}`. Las filas activas se bloquean antes de contar, así dos altas a la
+    vez no pasan las dos el tope.
+- Darla otra vez a una cuenta con una activa cambia el plan, la fecha y el motivo de esa
+  misma cortesía (no cuenta para el tope). El final nunca puede pasar de 365 días desde el
+  primer otorgamiento: 400 `{"detail": "La cortesía empezó el 01/03/2026: puede durar como
+  máximo hasta el 01/03/2027."}`. Si solo cambia la fecha, no hay `PlanChange` nuevo.
+  **Por qué:** el año se cuenta desde la primera vez, así no se renueva para siempre
+  (supuesto de la spec).
+- `DELETE cortesia/` la termina ya: la cuenta pasa a Básico, o a Productor si es founder.
+  `PlanChange` con motivo `courtesy_ended` y `by=<super admin>`, `BackofficeAction`
+  `courtesy_revoke`. Sin cortesía activa: 404 `{"detail": "La cuenta no tiene una cortesía
+  activa."}`. No manda email.
+- La tarea diaria `accounts.expire_trials` también termina las cortesías vencidas (mismo
+  destino, motivo `courtesy_ended`, sin `by`) y le manda a la cuenta "Terminó tu cortesía del
+  plan <Plan>" con el enlace a `/planes`. Unos 7 días antes del final manda una sola vez "Tu
+  cortesía del plan <Plan> termina el <fecha>" invitando a suscribirse.
+- Cualquier otro cambio de plan termina la cortesía activa: lo hace `plans._switch` para todo
+  motivo que no sea `courtesy`. Así, si la cuenta se suscribe y Mercado Pago autoriza el pago,
+  el plan lo pone el pago (`payment`) una sola vez y la cortesía queda terminada; lo mismo
+  bajarla a Básico, darle la prueba o el founder.
+- **Seguridad:** todo se valida en el servidor, solo para super admins, y cada alta, cambio y
+  revocación queda en el registro, que nadie edita. Pendiente: verificación en dos pasos para
+  super admins.
+
 ### Mercado Pago desde el panel (S4)
 - `suscripcion/sincronizar/` toma la suscripción más nueva de la cuenta y le pide a Mercado
   Pago su estado (`GET /preapproval/{id}`) y sus cobros
@@ -204,11 +259,22 @@ es un super admin, no el dueño de la cuenta; el registro deja constancia del ca
   muchos meses de una suscripción mensual.
 
 ### Cambiar el plan
-Cuerpo `{"plan": "empresa", "note": "opcional, hasta 200 caracteres"}`. Pasa por
+Cuerpo `{"plan": "basico", "note": "opcional, hasta 200 caracteres"}`. Solo baja la cuenta a
+su plan gratis: Básico, o Productor para un founder (cortesias S4). Pasa por
 `plans.change_plan(..., reason="staff", by=<super admin>, note=...)`, el mismo camino que el
-admin de Django, así que queda en el historial de planes (`PlanChange`) y termina una prueba.
-Devuelve la fila de la cuenta.
+admin de Django, así que queda en el historial de planes (`PlanChange`) y termina una prueba o
+una cortesía activa. Devuelve la fila de la cuenta.
 
+- Otro plan: 400 `{"detail": "Para dar un plan pago sin cobrar, usá una cortesía."}`. Para un
+  founder que pide Empresa sigue respondiendo "Como founder, Empresa se paga con Mercado Pago:
+  pagás solo la diferencia.".
+  **Por qué:** decisión del usuario (cortesias L2): "Subir a un plan pago sin cobrar se hace
+  solo como cortesía, con fecha ≤ 1 año, motivo y tope." Antes este endpoint regalaba
+  cualquier plan sin vencimiento, sin tope y sin mirar si la cuenta pagaba.
+  (A) Productor para un founder se acepta porque es su plan gratis, no un plan pago regalado.
+- Las cuentas que ya estaban en un plan pago sin vencimiento quedan como están (no se cambió
+  ningún dato guardado). Para encontrarlas, ver "Cuentas con plan pago sin cobrar" en
+  [planes.md](planes.md).
 - Plan inexistente: 400 `{"detail": "Ese plan no existe."}`.
 - La cuenta ya está en ese plan (y no está en prueba): 400
   `{"detail": "La cuenta ya está en el plan Básico."}`. No se registra nada.
@@ -295,6 +361,8 @@ lectura.
 | `trial_grant` | prueba dada o extendida | `{until, from_plan}` (`until` es `YYYY-MM-DD`) |
 | `founder_grant` | founder dado | `{number, from_plan}` |
 | `founder_revoke` | founder quitado | `{number}` |
+| `courtesy_grant` | cortesía dada o cambiada | `{plan, until, reason, from_plan}` (`until` es `YYYY-MM-DD`) |
+| `courtesy_revoke` | cortesía revocada | `{plan, until, to_plan}` |
 | `subscription_sync` | suscripción sincronizada | `{subscription, before, after, payments}`: el id en Mercado Pago, el estado antes y después, y cuántos pagos se registraron |
 | `subscription_cancel` | suscripción cancelada | `{subscription, before, after}` |
 | `export` | exportación CSV (S8, ver [backoffice-informes.md](backoffice-informes.md)) | `{file, rows}` |
@@ -361,3 +429,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-19: Pedidos vuelve a la página anterior al resolver el último pedido de una página (el review vio que quedaba en error con 404 "Página inválida.").
 - 2026-11-19: ficha de cuenta con edición, control de acceso, prueba y founder a mano, y sincronizar o cancelar la suscripción de Mercado Pago (backoffice-superadmin S1-S4).
 - 2026-11-19: prueba y founder se rechazan para una cuenta que paga (advertencia del verificador).
+- 2026-11-20: cortesías (`cortesia/`, dar, cambiar y revocar) y el cambio de plan solo baja al plan gratis (cortesias S1-S4, S6).
