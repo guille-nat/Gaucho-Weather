@@ -43,7 +43,7 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 ## Tasks
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | pending | |
+| T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | done | 96f80e3 |
 | T2 | S5 frontend | delegated writer (same reason) | pending, after T1 | |
 
 Risk: item 2 (permissions and guards: who can give a paid plan for free) and item 3 (changes the backoffice plan-change API, requested by the user). Independent verifier after T2.
@@ -51,3 +51,8 @@ Risk: item 2 (permissions and guards: who can give a paid plan for free) and ite
 ## Log
 - **L1** (2026-11-20): user's request, verbatim in S above.
 - **L2** (2026-11-20): found that `AccountPlanView` already moves any account to a paid plan for free, with no end date, no cap and no paying check; `TrialView` gives Productor until a date with no maximum. Proposed one "cortesía" concept; the user chose "Cerrarlo (Recomendado)".
+- **L3** (2026-11-20): T1 done in 96f80e3 (S1–S4, S6 backend). RED first: the 38 tests in `backend/tests/test_cortesias.py` and 4 new permission cases in `test_backoffice.py` failed before the code; all pass now. Checks: `docker compose exec -T backend sh -c 'ruff check . && ruff format --check . && python manage.py makemigrations --check --dry-run && pytest -q'` → ruff clean, 144 files formatted, no migration changes, 929 passed. Migrations `accounts/0012_courtesies` and `backoffice/0004_courtesy_actions`. `plans._switch` ends an active cortesía on any move that is not the cortesía itself (payment, staff, trial, founder, expiry). Record field for T2: `courtesy` = `{plan: {code, name}, starts_at, ends_at, reason, granted_by}` or `null`. `test_backoffice_accounts.py` gained `"courtesy": None` (approved). Deviations, accepted by the parent:
+  1. A founder can still be moved to Productor through the plan change (their free plan); a founder asking for Empresa still gets "Como founder, Empresa se paga…".
+  2. `subscribe` allows the same plan when the account has an end date, so a founder on an Empresa cortesía can pay Empresa.
+  3. A re-grant that only changes the date writes no plan-change row, and the reminder goes out once per cortesía.
+  4. Revoking sends no email.
