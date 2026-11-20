@@ -1,11 +1,12 @@
 # Planes, founders y prueba
-> Última actualización: 2026-11-16
+> Última actualización: 2026-11-19
 
 ## Qué hace
 Cada cuenta tiene uno de tres planes que limitan lotes, reglas de alerta y
 canales. Los primeros 100 usuarios son founders: plan Productor gratis para
 siempre. Desde el 101, cada alta recibe 30 días de Productor y después pasa a
-Básico. Todavía no se cobra: no hay pasarela de pago.
+Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
+[pagos.md](pagos.md)).
 
 ## Cómo funciona
 
@@ -138,7 +139,8 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - **Decisión:** los founders reciben Productor gratis para siempre.
   **Por qué:** pedido del usuario: "los primeros 100 usuarios seran founders y
   no se les cobrara nada".
-- **Decisión:** planes sin cobro por ahora.
+- **Decisión:** planes sin cobro por ahora. (reemplazada el 2026-11-19 por el cobro
+  en pesos con Mercado Pago, ver [pagos.md](pagos.md))
   **Por qué:** decisión del plan aprobado ("Planes sin cobro"); el pago con
   Mercado Pago queda para una fase posterior. Mientras tanto, staff cambia
   planes desde el admin.
@@ -206,3 +208,6 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - 2026-11-17 — Moneda: precio fijo en dólares por plan (`price_usd_month`, migración
   `0008_plan_price_usd`) y selector "Pesos" / "Dólares" en Planes y Suscripción
   (feature `precios-productor`, S5).
+- 2026-11-19 — Cobro: los planes pagos se cobran en pesos con Mercado Pago; el plan
+  cambia con los motivos `payment` y `payment_ended` (feature `pagos-backoffice`, T1;
+  ver [pagos.md](pagos.md)).

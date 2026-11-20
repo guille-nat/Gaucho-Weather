@@ -49,10 +49,11 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 ## Tasks
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | pending | |
-| T2 | S4 | delegated, unit B, parallel with T1 | pending | |
-| T3 | S7 | delegated, unit A continued | pending | |
-| T4 | S5, S6 | delegated, unit C | pending | |
+| T1 | S2, S3, S5 (backend) | delegated, unit A, parallel with T2 | done | parent re-run 2026-11-19: 576 passed (36 in test_payments.py), ruff and makemigrations --check clean; commit `feat(pagos)` below |
+| T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
+| T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
+| T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
+| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | in progress | |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
 
@@ -69,3 +70,48 @@ An independent verifier runs after T1–T4.
   - The official docs show only ARS for `auto_recurring.currency_id`.
   - Merchants report that Mercado Pago does not convert currency and charges the figure in local money, so sending 10 for "USD 10" would charge $10 ARS.
   - The user chose "Otra pasarela para USD". Stripe does not onboard Argentine merchants directly, so the gateway is still to be chosen.
+- **L3** (2026-11-17): the history audit (`auditoria-historico`) is committed as 9a4f707; its independent verifier is running in a scratch copy.
+  - The parent registered the empty `payments` and `backoffice` apps (6864f80) so units A and B can run in parallel. Both were launched.
+- **L4** (2026-11-17, user, verbatim, choosing the USD gateway among PayPal, Stripe with a US company, or later): "Decidir más adelante".
+  - Dollars stay "Pagar en dólares: próximamente" (S5). Everything in pesos and the backoffice go ahead.
+- **L5** (2026-11-17): unit B done (S4).
+  - It reuses `plans.apply_request` and `reject_request`, which the admin action already calls, so no extraction was needed.
+  - Anonymous gets 403 (session auth); a non-superuser gets 403 "Solo los super admins pueden usar el backoffice.".
+  - Every write records a `BackofficeAction` in the same transaction.
+  - A rejection note lives only in the log, because `PlanRequest` has no note field.
+  - For unit C: the SPA treats a non-CSRF 403 as a lost session, so the frontend must check `me.is_superuser` before calling `/api/backoffice/`.
+- **L6** (2026-11-17, user, verbatim): "pausa y seguimos mañana". The loop is stopped, and unit A was stopped at its last step (its doc) with its tests reported green.
+  - Unit A's work is uncommitted in the working tree:
+    - `backend/apps/payments/*` (models, migration 0001, admin, urls and the rest);
+    - `backend/apps/accounts/models.py`, `views.py` and migration `0009_alter_planchange_reason.py`;
+    - `backend/config/settings/base.py`, `.env.example`, `backend/tests/test_payments*.py`.
+  - Next session:
+    1. Re-run unit A's verification; write `Doc/funcionalidades/pagos.md` (flow, settings, sandbox steps for the owner); spot check; commit T1.
+    2. T3 (S7: payments in the backoffice).
+    3. T4 (frontend S5/S6; it must check `me.is_superuser` before calling `/api/backoffice/`, see L5).
+    4. An independent verifier over T1–T4 (risk items 2, 3 and 5).
+    5. Follow-up: the COALESCE upsert for history (auditoria-historico L6, advisory 3).
+- **L7** (2026-11-19, user, verbatim): "continua donde lo dejaste".
+  - Unit A re-verified by the parent: 576 passed, ruff check/format clean, no missing migrations.
+  - The parent wrote `Doc/funcionalidades/pagos.md` (flow, endpoints, settings, sandbox steps), indexed it, and marked the "planes sin cobro" decision in `planes.md` as replaced.
+  - T1 committed. Next: T3 (S7).
+- **L8** (2026-11-19): T1 was committed as deefdd4. The native review ran on that commit alone, base 822431b; the user answered "Revisar este cambio".
+  - The lenses were risk, resilience and reliability, under lineage review-cad75bbc227fd50a.
+  - The review was approved and acknowledged, which burned its authority. It left 7 advisories.
+  - Fixed inline as T1b:
+    - double subscribe: one pending checkout per account; a plan switch cancels the old one first;
+    - non-ASCII `x-signature` gave a 500: it now answers 401.
+  - Left as follow-ups in `pagos.md`: no `ts` freshness check; a payment that arrives before its subscription is lost.
+  - Open question for the user: what a `paused` subscription does to the plan.
+- **L9** (2026-11-19): a7c75af was reviewed under lineage review-decda5d3ebff0bc0, approved and acknowledged.
+  - All three lenses flagged the same thing: the local cancel was rolled back after the cancel at Mercado Pago succeeded.
+  - Fixed: the refusal is raised after the block commits (RED 1 failed, then GREEN, suite 581 passed).
+  - Accepted and documented: the user row stays locked while the Mercado Pago HTTP call runs.
+- **L10** (2026-11-19): 63568b5 was reviewed under lineage review-4c066015ecfc942c: approved with no findings, acknowledged.
+  - T3 (S7) was done inline.
+  - `GET /api/backoffice/pagos/?tipo=pagos|suscripciones` is paginated; an unknown tipo is a 400.
+  - `resumen.payments` gives `active_subscriptions`, `monthly_ars`, `month_payments` and `month_ars`, in ARS only, with the month in Buenos Aires time.
+  - Amounts are numbers, following `COERCE_DECIMAL_TO_STRING: False`.
+- **L11** (2026-11-19): RDD assess of 3566828 (T3): medium, `under_budget` (290 lines), so it stays pending in the open slice.
+  - T4 was delegated to one bounded writer under the context backstop.
+  - Allowed edit surfaces: the frontend pages, api, mocks, tests and styles, plus the three docs.

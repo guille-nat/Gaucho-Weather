@@ -267,3 +267,20 @@ class TestConcurrentEdits:
         user.refresh_from_db()
         assert user.name == "Ana"
         assert user.notify_email is False
+
+
+class TestMe:
+    def test_says_whether_the_account_is_a_superuser(self, auth_client):
+        assert auth_client.get(ME).json()["is_superuser"] is False
+
+        boss = User.objects.create_superuser(email="jefe@example.com", password=PASSWORD, name="J")
+
+        assert client_for(boss).get(ME).json()["is_superuser"] is True
+
+    def test_is_superuser_is_read_only(self, auth_client, user):
+        response = auth_client.patch(ME, {"is_superuser": True}, format="json")
+
+        assert response.status_code == 200
+        assert response.json()["is_superuser"] is False
+        user.refresh_from_db()
+        assert user.is_superuser is False
