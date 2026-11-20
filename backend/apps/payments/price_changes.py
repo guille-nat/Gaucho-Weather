@@ -19,6 +19,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts.dates import long_date
 from apps.accounts.models import Plan, User
 
 from .models import PriceChange, PriceNotice, ProviderSubscription
@@ -36,21 +37,6 @@ ALREADY_PENDING = (
 )
 NONE_PENDING = "Ese plan no tiene un cambio de precio programado."
 
-MONTHS = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
-
 NOTICE_SUBJECT = "Cambia el precio de tu plan {plan}"
 NOTICE_BODY = (
     "Hola {name}:\n\n"
@@ -64,11 +50,6 @@ NOTICE_BODY = (
     "Gaucho Weather"
 )
 NOTICE_FOUNDER = " Como founder pagás solo la diferencia con Productor."
-
-
-def long_date(day: date) -> str:
-    """The SPA's long date: "20 de diciembre de 2026"."""
-    return f"{day.day} de {MONTHS[day.month - 1]} de {day.year}"
 
 
 def earliest_date() -> date:

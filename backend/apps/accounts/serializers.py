@@ -54,7 +54,7 @@ class UserSerializer(serializers.ModelSerializer):
         return vars(plans.usage(user))
 
     def get_terms_version(self, user: User) -> str:
-        return terms.TERMS_VERSION
+        return terms.version_in_force()
 
     def get_terms_accepted(self, user: User) -> bool:
         return terms.has_accepted(user)

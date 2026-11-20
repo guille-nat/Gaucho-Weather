@@ -18,6 +18,15 @@ un abogado los revisa antes de salir a producción (Ley 24.240 y Ley 25.326).
   y la misma en `frontend/src/lib/terms.ts`. Es la fecha en que rige (`2026-11-19`).
 - Las páginas la muestran: "Versión 2026-11-19 · Vigente desde el 19 de noviembre de 2026".
 - `frontend/src/test/terminos.test.tsx` lee `terms.py` y falla si las dos versiones difieren.
+- Una versión nueva se publica antes de su fecha (feature `avisos-cambios`, S5):
+  `TERMS_VERSION` es la de los textos publicados y `EARLIER_VERSIONS` guarda las anteriores.
+  Hasta la fecha de la nueva rige la última anterior: `me.terms_version` es la vigente y no
+  aparece ningún diálogo. Desde esa fecha el diálogo pide la nueva.
+- Quien acepta antes de esa fecha (alta, suscripción) acepta también la versión nueva, que es
+  la que se le mostró, así que no ve el diálogo cuando entra en vigencia.
+- La tarea diaria `accounts.terms_notices` (08:15) le manda un email a cada cuenta activa sobre
+  la versión que viene, con la fecha y los links a los tres textos. Sale una vez por cuenta y
+  versión (`TermsNotice`), y si falla se reintenta al día siguiente.
 
 ### Aceptación
 - Modelo `TermsAcceptance` (`user`, `version`, `accepted_at`, `context`): `signup`, `subscribe`
@@ -73,9 +82,13 @@ un abogado los revisa antes de salir a producción (Ley 24.240 y Ley 25.326).
   alguien lo note.
 
 ## Cómo modificarlo
-- Cambiar un texto: editarlo en `frontend/src/pages/legal/`, subir `TERMS_VERSION` en los dos
-  lados a la fecha en que rige, y avisar por email antes de esa fecha. Todas las cuentas vuelven
-  a ver el diálogo.
+- Cambiar un texto, una vez en producción:
+  1. Editarlo en `frontend/src/pages/legal/`.
+  2. Pasar la versión de hoy a `EARLIER_VERSIONS` y poner en `TERMS_VERSION` (en los dos
+     lados) la fecha en que rige. Que sea con tiempo: el aviso sale en la primera corrida diaria
+     después del deploy. Se recomiendan 30 días, como con los precios.
+  3. Deployar. El email sale solo, y desde esa fecha todas las cuentas vuelven a ver el
+     diálogo.
 - Cupones, referidos y meses gratis suman sus reglas a `/reglas` cuando se lancen.
 - Marcadores a completar: `[RAZÓN SOCIAL]`, `[CUIT]`, `[DOMICILIO]`, `[EMAIL DE CONTACTO]`,
   `[JURISDICCIÓN]`, `[PLAZO]` (copias de seguridad y registros del servidor) y
@@ -92,3 +105,4 @@ un abogado los revisa antes de salir a producción (Ley 24.240 y Ley 25.326).
   "on", null) responde el mensaje de la spec, sin los de DRF. La cláusula 9 dice que borrar la
   cuenta cancela la suscripción (sin subir la versión: los textos siguen en borrador hasta la
   revisión del abogado).
+- 2026-11-20: versiones con fecha de vigencia y su email de aviso (`avisos-cambios`, T4).
