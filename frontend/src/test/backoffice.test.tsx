@@ -79,7 +79,7 @@ describe('Who reaches the backoffice', () => {
 });
 
 describe('Backoffice tabs', () => {
-  it('has the six tabs and opens on Resumen with the totals', async () => {
+  it('has the seven tabs and opens on Resumen with the totals', async () => {
     const db = dbFor(admin);
     renderApp('/backoffice', db);
 
@@ -88,7 +88,7 @@ describe('Backoffice tabs', () => {
       within(tabs)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['Resumen', 'Cuentas', 'Pedidos', 'Pagos', 'Precios', 'Registro']);
+    ).toEqual(['Resumen', 'Cuentas', 'Pedidos', 'Pagos', 'Precios', 'Registro', 'Informes']);
     expect(within(tabs).getByRole('tab', { name: 'Resumen' })).toHaveAttribute(
       'aria-selected',
       'true',

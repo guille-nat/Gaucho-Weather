@@ -15,6 +15,19 @@ class BackofficeAction(models.Model):
         REQUEST_APPLY = "request_apply", "pedido aplicado"
         REQUEST_REJECT = "request_reject", "pedido rechazado"
         PRICE_UPDATE = "price_update", "precio actualizado"
+        # backoffice-superadmin S1-S4, S8
+        ACCOUNT_UPDATE = "account_update", "datos de la cuenta editados"
+        ACCOUNT_BLOCK = "account_block", "cuenta bloqueada"
+        ACCOUNT_UNBLOCK = "account_unblock", "cuenta desbloqueada"
+        SUPERADMIN_GRANT = "superadmin_grant", "super admin dado"
+        SUPERADMIN_REVOKE = "superadmin_revoke", "super admin quitado"
+        PASSWORD_RESET = "password_reset", "mail para restablecer la contraseña"
+        TRIAL_GRANT = "trial_grant", "prueba dada o extendida"
+        FOUNDER_GRANT = "founder_grant", "founder dado"
+        FOUNDER_REVOKE = "founder_revoke", "founder quitado"
+        SUBSCRIPTION_SYNC = "subscription_sync", "suscripción sincronizada"
+        SUBSCRIPTION_CANCEL = "subscription_cancel", "suscripción cancelada"
+        EXPORT = "export", "exportación CSV"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -13,6 +13,8 @@ DATABASES["default"].update(
         "HOST": env("DB_HOST", "localhost"),
         "PORT": env("DB_PORT", "5432"),
         "CONN_MAX_AGE": 0,
+        # Two suites running at once (parallel writers) each need their own test database.
+        "TEST": {"NAME": env("TEST_DB_NAME", None)},
     }
 )
 

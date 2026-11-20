@@ -1,0 +1,72 @@
+/*
+ * Backoffice Informes tab (backoffice-superadmin S5-S8). Builds on the backoffice classes in
+ * app.css (.panel, .bo-table-wrap, .bo-table, .bo-fact): tables and plain CSS bars only.
+ */
+
+.bo-reports {
+  gap: 20px;
+}
+
+.bo-report {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.bo-report > .panel-title {
+  margin-bottom: 0;
+}
+
+.bo-report > .fine {
+  margin: 0;
+}
+
+/* A table inside a panel: the panel already paints the background. */
+.bo-report .bo-table-wrap {
+  background: var(--panel-deep);
+}
+
+/*
+ * The month and, under it, a bar scaled to the biggest month (--share, 0 to 100). It is
+ * decoration: the figure is always in its own cell, read out by assistive technology.
+ */
+.bo-month {
+  min-inline-size: 9rem;
+  white-space: nowrap;
+}
+
+.bo-bar {
+  display: block;
+  inline-size: calc(var(--share, 0) * 1%);
+  min-inline-size: 2px;
+  block-size: 6px;
+  margin-block-start: 6px;
+  border-radius: 3px;
+  background: var(--gold);
+}
+
+@media (forced-colors: active) {
+  .bo-bar {
+    background: CanvasText;
+  }
+}
+
+.bo-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* On a phone the three buttons stack, full width, still 52 px tall (.btn). */
+@media (max-width: 479px) {
+  .bo-downloads {
+    flex-direction: column;
+  }
+
+  .bo-downloads .btn {
+    inline-size: 100%;
+  }
+}

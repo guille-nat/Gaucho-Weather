@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
@@ -21,4 +21,5 @@ urlpatterns = [
     path("precios/<slug:code>/", views.PriceDetailView.as_view(), name="backoffice-price"),
     path("registro/", views.ActionLogView.as_view(), name="backoffice-log"),
     path("pagos/", views.PaymentListView.as_view(), name="backoffice-payments"),
+    path("informes/", include("apps.backoffice.reports")),
 ]

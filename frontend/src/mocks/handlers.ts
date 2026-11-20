@@ -27,6 +27,7 @@ import type {
   User,
 } from '../api/types';
 import { createBackofficeHandlers, demoBackoffice, type BackofficeDb } from './backoffice';
+import { createReportHandlers } from './backofficeReports';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
 import { checkHistoryRange, demoLoteHistory, localToday } from './history';
@@ -599,6 +600,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
     }),
 
     ...createBackofficeHandlers(db, (request) => csrfFailure(request, db)),
+    ...createReportHandlers(db, (request) => csrfFailure(request, db)),
 
     http.get('*/api/auth/suscripcion/', () =>
       db.user ? HttpResponse.json(subscriptionOf(db.user, db)) : forbidden(),
