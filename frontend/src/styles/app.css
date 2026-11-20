@@ -4593,7 +4593,7 @@ button.alert-event-tap:focus-visible {
 }
 
 /* Dialogs grow from 96 % with a fade and close a little faster; the backdrop fades with them. */
-:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog) {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog) {
   opacity: 0;
   transition-property: opacity, scale, display, overlay;
   transition-duration: 160ms;
@@ -4601,7 +4601,7 @@ button.alert-event-tap:focus-visible {
   transition-behavior: allow-discrete;
 }
 
-:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open] {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog)[open] {
   opacity: 1;
   transition-duration: 240ms;
 
@@ -4611,11 +4611,11 @@ button.alert-event-tap:focus-visible {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog) {
+  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog) {
     scale: 0.96;
   }
 
-  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open] {
+  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog)[open] {
     scale: 1;
 
     @starting-style {
@@ -4624,7 +4624,7 @@ button.alert-event-tap:focus-visible {
   }
 }
 
-:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)::backdrop {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog)::backdrop {
   opacity: 0;
   transition-property: opacity, display, overlay;
   transition-duration: 160ms;
@@ -4632,7 +4632,7 @@ button.alert-event-tap:focus-visible {
   transition-behavior: allow-discrete;
 }
 
-:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open]::backdrop {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog, .app-dialog)[open]::backdrop {
   opacity: 1;
   transition-duration: 240ms;
 
@@ -4659,4 +4659,182 @@ button.alert-event-tap:focus-visible {
       content-visibility var(--dur-base);
     transition-behavior: allow-discrete;
   }
+}
+
+/* ───────── Terms and legal pages (promociones S0a-S0d) ───────── */
+
+/* The three legal pages, as a row of links that wraps on a phone. */
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legal-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+}
+
+.auth-footer,
+.page-legal {
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* "Leí y acepto…": a 24px box beside a sentence that holds three links. */
+.terms-check-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.terms-check label {
+  text-wrap: pretty;
+}
+
+.checkbox {
+  width: 24px;
+  height: 24px;
+  margin: 2px 0 0;
+  accent-color: var(--gold);
+}
+
+.checkbox:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.legal {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px var(--gutter) 48px;
+}
+
+.legal-title {
+  margin-top: 28px;
+  font-size: 2.25rem;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.legal-version {
+  margin: 8px 0 24px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.legal-body {
+  display: grid;
+  gap: 24px;
+}
+
+.legal-section {
+  display: grid;
+  gap: 10px;
+}
+
+.legal-section h2 {
+  font-size: 1.25rem;
+  text-wrap: balance;
+}
+
+.legal-section p,
+.legal-section li {
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+.legal-section ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+/* A business datum still to fill in: impossible to miss in the draft. */
+.legal-placeholder {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+}
+
+.legal-footer {
+  display: grid;
+  gap: 8px;
+  margin-top: 36px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* A native modal for a choice the page waits on: the updated terms, the summary before paying.
+   No display rule here: <dialog> keeps the browser's closed state; the look is on the box. */
+.app-dialog {
+  width: min(34rem, 100% - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--ink);
+}
+
+.app-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+.app-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(4 16 42 / 0.6);
+}
+
+.app-dialog-box {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--panel-deep);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.app-dialog-box p {
+  text-wrap: pretty;
+}
+
+.app-dialog-title {
+  font-size: 1.25rem;
+  text-wrap: balance;
+}
+
+/* The action and the way out stacked, never a thumb apart. */
+.app-dialog-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-plan {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.checkout-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.checkout-facts li {
+  text-wrap: pretty;
 }

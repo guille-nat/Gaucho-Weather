@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from . import plans
-from .models import FounderProgram, Plan, PlanChange, PlanRequest, User
+from .models import FounderProgram, Plan, PlanChange, PlanRequest, TermsAcceptance, User
 
 
 class UserAddForm(UserCreationForm):
@@ -48,10 +48,24 @@ class PlanChangeInline(admin.TabularInline):
         return False
 
 
+class TermsAcceptanceInline(admin.TabularInline):
+    """Read-only evidence of which terms version the account accepted and where (S0b)."""
+
+    model = TermsAcceptance
+    verbose_name_plural = "Términos aceptados"
+    fields = ["accepted_at", "version", "context"]
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     form = UserEditForm
-    inlines = [PlanChangeInline]
+    inlines = [PlanChangeInline, TermsAcceptanceInline]
     add_form = UserAddForm
     ordering = ["email"]
     list_display = ["email", "name", "plan", "founder_number", "plan_expires_at", "date_joined"]

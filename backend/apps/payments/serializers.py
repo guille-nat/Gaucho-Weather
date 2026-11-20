@@ -1,11 +1,15 @@
 from rest_framework import serializers
 
+from apps.accounts.terms import AcceptTermsField
+
 from .models import Payment, ProviderSubscription
 
 
 class SubscribeSerializer(serializers.Serializer):
     plan = serializers.CharField(max_length=20)
     currency = serializers.ChoiceField(choices=["ARS", "USD"], default="ARS")
+    # The page shows the terms and the summary before Mercado Pago (promociones S0b, S0d).
+    acepta_terminos = AcceptTermsField()
 
 
 class ProviderSubscriptionSerializer(serializers.ModelSerializer):

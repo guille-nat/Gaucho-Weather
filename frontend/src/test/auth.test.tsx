@@ -88,11 +88,15 @@ describe('register', () => {
     await user.type(await screen.findByLabelText('Nombre'), 'Juan Pérez');
     await user.type(screen.getByLabelText('Email'), 'juan@campo.com.ar');
     await user.type(screen.getByLabelText('Contraseña'), 'alambrado-99');
+    await user.click(screen.getByRole('checkbox', { name: /Leí y acepto/ }));
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(await screen.findByRole('heading', { name: 'Mis lotes' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Agregá tu primer lote' })).toBeInTheDocument();
     expect(db.user).toMatchObject({ email: 'juan@campo.com.ar', name: 'Juan Pérez' });
+    expect(db.termsAcceptances).toEqual([{ userId: db.user!.id, context: 'signup' }]);
+    // Accepted at sign-up: the updated-terms dialog does not show.
+    expect(screen.queryByRole('dialog', { name: 'Actualizamos los términos' })).toBeNull();
   });
 
   it('shows field errors from the server next to the field', async () => {

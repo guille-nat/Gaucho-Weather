@@ -25,7 +25,9 @@ NOW = datetime(2026, 11, 16, 12, tzinfo=UTC)
 
 def register(client, email):
     response = client.post(
-        REGISTER, {"email": email, "password": PASSWORD, "name": "Ana"}, format="json"
+        REGISTER,
+        {"email": email, "password": PASSWORD, "name": "Ana", "acepta_terminos": True},
+        format="json",
     )
     assert response.status_code == 201
     return User.objects.get(email=email)

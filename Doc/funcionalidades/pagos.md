@@ -10,13 +10,16 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
 ## Cómo funciona
 
 ### Flujo
-1. La SPA llama `POST /api/pagos/suscribirme/` con `{plan, currency: "ARS"}`.
+1. La SPA muestra el resumen "Antes de ir a Mercado Pago" y, con la casilla de los términos,
+   llama `POST /api/pagos/suscribirme/` con `{plan, currency: "ARS", acepta_terminos: true}`
+   (ver [terminos.md](terminos.md)).
 2. El backend crea una suscripción en Mercado Pago (`POST /preapproval`, mensual, en ARS).
    Guarda una `ProviderSubscription` en `pending` y devuelve `{checkout_url}`.
 3. El productor paga en Mercado Pago y vuelve a `PUBLIC_APP_URL/perfil/suscripcion?pago=ok`.
 4. Mercado Pago llama al webhook. El backend verifica la firma, **pide el recurso a la API**
    (no confía en el cuerpo) y aplica la regla:
-   - suscripción `authorized`: `change_plan(..., reason="payment")`, que termina la prueba;
+   - suscripción `authorized`: `change_plan(..., reason="payment")`, que termina la prueba. Si
+     venía de `pending`, manda una sola vez el email de confirmación (`confirmation_sent_at`);
    - suscripción `cancelled` o `paused`: la cuenta conserva el plan hasta `next_payment_at` y
      después pasa a Básico con `payment_ended` (un founder vuelve a Productor). Si nunca se pagó
      (venía de `pending`), se cierra sin tocar el plan;
@@ -42,7 +45,7 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
 | Método y ruta | Qué hace |
 |---|---|
 | `GET /api/pagos/` | `payments_enabled`, la suscripción actual (o `null`) y los últimos 50 pagos. |
-| `POST /api/pagos/suscribirme/` | 201 `{checkout_url}`. |
+| `POST /api/pagos/suscribirme/` | 201 `{checkout_url}`; guarda la aceptación `subscribe` de los términos. |
 | `POST /api/pagos/cancelar/` | Cancela en Mercado Pago; devuelve lo mismo que `GET /api/pagos/`. |
 | `POST /api/pagos/mercadopago/webhook/` | Público, sin CSRF; la firma es la autenticación. |
 
@@ -52,6 +55,7 @@ Rechazos de `suscribirme/` (todos con `detail` en español):
 
 | Caso | Código |
 |---|---|
+| Sin `acepta_terminos: true`: `{"acepta_terminos": ["Tenés que aceptar los términos y la política de privacidad."]}`, antes que cualquier otro rechazo | 400 |
 | Plan inexistente, Básico, founder a un plan que no es Empresa, ya suscripto, o ya está en ese plan sin prueba | 400 |
 | `currency: "USD"`: "Pagar en dólares todavía no está disponible." | 409 |
 | El plan no tiene precio en pesos | 409 |
@@ -244,3 +248,5 @@ cobro hecho (próximo cobro el 19/12):
 - 2026-11-19: prueba de punta a punta en el sandbox, en local y sin túnel; receta corregida.
 - 2026-11-19: un founder sube a Empresa pagando la diferencia y al darse de baja vuelve a
   Productor (promociones SF).
+- 2026-11-19: `suscribirme/` exige `acepta_terminos`, la SPA muestra el resumen antes de pagar y
+  la suscripción autorizada manda un email de confirmación (feature `promociones`, S0b, S0d, S0e).

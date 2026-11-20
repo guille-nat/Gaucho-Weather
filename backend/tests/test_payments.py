@@ -123,7 +123,7 @@ def test_subscribing_creates_a_pending_preapproval_and_returns_the_checkout_url(
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -161,8 +161,12 @@ def test_subscribing_twice_to_the_same_plan_reuses_the_pending_checkout(user):
     )
     client = client_for(user)
 
-    first = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
-    second = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+    first = client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
+    second = client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
 
     assert first.status_code == second.status_code == 201
     assert second.json() == first.json()
@@ -181,7 +185,7 @@ def test_subscribing_to_another_plan_cancels_the_pending_checkout(user):
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -202,7 +206,7 @@ def test_subscribing_when_the_old_checkout_cannot_be_cancelled_is_502(user):
     create = respx.post(f"{API}/preapproval")
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -222,7 +226,7 @@ def test_a_cancelled_old_checkout_stays_cancelled_when_the_new_one_fails(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(500))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -233,7 +237,9 @@ def test_a_cancelled_old_checkout_stays_cancelled_when_the_new_one_fails(user):
 
 
 def test_subscribing_needs_a_session(api_client):
-    response = api_client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+    response = api_client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
 
     assert response.status_code == 403
 
@@ -243,38 +249,43 @@ def test_subscribing_needs_a_session(api_client):
     [
         (
             None,
-            {"plan": "basico", "currency": "ARS"},
+            {"plan": "basico", "currency": "ARS", "acepta_terminos": True},
             400,
             "El plan Básico es gratis: no hace falta suscribirse.",
         ),
         (
             "productor",
-            {"plan": "productor", "currency": "ARS"},
+            {"plan": "productor", "currency": "ARS", "acepta_terminos": True},
             400,
             "Ya estás en el plan Productor.",
         ),
         (
             "founder",
-            {"plan": "productor", "currency": "ARS"},
+            {"plan": "productor", "currency": "ARS", "acepta_terminos": True},
             400,
             "Como founder ya tenés Productor gratis para siempre.",
         ),
-        (None, {"plan": "oro", "currency": "ARS"}, 400, "Ese plan no existe."),
         (
             None,
-            {"plan": "productor", "currency": "USD"},
+            {"plan": "oro", "currency": "ARS", "acepta_terminos": True},
+            400,
+            "Ese plan no existe.",
+        ),
+        (
+            None,
+            {"plan": "productor", "currency": "USD", "acepta_terminos": True},
             409,
             "Pagar en dólares todavía no está disponible.",
         ),
         (
             "no_price",
-            {"plan": "empresa", "currency": "ARS"},
+            {"plan": "empresa", "currency": "ARS", "acepta_terminos": True},
             409,
             "Ese plan todavía no tiene precio en pesos.",
         ),
         (
             "authorized",
-            {"plan": "empresa", "currency": "ARS"},
+            {"plan": "empresa", "currency": "ARS", "acepta_terminos": True},
             400,
             "Ya tenés una suscripción activa. Date de baja antes de cambiar de plan.",
         ),
@@ -310,7 +321,7 @@ def test_a_trial_user_may_subscribe_to_keep_productor(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(201, json=preapproval()))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -322,7 +333,7 @@ def test_subscribing_when_payments_are_not_configured_is_503(user, settings):
     route = respx.post(f"{API}/preapproval")
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 503
@@ -335,7 +346,7 @@ def test_subscribing_when_mercadopago_fails_is_502_and_records_nothing(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(500, json={}))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -610,7 +621,7 @@ def test_subscribing_again_cancels_an_ended_paused_subscription_first(user):
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201

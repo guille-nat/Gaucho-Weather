@@ -46,6 +46,10 @@ export interface User {
   notify_email?: boolean;
   /** Only super admins open the backoffice (pagos-backoffice S4); absent in an older `me`. */
   is_superuser?: boolean;
+  /** The current terms version (promociones S0b); absent in a `me` persisted before it. */
+  terms_version?: string;
+  /** False shows the blocking "Actualizamos los términos" dialog (S0c); absent = unknown yet. */
+  terms_accepted?: boolean;
 }
 
 export const CROPS = ['soja', 'maiz', 'trigo', 'girasol', 'cebada', 'sorgo', 'otro'] as const;

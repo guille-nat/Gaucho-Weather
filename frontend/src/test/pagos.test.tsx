@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Payment, PlanChange, ProviderSubscription, User } from '../api/types';
 import { account, demoLotes, demoPlans, demoUser, planOf } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
+import { confirmCheckout } from './checkout';
 import { renderApp } from './renderApp';
 
 /** Pagos con Mercado Pago en Tu suscripción (pagos-backoffice S5, S6). */
@@ -103,13 +104,14 @@ describe('Suscribirse con Mercado Pago (S6)', () => {
     expect(within(change).queryByText(/Todavía no cobramos online/)).toBeNull();
     const productor = within(change).getByRole('article', { name: 'Plan Productor' });
     await user.click(within(productor).getByRole('button', { name: 'Suscribirme' }));
+    await confirmCheckout(user);
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith(db.checkoutUrl));
     expect(sentTo(db, '/api/pagos/suscribirme/')).toEqual([
       {
         method: 'POST',
         path: '/api/pagos/suscribirme/',
-        body: { plan: 'productor', currency: 'ARS' },
+        body: { plan: 'productor', currency: 'ARS', acepta_terminos: true },
       },
     ]);
     expect(db.unsafeRequests.at(-1)).toMatchObject({
@@ -170,11 +172,13 @@ describe('Suscribirse con Mercado Pago (S6)', () => {
     const productor = within(change).getByRole('article', { name: 'Plan Productor' });
     expect(within(productor).queryByRole('button', { name: /Quedarme con/ })).toBeNull();
     await user.click(within(productor).getByRole('button', { name: 'Suscribirme' }));
+    await confirmCheckout(user);
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith(db.checkoutUrl));
     expect(sentTo(db, '/api/pagos/suscribirme/')[0]?.body).toEqual({
       plan: 'productor',
       currency: 'ARS',
+      acepta_terminos: true,
     });
   });
 
@@ -196,6 +200,7 @@ describe('Suscribirse con Mercado Pago (S6)', () => {
     const change = await region('Cambiar de plan');
     const empresa = within(change).getByRole('article', { name: 'Plan Empresa' });
     await user.click(within(empresa).getByRole('button', { name: 'Suscribirme' }));
+    await confirmCheckout(user);
 
     expect(await within(change).findByRole('alert')).toHaveTextContent(
       'Ese plan todavía no tiene precio en pesos.',

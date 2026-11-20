@@ -99,7 +99,7 @@ def test_a_founder_subscribes_to_empresa_paying_only_the_difference(user):
     route = mock_create(35000)
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -121,8 +121,12 @@ def test_a_founder_subscribing_twice_reuses_the_checkout_at_the_difference(user)
     route = mock_create(35000)
     client = client_for(user)
 
-    first = client.post(SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json")
-    second = client.post(SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json")
+    first = client.post(
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
+    second = client.post(
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
 
     assert first.status_code == second.status_code == 201
     assert second.json() == first.json()
@@ -144,7 +148,7 @@ def test_a_founder_checkout_at_the_full_price_is_not_reused(user):
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -160,7 +164,7 @@ def test_a_founder_still_cannot_subscribe_to_productor(user):
     route = mock_create(14900)
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 400
@@ -182,7 +186,7 @@ def test_a_founder_is_refused_when_the_difference_is_not_positive(user, producto
     route = mock_create(35000)
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 409
@@ -196,7 +200,7 @@ def test_a_non_founder_still_pays_the_full_empresa_price(user):
     route = mock_create(49900)
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "empresa", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "empresa", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201

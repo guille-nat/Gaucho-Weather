@@ -3,15 +3,18 @@
 A plan only changes through `plans.change_plan`: "payment" when the provider authorizes a
 subscription, "payment_ended" when a cancelled one's paid month is over (back to Básico, or to
 Productor for a founder). A rejected charge never downgrades: Mercado Pago retries it and
-cancels the subscription if it keeps failing.
+cancels the subscription if it keeps failing. A checkout that becomes authorized sends one
+confirmation email with the terms (promociones S0e).
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
+from functools import partial
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -221,6 +224,12 @@ def sync_subscription(
             plans.change_plan(sub.user, sub.plan_id, PlanChange.Reason.PAYMENT)
             # A new subscription replaces one still running out its paid month.
             _ending(sub.user).exclude(pk=sub.pk).update(ended_at=now)
+            # Only the checkout's first authorization: a repeated notification or a resume after
+            # a pause never emails again, and neither does one authorized before the email.
+            if previous == S.PENDING and sub.confirmation_sent_at is None:
+                sub.confirmation_sent_at = now
+                sub.save(update_fields=["confirmation_sent_at", "updated_at"])
+                transaction.on_commit(partial(_send_confirmation, sub.pk))
         elif sub.status in STOPPED:
             if previous == S.PENDING:
                 sub.ended_at = now  # never paid: there is no plan to take back
@@ -228,6 +237,45 @@ def sync_subscription(
             elif sub.next_payment_at is None or sub.next_payment_at <= now:
                 _end(sub, now)
     return sub
+
+
+CONFIRMATION_SUBJECT = "Tu suscripción a Gaucho Weather está activa"
+CONFIRMATION_BODY = (
+    "Hola {name}:\n\n"
+    "Tu suscripción al plan {plan} quedó activa.\n\n"
+    "- Pagás {amount} por mes, en pesos, con Mercado Pago.{founder}\n"
+    "- Se renueva sola todos los meses hasta que te des de baja.\n"
+    "- Para darte de baja, entrá a {url}/perfil/suscripcion y tocá «Darme de baja». Seguís con "
+    "el plan hasta el final del mes que ya pagaste y no te cobramos más.\n\n"
+    "Términos y condiciones: {url}/terminos\n"
+    "Política de privacidad: {url}/privacidad\n"
+    "Reglas del programa: {url}/reglas\n\n"
+    "Gaucho Weather"
+)
+CONFIRMATION_FOUNDER = (
+    "\n- Como founder pagás solo la diferencia con Productor, que seguís teniendo gratis."
+)
+
+
+def pesos(amount: int) -> str:
+    """Pesos grouped like the SPA's formatMoney: "$ 14.900"."""
+    return f"$ {amount:,}".replace(",", ".")
+
+
+def _send_confirmation(sub_pk: int) -> None:
+    """The confirmation email of a subscription that became authorized (S0e)."""
+    try:
+        sub = ProviderSubscription.objects.select_related("user", "plan").get(pk=sub_pk)
+        body = CONFIRMATION_BODY.format(
+            name=sub.user.name,
+            plan=sub.plan.name,
+            amount=pesos(sub.amount),
+            founder=CONFIRMATION_FOUNDER if sub.user.is_founder else "",
+            url=settings.PUBLIC_APP_URL,
+        )
+        send_mail(CONFIRMATION_SUBJECT, body, None, [sub.user.email])
+    except Exception:  # the plan already changed; a lost email must not undo it
+        logger.exception("Could not send the subscription confirmation for %s", sub_pk)
 
 
 def _end(sub: ProviderSubscription, now: datetime) -> None:

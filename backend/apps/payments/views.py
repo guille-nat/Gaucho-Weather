@@ -5,6 +5,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts import terms
+from apps.accounts.models import TermsAcceptance
+
 from . import services
 from .providers import get_provider, payments_enabled
 from .providers.base import InvalidSignature, ProviderError
@@ -37,7 +40,10 @@ class MyPaymentsView(APIView):
 
 
 class SubscribeView(APIView):
-    """POST /api/pagos/suscribirme/ {plan, currency}: 201 {checkout_url}."""
+    """POST /api/pagos/suscribirme/ {plan, currency, acepta_terminos}: 201 {checkout_url}.
+
+    The terms acceptance is recorded only when the checkout is handed out (promociones S0b).
+    """
 
     def post(self, request):
         serializer = SubscribeSerializer(data=request.data)
@@ -47,6 +53,7 @@ class SubscribeView(APIView):
             sub = services.subscribe(request.user, data["plan"], data["currency"])
         except services.PaymentRefusal as exc:
             return refusal(exc)
+        terms.record_acceptance(request.user, TermsAcceptance.Context.SUBSCRIBE)
         return Response({"checkout_url": sub.checkout_url}, status=status.HTTP_201_CREATED)
 
 

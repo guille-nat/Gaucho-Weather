@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { BrandMark } from '../components/BrandMark';
 import { Icon } from '../components/Icon';
+import { LegalLinks } from '../components/Legal';
 
 export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -21,6 +22,9 @@ export function AuthLayout({ title, children }: { title: string; children: React
         El pronóstico es libre. Con una cuenta guardás tus lotes y ves las decisiones de cada uno.
       </p>
       {children}
+      <footer className="auth-footer">
+        <LegalLinks />
+      </footer>
     </main>
   );
 }

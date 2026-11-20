@@ -200,7 +200,7 @@ class TestDeleteAccount:
     def test_a_founder_slot_is_not_freed(self, api_client):
         api_client.post(
             "/api/auth/register/",
-            {"email": "f@example.com", "password": PASSWORD, "name": "F"},
+            {"email": "f@example.com", "password": PASSWORD, "name": "F", "acepta_terminos": True},
             format="json",
         )
 

@@ -33,7 +33,9 @@ def client_for(user):
 
 def register(email):
     response = APIClient().post(
-        REGISTER, {"email": email, "password": PASSWORD, "name": "Ana"}, format="json"
+        REGISTER,
+        {"email": email, "password": PASSWORD, "name": "Ana", "acepta_terminos": True},
+        format="json",
     )
     assert response.status_code == 201
     return User.objects.get(email=email)

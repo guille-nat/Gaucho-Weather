@@ -47,6 +47,8 @@ class ProviderSubscription(models.Model):
     # Set once a cancelled subscription has finished: its paid period is over and the account
     # went back to Básico (or never had the plan). The expiry task skips it from then on.
     ended_at = models.DateTimeField("terminó", null=True, blank=True)
+    # Set when the confirmation email went out (promociones S0e): never twice per subscription.
+    confirmation_sent_at = models.DateTimeField("confirmación enviada", null=True, blank=True)
     created_at = models.DateTimeField("creada", default=timezone.now)
     updated_at = models.DateTimeField("actualizada", auto_now=True)
 

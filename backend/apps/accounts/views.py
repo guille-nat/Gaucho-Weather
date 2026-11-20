@@ -18,9 +18,9 @@ from rest_framework.views import APIView
 from apps.payments.providers import payments_enabled
 from apps.payments.services import founder_empresa_price
 
-from . import password_reset, plans
+from . import password_reset, plans, terms
 from .authentication import enforce_csrf
-from .models import FounderProgram, Plan
+from .models import FounderProgram, Plan, TermsAcceptance, User
 from .serializers import (
     AccountUpdateSerializer,
     DeleteAccountSerializer,
@@ -135,6 +135,20 @@ class MeView(APIView):
             request.user.delete()
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AcceptTermsView(APIView):
+    """POST /api/auth/terminos/aceptar/: accept the current terms version (promociones S0c).
+
+    Answers the account like `GET /api/auth/me/`. Accepting twice records it once.
+    """
+
+    def post(self, request):
+        with transaction.atomic():
+            locked = User.objects.select_for_update().get(pk=request.user.pk)
+            if not terms.has_accepted(locked):
+                terms.record_acceptance(locked, TermsAcceptance.Context.UPDATE)
+        return Response(UserSerializer(request.user).data)
 
 
 class PasswordChangeView(APIView):

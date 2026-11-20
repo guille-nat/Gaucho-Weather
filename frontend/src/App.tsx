@@ -11,6 +11,9 @@ import { EditarLote, NuevoLote } from './pages/LoteForm';
 import { Login } from './pages/Login';
 import { MisLotes } from './pages/MisLotes';
 import { Perfil } from './pages/Perfil';
+import { Privacidad } from './pages/legal/Privacidad';
+import { Reglas } from './pages/legal/Reglas';
+import { Terminos } from './pages/legal/Terminos';
 import { Planes } from './pages/Planes';
 import { Recuperar } from './pages/Recuperar';
 import { Register } from './pages/Register';
@@ -28,6 +31,10 @@ export function AppRoutes() {
       </Route>
       <Route path="/restablecer/:uid/:token" element={<Restablecer />} />
       <Route path="/buscar" element={<Buscar />} />
+      {/* Public for everyone, and outside the shell: the updated-terms dialog links here (S0a). */}
+      <Route path="/terminos" element={<Terminos />} />
+      <Route path="/privacidad" element={<Privacidad />} />
+      <Route path="/reglas" element={<Reglas />} />
       <Route element={<AppShell />}>
         <Route index element={<Inicio />} />
         <Route path="/planes" element={<Planes />} />

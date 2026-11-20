@@ -8,28 +8,25 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { changePassword, deleteAccount } from '../api/account';
-import { logout } from '../api/auth';
-import { ApiError } from '../api/client';
 import type { User } from '../api/types';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { CREDITS } from '../components/ForecastView';
 import { FounderBadge } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
+import { LegalLinks } from '../components/Legal';
 import { StatusChip } from '../components/StatusChip';
 import {
-  forgetPushBeforeLogout,
   useEnablePush,
-  useEndSession,
   useMe,
   usePushHere,
   useUpdateAccount,
   useUpdatePreferences,
 } from '../query/hooks';
 import { fieldError, formError } from '../lib/formErrors';
-import { rememberSignedOut } from '../lib/signedOut';
 import { membership, trialLine } from '../lib/membership';
+import { useLeave, useSignOut } from '../lib/useSignOut';
 
 /** What the login screen tells someone who just left (see Login). */
 export interface SignedOutState {
@@ -521,29 +518,8 @@ function BorrarSection({
 
 export function Perfil() {
   const me = useMe();
-  const endSession = useEndSession();
-  const navigate = useNavigate();
-
-  async function leave(signedOut: NonNullable<SignedOutState['signedOut']>) {
-    // Ends the session at once (me = null), then moves in the same tick: had we waited for the
-    // cleanup, the guard would redirect first and this screen, unmounted, could not say why.
-    rememberSignedOut(signedOut); // survives a guard redirect that lands first (lib/signedOut)
-    const ending = endSession({ localOnly: signedOut === 'local' });
-    const state: SignedOutState = { signedOut };
-    navigate('/ingresar', { replace: true, state });
-    await ending;
-  }
-
-  const exit = useMutation({
-    // A shared phone: drop this browser's push first, while the session can still say whose.
-    mutationFn: async () => {
-      await forgetPushBeforeLogout();
-      await logout();
-    },
-    onSuccess: () => leave('server'),
-    // No signal: the farmer still wants this phone clean, so sign out here and tell them.
-    onError: (error) => (error instanceof ApiError && error.isNetwork ? leave('local') : undefined),
-  });
+  const leave = useLeave();
+  const exit = useSignOut();
 
   return (
     <div className="page page-profile">
@@ -594,6 +570,10 @@ export function Perfil() {
           ) : null}
         </div>
       </div>
+      {/* A footer, not a section: deleting the account stays the last section (perfil-ux S3). */}
+      <footer className="page-legal">
+        <LegalLinks />
+      </footer>
       <p className="credits">{CREDITS}</p>
     </div>
   );
