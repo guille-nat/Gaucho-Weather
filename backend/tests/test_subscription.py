@@ -367,20 +367,25 @@ def change_form_data(response):
 
 
 @time_machine.travel(NOW, tick=False)
-def test_a_staff_plan_edit_records_staff_and_ends_the_trial(staff, staff_client):
+def test_a_staff_edit_cannot_change_the_plan_or_its_expiry(staff_client):
+    """Plan and expiry are read-only in the admin (cortesias S6): only the backoffice changes
+    a plan, where every change is logged."""
     FounderProgram.objects.filter(pk=1).update(limit=0)
     trial = register("ana@example.com")
+    before = (trial.plan_id, trial.plan_expires_at)
+    changes = PlanChange.objects.filter(user=trial).count()
     url = f"/api/admin/accounts/user/{trial.pk}/change/"
     data = change_form_data(staff_client.get(url))
     data["plan"] = "empresa"
+    data["plan_expires_at_0"] = ""
+    data["plan_expires_at_1"] = ""
 
     response = staff_client.post(url, data)
 
     assert response.status_code == 302
     trial.refresh_from_db()
-    assert (trial.plan_id, trial.plan_expires_at) == ("empresa", None)
-    assert history_of(trial)[-1] == ("productor", "empresa", "staff")
-    assert PlanChange.objects.filter(user=trial).latest("at", "id").by == staff
+    assert (trial.plan_id, trial.plan_expires_at) == before
+    assert PlanChange.objects.filter(user=trial).count() == changes
 
 
 def test_a_staff_edit_without_a_plan_change_records_nothing(user, staff_client):

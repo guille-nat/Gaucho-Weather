@@ -74,7 +74,8 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
   [pagos.md](pagos.md)). `plans.refuse_free_empresa` lo frena en los otros caminos, con
   "Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia." (400): su pedido
   a Empresa, aplicar un pedido así en el backoffice (queda pendiente) y el cambio directo de
-  plan en el backoffice. Volverlo a Productor a mano sigue funcionando.
+  plan en el backoffice. Volverlo a Productor a mano sigue funcionando. En el admin de Django
+  el plan ya no se edita (cortesias S6).
   **Por qué:** decisión del usuario (promociones L5): "que nadie se la regale por error". Un
   pedido aplicado a Empresa lo dejaba con Empresa gratis para siempre.
 
@@ -90,7 +91,9 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 
 ### Cortesías
 - Un super admin da un plan pago gratis hasta una fecha (como mucho un año) desde el
-  backoffice; es el único camino para regalar un plan pago. Detalle de la API en
+  backoffice; es el único camino para regalar un plan pago. Una cuenta suma como máximo un
+  año de cortesía en cualquier ventana de 2 años, y nunca va a un super admin ni a una cuenta
+  bloqueada. Detalle de la API en
   [backoffice.md](backoffice.md#cortesías-cortesias-s1-s3).
 - Modelo `Courtesy`; mientras está activa, `plan_expires_at` es su fecha de fin. Para
   `membership_status` una cuenta no founder en cortesía figura como `trial` (tiene
@@ -145,11 +148,14 @@ suscripciones en la ficha.
   mucho un pedido pendiente (restricción única condicional).
 - Se registra un `PlanChange` en el alta (`founder` o `trial`, en
   `start_membership`), al vencer la prueba (`trial_ended`, en
-  `expire_trials`), al aplicar un pedido (`request`) y cuando staff cambia el
-  plan en el admin de Usuarios (`staff`). Una cortesía suma `courtesy` al darla y
-  `courtesy_ended` al vencer o revocarla. Los dos últimos pasan por
-  `plans.change_plan`, que borra el vencimiento salvo que staff lo haya
-  cambiado en la misma edición.
+  `expire_trials`), al aplicar un pedido (`request`) y cuando el equipo cambia el
+  plan desde el backoffice (`staff`). Una cortesía suma `courtesy` al darla y
+  `courtesy_ended` al vencer o revocarla. Los pedidos y el backoffice pasan por
+  `plans.change_plan`, que borra el vencimiento.
+- En el admin de Usuarios, `plan` y `plan_expires_at` son de solo lectura (cortesias S6).
+  **Por qué:** decisión del usuario, "Un solo camino, todo con vencimiento": el admin
+  cambiaba el plan sin dejar fila en el registro del backoffice y sin vencimiento.
+  (reemplaza el cambio de plan desde el admin, 2026-11-20.)
 - API (sesión + CSRF):
   - `GET /api/auth/suscripcion/` → `{plan, status, founder_number,
     trial_ends_at, usage, pending_request, history}`. `status` es `founder` si
@@ -224,7 +230,8 @@ suscripciones en la ficha.
 ## Cómo modificarlo
 - Límites, precios (pesos y dólares), push, soporte, destacado y orden se editan en el admin
   (`/api/admin/`, Planes). El cupo de founders y los días de prueba, en
-  "Programa founders". El plan y el vencimiento de cada usuario, en Usuarios.
+  "Programa founders". El plan de cada usuario, desde el backoffice (en el admin es de solo
+  lectura).
 - Un plan nuevo con límite: sumar el campo en `Plan`, el caso en `LIMITS` y la
   llamada a `check_limit` en la vista que crea.
 - Tests: `backend/tests/test_plans.py` (incluye la concurrencia de founders) y
@@ -266,3 +273,6 @@ suscripciones en la ficha.
 - 2026-11-20 — Cortesías: un plan pago gratis hasta una fecha de como mucho un año, con motivo
   y tope de 20 activas; el cambio de plan del backoffice solo baja al plan gratis
   (feature `cortesias`, S1-S4).
+- 2026-11-20 — Cortesías, correcciones (T3): "1 año en 2 años" por cuenta (cualquier ventana de
+  730 días suma como máximo 365 de cortesía), el tope de 20 aguanta altas simultáneas, y el plan
+  y su vencimiento son de solo lectura en el admin de Django.

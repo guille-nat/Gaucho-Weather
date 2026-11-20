@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
@@ -264,7 +264,12 @@ COURTESY_MAX_DAYS = 365  # "no superior a 1 año"
 COURTESY_CAP = 20  # active at once (assumption in the spec)
 COURTESY_REMINDER_DAYS = 7
 COURTESY_CAP_REACHED = "Ya hay 20 cortesías activas. Revocá alguna antes de dar otra."
-COURTESY_TOO_LONG = "La cortesía empezó el {start}: puede durar como máximo hasta el {last}."
+COURTESY_WINDOW_DAYS = 730  # "1 año en 2 años" (cortesias L5)
+COURTESY_YEAR_IN_TWO = "Una cuenta suma como máximo un año de cortesía cada 2 años: "
+COURTESY_LAST_DAY = COURTESY_YEAR_IN_TWO + "esta puede terminar como máximo el {date}."
+COURTESY_NOT_YET = COURTESY_YEAR_IN_TWO + "puede recibir otra desde el {date}."
+# Taken by every new grant before counting the active ones (any constant shared by all).
+COURTESY_CAP_LOCK = 0x636F7274  # "cort"
 
 
 class CourtesyError(Exception):
@@ -284,6 +289,61 @@ def _day(moment: datetime) -> str:
     return timezone.localdate(moment).strftime("%d/%m/%Y")
 
 
+Span = tuple[date, date]  # local days [start, end): its length is end - start
+
+
+def _overlap(span: Span, start: date, end: date) -> int:
+    return max((min(span[1], end) - max(span[0], start)).days, 0)
+
+
+def _within_year_in_two(past: list[Span], candidate: Span) -> bool:
+    """No 730-day window touching `candidate` sums more than 365 days of cortesía.
+
+    The busiest window starts at some span's start or ends at some span's end, so only
+    those are checked.
+    """
+    window = timedelta(days=COURTESY_WINDOW_DAYS)
+    spans = [*past, candidate]
+    starts = {s for s, _ in spans} | {e - window for _, e in spans}
+    for start in starts:
+        end = start + window
+        if _overlap(candidate, start, end) == 0:
+            continue
+        if sum(_overlap(span, start, end) for span in spans) > COURTESY_MAX_DAYS:
+            return False
+    return True
+
+
+def _past_spans(user: User, active: Courtesy | None) -> list[Span]:
+    """Every ended cortesía: a revoked one counts up to its revoke, an expired one up to its
+    end (not to when the daily task ran)."""
+    ended = user.courtesies.exclude(ended_at=None)
+    if active is not None:
+        ended = ended.exclude(pk=active.pk)
+    return [
+        (timezone.localdate(c.starts_at), timezone.localdate(min(c.ended_at, c.ends_at)))
+        for c in ended
+    ]
+
+
+def _refuse_over_a_year_in_two(user: User, active: Courtesy | None, ends_at: datetime) -> None:
+    """Raise with the latest end the cortesía could have, or the day a new one is possible."""
+    today = timezone.localdate()
+    start = timezone.localdate(active.starts_at) if active else today
+    past = _past_spans(user, active)
+    last = timezone.localdate(ends_at)
+    if _within_year_in_two(past, (start, last)):
+        return
+    while last > today and not _within_year_in_two(past, (start, last)):
+        last -= timedelta(days=1)
+    if last > today:
+        raise CourtesyError(COURTESY_LAST_DAY.format(date=last.strftime("%d/%m/%Y")))
+    day = today + timedelta(days=1)
+    while not _within_year_in_two(past, (day, day + timedelta(days=1))):
+        day += timedelta(days=1)
+    raise CourtesyError(COURTESY_NOT_YET.format(date=day.strftime("%d/%m/%Y")))
+
+
 def grant_courtesy(
     user: User, plan_code: str, ends_at: datetime, reason: str, *, by: User
 ) -> tuple[Courtesy, str]:
@@ -295,20 +355,15 @@ def grant_courtesy(
     now = timezone.now()
     courtesy = user.courtesies.select_for_update().filter(ended_at=None).first()
     if courtesy is None:
-        # Locking the active ones serializes two grants at the cap; the count then runs as a
-        # new statement and sees the other grant once it commits.
-        active = list(Courtesy.objects.select_for_update().filter(ended_at=None).values("pk"))
-        if len(active) >= COURTESY_CAP:
+        # One lock every new grant shares, held until commit: the count below is a new
+        # statement, so it sees a grant that committed while this one waited.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [COURTESY_CAP_LOCK])
+        if Courtesy.objects.filter(ended_at=None).count() >= COURTESY_CAP:
             raise CourtesyError(COURTESY_CAP_REACHED)
+    _refuse_over_a_year_in_two(user, courtesy, ends_at)
+    if courtesy is None:
         courtesy = Courtesy(user=user, starts_at=now)
-    else:
-        last = timezone.localdate(courtesy.starts_at) + timedelta(days=COURTESY_MAX_DAYS)
-        if timezone.localdate(ends_at) > last:
-            raise CourtesyError(
-                COURTESY_TOO_LONG.format(
-                    start=_day(courtesy.starts_at), last=last.strftime("%d/%m/%Y")
-                )
-            )
     from_plan = user.plan_id
     if courtesy.pk is None or from_plan != plan_code:
         _switch(user, plan_code, PlanChange.Reason.COURTESY, now, by=by, note=reason)

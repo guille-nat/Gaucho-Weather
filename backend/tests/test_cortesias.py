@@ -1,5 +1,6 @@
 """Cortesías: a paid plan for free until a date, given by a super admin (odd/tasks/cortesias.md)."""
 
+import threading
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -7,7 +8,9 @@ import pytest
 import respx
 import time_machine
 from django.core import mail
+from django.db import connection, transaction
 
+from apps.accounts import plans
 from apps.accounts.models import Courtesy, Plan, PlanChange, User
 from apps.accounts.tasks import expire_trials
 from apps.backoffice.models import BackofficeAction
@@ -33,6 +36,11 @@ FOUNDER_HAS_PRODUCTOR = "La cuenta es founder: ya tiene Productor sin vencimient
 PAYING = "La cuenta tiene una suscripción paga: cancelala primero."
 NO_COURTESY = "La cuenta no tiene una cortesía activa."
 USE_COURTESY = "Para dar un plan pago sin cobrar, usá una cortesía."
+YEAR_IN_TWO = "Una cuenta suma como máximo un año de cortesía cada 2 años: "
+LAST_DAY = YEAR_IN_TWO + "esta puede terminar como máximo el {date}."
+NOT_YET = YEAR_IN_TWO + "puede recibir otra desde el {date}."
+SUPERADMIN = "La cuenta es super admin: no recibe cortesías, pruebas ni founder."
+BLOCKED = "La cuenta está bloqueada."
 
 
 def url(user):
@@ -326,10 +334,7 @@ class TestGrantAgain:
         response = grant(admin_client, ana, hasta="2027-03-02")
 
         assert response.status_code == 400
-        assert response.json() == {
-            "detail": "La cortesía empezó el 01/03/2026: puede durar como máximo "
-            "hasta el 01/03/2027."
-        }
+        assert response.json() == {"detail": LAST_DAY.format(date="01/03/2027")}
         ana.refresh_from_db()
         assert (ana.plan_id, ana.plan_expires_at) == ("empresa", END)
         courtesy.refresh_from_db()
@@ -630,3 +635,232 @@ class TestPlanChangeIsClosed:
         change = PlanChange.objects.get(user=ana)
         assert (change.to_plan_id, change.reason, change.by) == ("basico", "staff", admin_user)
         assert BackofficeAction.objects.get().action == "plan_change"
+
+
+# --- L5: the cap under concurrent grants and "1 año en 2 años" ----------------------------
+
+
+@pytest.mark.django_db(transaction=True)
+def test_the_cap_holds_with_two_grants_at_19_at_once(admin_user):
+    """The verifier's probe: B waits for A's grant, then counts A's cortesía too."""
+    plans.ensure_default_plans()
+    for i in range(19):
+        active_courtesy(account(f"u{i}@example.com"), plan="productor")
+    a = account("a@example.com")
+    b = account("b@example.com")
+    a_granted = threading.Event()
+    release_a = threading.Event()
+    results = {}
+
+    def run(user, name, before=None, after=None):
+        try:
+            if before:
+                before.wait(10)
+            with transaction.atomic():
+                locked = User.objects.select_for_update().get(pk=user.pk)
+                plans.grant_courtesy(locked, "empresa", END, "r", by=admin_user)
+                if after:
+                    after.set()
+                    release_a.wait(10)
+            results[name] = "ok"
+        except plans.CourtesyError as exc:
+            results[name] = str(exc)
+        finally:
+            connection.close()
+
+    ta = threading.Thread(target=run, args=(a, "a", None, a_granted))
+    tb = threading.Thread(target=run, args=(b, "b", a_granted, None))
+    ta.start()
+    tb.start()
+    a_granted.wait(10)
+    tb.join(1.0)  # B is now waiting on the shared lock
+    release_a.set()
+    ta.join(15)
+    tb.join(15)
+
+    assert results == {"a": "ok", "b": CAP}
+    assert Courtesy.objects.filter(ended_at=None).count() == 20
+
+
+def past_courtesy(user, starts_at, ends_at, ended_at):
+    return Courtesy.objects.create(
+        user=user,
+        plan_id="empresa",
+        reason="Antes",
+        starts_at=starts_at,
+        ends_at=ends_at,
+        ended_at=ended_at,
+    )
+
+
+class TestOneYearInTwo:
+    def test_revoke_then_grant_again_does_not_start_another_year(self, admin_user):
+        """The verifier's probe, now asserting the refusal."""
+        ana = account("ana@example.com")
+        with time_machine.travel(datetime(2026, 1, 2, 12, tzinfo=UTC), tick=False):
+            assert grant(client_for(admin_user), ana, hasta="2027-01-02").status_code == 200
+        with time_machine.travel(datetime(2026, 12, 30, 12, tzinfo=UTC), tick=False):
+            client = client_for(admin_user)
+            extend = grant(client, ana, hasta="2027-06-30")
+            assert client.delete(url(ana)).status_code == 200
+            again = grant(client, ana, hasta="2027-12-30")
+
+        assert extend.status_code == 400
+        assert extend.json() == {"detail": LAST_DAY.format(date="02/01/2027")}
+        assert again.status_code == 400
+        assert again.json() == {"detail": LAST_DAY.format(date="02/01/2027")}
+        ana.refresh_from_db()
+        assert (ana.plan_id, ana.plan_expires_at) == ("basico", None)
+        assert Courtesy.objects.filter(user=ana).count() == 1
+        assert [a.action for a in BackofficeAction.objects.order_by("id")] == [
+            "courtesy_grant",
+            "courtesy_revoke",
+        ]
+
+    def test_exactly_365_days_in_two_years_is_allowed_and_one_more_is_refused(self, admin_client):
+        ana = account("ana@example.com")
+        # 2026-01-01 to the end of 2026-07-01: 181 days. Expired by the next morning's task,
+        # it counts up to its end, not to when the task ran.
+        past_courtesy(
+            ana,
+            starts_at=datetime(2026, 1, 1, 15, tzinfo=UTC),
+            ends_at=datetime(2026, 7, 2, 2, 59, 59, tzinfo=UTC),
+            ended_at=datetime(2026, 7, 2, 12, tzinfo=UTC),
+        )
+
+        refused = grant(admin_client, ana, hasta="2027-05-20")
+
+        assert refused.status_code == 400
+        assert refused.json() == {"detail": LAST_DAY.format(date="19/05/2027")}
+        ana.refresh_from_db()
+        assert (ana.plan_id, ana.plan_expires_at) == ("basico", None)
+        assert not BackofficeAction.objects.exists()
+
+        assert grant(admin_client, ana, hasta="2027-05-19").status_code == 200  # 181 + 184
+        ana.refresh_from_db()
+        assert ana.plan_expires_at == datetime(2027, 5, 20, 2, 59, 59, tzinfo=UTC)
+
+    def test_a_used_year_refuses_a_new_one_until_the_window_has_passed(self, admin_user):
+        ana = account("ana@example.com")
+        past_courtesy(
+            ana,
+            starts_at=datetime(2025, 6, 1, 15, tzinfo=UTC),
+            ends_at=datetime(2026, 6, 2, 2, 59, 59, tzinfo=UTC),
+            ended_at=datetime(2026, 6, 2, 12, tzinfo=UTC),
+        )
+
+        response = grant(client_for(admin_user), ana)
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": NOT_YET.format(date="01/06/2027")}
+        assert not BackofficeAction.objects.exists()
+        with time_machine.travel(datetime(2027, 5, 31, 12, tzinfo=UTC), tick=False):
+            assert grant(client_for(admin_user), ana, hasta="2027-12-01").status_code == 400
+        with time_machine.travel(datetime(2027, 6, 1, 12, tzinfo=UTC), tick=False):
+            allowed = grant(client_for(admin_user), ana, hasta="2027-12-01")
+        assert allowed.status_code == 200
+        ana.refresh_from_db()
+        assert ana.plan_id == "empresa"
+
+
+# --- S6: hardening (L5, "Un solo camino, todo con vencimiento") ---------------------------
+
+PRUEBA = "prueba/"
+FOUNDER = "founder/dar/"
+
+
+def post_grant(client, user, kind):
+    if kind == "cortesia":
+        return grant(client, user)
+    body = {"hasta": "2026-12-31"} if kind == PRUEBA else {}
+    return client.post(f"{ACCOUNTS}{user.pk}/{kind}", body, format="json")
+
+
+class TestNoGrantToAdminsOrBlocked:
+    @pytest.mark.parametrize("kind", ["cortesia", PRUEBA, FOUNDER])
+    def test_another_super_admin_is_refused(self, admin_client, kind):
+        other = User.objects.create_superuser(email="b@example.com", password=PASSWORD, name="B")
+
+        response = post_grant(admin_client, other, kind)
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": SUPERADMIN}
+        self.assert_untouched(other)
+
+    @pytest.mark.parametrize("kind", [PRUEBA, FOUNDER])
+    def test_your_own_account_is_refused(self, admin_client, admin_user, kind):
+        response = post_grant(admin_client, admin_user, kind)
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": SUPERADMIN}
+        self.assert_untouched(admin_user)
+
+    @pytest.mark.parametrize("kind", ["cortesia", PRUEBA, FOUNDER])
+    def test_a_blocked_account_is_refused(self, admin_client, kind):
+        ana = account("ana@example.com", is_active=False)
+
+        response = post_grant(admin_client, ana, kind)
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": BLOCKED}
+        self.assert_untouched(ana)
+
+    @pytest.mark.parametrize("kind", ["cortesia", PRUEBA, FOUNDER])
+    def test_a_normal_account_still_gets_it(self, admin_client, kind):
+        ana = account("ana@example.com")
+
+        response = post_grant(admin_client, ana, kind)
+
+        assert response.status_code == 200
+        ana.refresh_from_db()
+        assert ana.plan_id != "basico"
+        assert BackofficeAction.objects.count() == 1
+
+    @staticmethod
+    def assert_untouched(user):
+        user.refresh_from_db()
+        assert (user.plan_id, user.plan_expires_at, user.founder_number) == ("basico", None, None)
+        assert not Courtesy.objects.filter(user=user).exists()
+        assert not PlanChange.objects.filter(user=user).exists()
+        assert not BackofficeAction.objects.exists()
+
+
+class TestTrialAtMostAYear:
+    def test_one_year_ahead_is_the_last_day_allowed(self, admin_client):
+        ana = account("ana@example.com")
+
+        response = admin_client.post(
+            f"{ACCOUNTS}{ana.pk}/prueba/", {"hasta": "2027-11-16"}, format="json"
+        )
+
+        assert response.status_code == 200
+        ana.refresh_from_db()
+        assert ana.plan_expires_at == datetime(2027, 11, 17, 2, 59, 59, tzinfo=UTC)
+
+    def test_a_day_more_is_a_400(self, admin_client):
+        ana = account("ana@example.com")
+
+        response = admin_client.post(
+            f"{ACCOUNTS}{ana.pk}/prueba/", {"hasta": "2027-11-17"}, format="json"
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "hasta": ["La prueba dura como máximo un año: elegí una fecha hasta el 16/11/2027."]
+        }
+        ana.refresh_from_db()
+        assert (ana.plan_id, ana.plan_expires_at) == ("basico", None)
+        assert not BackofficeAction.objects.exists()
+
+
+class TestDjangoAdmin:
+    def test_plan_and_expiry_are_read_only(self, admin_client):
+        ana = account("ana@example.com")
+
+        response = admin_client.get(f"/api/admin/accounts/user/{ana.pk}/change/")
+
+        assert response.status_code == 200
+        form = response.context["adminform"].form
+        assert "plan" not in form.fields
+        assert "plan_expires_at" not in form.fields
+        assert {"plan", "plan_expires_at"} <= set(response.context["adminform"].readonly_fields)

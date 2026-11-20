@@ -74,6 +74,14 @@ export interface RecordExtras {
   alert_rules: RecordAlertRule[];
   /** The active cortesía (cortesias S1); missing in older fixtures means none. */
   courtesy?: RecordCourtesy | null;
+  /** Ended cortesías as Buenos Aires days `[start, end)`, for "1 año en 2 años" (L5). */
+  pastCourtesies?: DaySpan[];
+}
+
+/** Buenos Aires days `[start, end)`, `YYYY-MM-DD`: its length is end − start. */
+export interface DaySpan {
+  start: string;
+  end: string;
 }
 
 /** What the backoffice handlers need from the app's mock (src/mocks/handlers.ts). */
@@ -105,6 +113,11 @@ const FOUNDER_HAS_PRODUCTOR = 'La cuenta es founder: ya tiene Productor sin venc
 const COURTESY_CAP = 20;
 const COURTESY_CAP_REACHED = 'Ya hay 20 cortesías activas. Revocá alguna antes de dar otra.';
 const COURTESY_MAX_DAYS = 365;
+const COURTESY_WINDOW_DAYS = 730;
+const YEAR_IN_TWO = 'Una cuenta suma como máximo un año de cortesía cada 2 años: ';
+// cortesias S6: no free plan for a super admin or a blocked account.
+const SUPERADMIN_NO_GRANTS = 'La cuenta es super admin: no recibe cortesías, pruebas ni founder.';
+const ACCOUNT_BLOCKED = 'La cuenta está bloqueada.';
 const REQUIRED = 'Este campo es requerido.';
 const PAGE_SIZE = 50;
 
@@ -316,6 +329,38 @@ const addDays = (day: string, days: number) =>
   new Date(Date.parse(`${day}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 /** `31/12/2026`, as Python's `strftime("%d/%m/%Y")`. */
 const slashed = (day: string) => day.split('-').reverse().join('/');
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
+const overlap = (span: DaySpan, from: string, to: string) =>
+  Math.max(daysBetween(span.start > from ? span.start : from, span.end < to ? span.end : to), 0);
+
+/** Like plans._within_year_in_two: no 730-day window touching `candidate` sums over 365 days. */
+function withinYearInTwo(past: DaySpan[], candidate: DaySpan): boolean {
+  const spans = [...past, candidate];
+  const starts = new Set([
+    ...spans.map((s) => s.start),
+    ...spans.map((s) => addDays(s.end, -COURTESY_WINDOW_DAYS)),
+  ]);
+  for (const from of starts) {
+    const to = addDays(from, COURTESY_WINDOW_DAYS);
+    if (overlap(candidate, from, to) === 0) continue;
+    const total = spans.reduce((sum, span) => sum + overlap(span, from, to), 0);
+    if (total > COURTESY_MAX_DAYS) return false;
+  }
+  return true;
+}
+
+/** Like plans._refuse_over_a_year_in_two: the refusal, or null when the end is allowed. */
+function yearInTwoRefusal(past: DaySpan[], start: string, until: string): string | null {
+  if (withinYearInTwo(past, { start, end: until })) return null;
+  const today = todayInBuenosAires();
+  let last = until;
+  while (last > today && !withinYearInTwo(past, { start, end: last })) last = addDays(last, -1);
+  if (last > today) return `${YEAR_IN_TWO}esta puede terminar como máximo el ${slashed(last)}.`;
+  let day = addDays(today, 1);
+  while (!withinYearInTwo(past, { start: day, end: addDays(day, 1) })) day = addDays(day, 1);
+  return `${YEAR_IN_TWO}puede recibir otra desde el ${slashed(day)}.`;
+}
 
 export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): HttpHandler[] {
   const gate = backofficeGate(db, csrf);
@@ -416,6 +461,13 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
    * Like refuse_if_paying in backoffice/views.py: a running subscription blocks a trial and a
    * founder grant; a cancelled one still inside its paid month blocks a trial only.
    */
+  /** Like refuse_if_not_grantable (cortesias S6): never a super admin or a blocked account. */
+  function grantableRefusal(row: AccountRow): Response | null {
+    if (row.is_superuser) return refuse(SUPERADMIN_NO_GRANTS);
+    if (!extrasOf(row).is_active) return refuse(ACCOUNT_BLOCKED);
+    return null;
+  }
+
   function payingRefusal(row: AccountRow, trial: boolean): Response | null {
     const open = db.backoffice.subscriptions.filter((s) => s.user.id === row.id && !s.ended_at);
     if (open.some((s) => s.status === 'authorized' || s.status === 'paused')) {
@@ -482,6 +534,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       return null;
     },
     'founder/dar': (row) => {
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
       if (row.founder_number !== null) {
         return refuse(`La cuenta ya es founder (n.º ${row.founder_number}).`);
       }
@@ -846,6 +900,19 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (hasta <= todayInBuenosAires()) {
         return HttpResponse.json({ hasta: ['La fecha tiene que ser futura.'] }, { status: 400 });
       }
+      const lastTrialDay = addDays(todayInBuenosAires(), COURTESY_MAX_DAYS);
+      if (hasta > lastTrialDay) {
+        return HttpResponse.json(
+          {
+            hasta: [
+              `La prueba dura como máximo un año: elegí una fecha hasta el ${slashed(lastTrialDay)}.`,
+            ],
+          },
+          { status: 400 },
+        );
+      }
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
       if (row.founder_number !== null) {
         return refuse('La cuenta es founder: ya tiene Productor sin vencimiento.');
       }
@@ -895,6 +962,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
       const code = plan as 'productor' | 'empresa';
       const until = hasta as string;
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
       if (row.founder_number !== null && code === 'productor') {
         return refuse(FOUNDER_HAS_PRODUCTOR);
       }
@@ -905,15 +974,10 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (!active) {
         const count = Object.values(db.backoffice.records).filter((r) => r.courtesy).length;
         if (count >= COURTESY_CAP) return refuse(COURTESY_CAP_REACHED);
-      } else {
-        const start = dayInBuenosAires(Date.parse(active.starts_at));
-        const longest = addDays(start, COURTESY_MAX_DAYS);
-        if (until > longest) {
-          return refuse(
-            `La cortesía empezó el ${slashed(start)}: puede durar como máximo hasta el ${slashed(longest)}.`,
-          );
-        }
       }
+      const start = active ? dayInBuenosAires(Date.parse(active.starts_at)) : today;
+      const tooLong = yearInTwoRefusal(extras.pastCourtesies ?? [], start, until);
+      if (tooLong) return refuse(tooLong);
       const fromPlan = row.plan.code;
       if (!active || fromPlan !== code) moveTo(row, code, 'courtesy', reason);
       const endsAt = new Date(`${until}T23:59:59-03:00`).toISOString();
@@ -946,6 +1010,11 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (!active) return refuse(NO_COURTESY, 404);
       const to: PlanCode = row.founder_number === null ? 'basico' : 'productor';
       moveTo(row, to, 'courtesy_ended');
+      // A revoked cortesía counts up to its revoke (cortesias L5).
+      extras.pastCourtesies = [
+        ...(extras.pastCourtesies ?? []),
+        { start: dayInBuenosAires(Date.parse(active.starts_at)), end: todayInBuenosAires() },
+      ];
       Object.assign(extras, { plan_expires_at: null, courtesy: null });
       restatus(row);
       record('courtesy_revoke', person(row), {

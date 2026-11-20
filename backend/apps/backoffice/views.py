@@ -365,6 +365,18 @@ PAYING = "La cuenta tiene una suscripción paga: cancelala primero."
 PAID_DAYS = "La cuenta tiene días pagos hasta el {date}: dale la prueba después de esa fecha."
 
 
+SUPERADMIN_NO_GRANTS = "La cuenta es super admin: no recibe cortesías, pruebas ni founder."
+
+
+def refuse_if_not_grantable(target: User) -> None:
+    """A free plan only goes to a working customer account (cortesias S6): never to a super
+    admin (themself or another, who could then return the favour) or a blocked account."""
+    if target.is_superuser:
+        raise Refused(SUPERADMIN_NO_GRANTS)
+    if not target.is_active:
+        raise Refused(ACCOUNT_BLOCKED)
+
+
 def refuse_if_paying(target: User, *, trial: bool) -> None:
     """A trial or a founder grant never leaves a paying account charged without service.
 
@@ -545,6 +557,7 @@ class TrialView(BackofficeView):
         until = serializer.validated_data["hasta"]
         with transaction.atomic():
             target = locked_account(pk)
+            refuse_if_not_grantable(target)
             if target.is_founder:
                 raise Refused(FOUNDER_HAS_PRODUCTOR)
             refuse_if_paying(target, trial=True)
@@ -581,6 +594,7 @@ class CourtesyView(BackofficeView):
         plan, until, reason = (serializer.validated_data[f] for f in ("plan", "hasta", "motivo"))
         with transaction.atomic():
             target = locked_account(pk)
+            refuse_if_not_grantable(target)
             if target.is_founder and plan == Plan.PRODUCTOR:
                 raise Refused(FOUNDER_HAS_PRODUCTOR)
             refuse_if_paying(target, trial=True)
@@ -631,6 +645,7 @@ class FounderGrantView(BackofficeView):
         with transaction.atomic():
             program, _ = FounderProgram.objects.select_for_update().get_or_create(pk=1)
             target = locked_account(pk)
+            refuse_if_not_grantable(target)
             if target.is_founder:
                 raise Refused(ALREADY_FOUNDER.format(number=target.founder_number))
             refuse_if_paying(target, trial=False)

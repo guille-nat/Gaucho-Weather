@@ -164,8 +164,9 @@ export function TrialForm({
         name="hasta"
         type="date"
         min={tomorrowInBuenosAires()}
+        max={lastCourtesyDay()}
         required
-        hint="Productor hasta el final de ese día, hora de Buenos Aires."
+        hint="Productor hasta el final de ese día, hora de Buenos Aires. Como máximo un año."
         value={until}
         error={missing ? 'Elegí una fecha.' : fieldError(grant.error, 'hasta')}
         onChange={(e) => {

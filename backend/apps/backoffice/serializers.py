@@ -324,14 +324,22 @@ class AccountEditSerializer(serializers.Serializer):
 TRIAL_NOT_FUTURE = "La fecha tiene que ser futura."
 
 
+TRIAL_TOO_FAR = "La prueba dura como máximo un año: elegí una fecha hasta el {date}."
+
+
 class TrialSerializer(serializers.Serializer):
-    """POST /api/backoffice/cuentas/{id}/prueba/ {hasta}: a day after today, Buenos Aires time."""
+    """POST /api/backoffice/cuentas/{id}/prueba/ {hasta}: a day after today and at most a year
+    ahead, Buenos Aires time, like a cortesía (cortesias S6)."""
 
     hasta = serializers.DateField()
 
     def validate_hasta(self, value):
-        if value <= timezone.localdate():
+        today = timezone.localdate()
+        if value <= today:
             raise serializers.ValidationError(TRIAL_NOT_FUTURE)
+        last = today + timedelta(days=plans.COURTESY_MAX_DAYS)
+        if value > last:
+            raise serializers.ValidationError(TRIAL_TOO_FAR.format(date=last.strftime("%d/%m/%Y")))
         return value
 
 

@@ -2,7 +2,7 @@
 
 import csv
 import io
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -195,7 +195,8 @@ WRITES = [
     ("patch", "", {"name": "Otra", "email": "otra@example.com"}),
     ("post", "bloquear/", {}),
     ("post", "superadmin/dar/", {}),
-    ("post", "prueba/", {"hasta": "2030-01-01"}),
+    # A month from the real today: the trial ends at most a year ahead (cortesias S6).
+    ("post", "prueba/", {"hasta": (date.today() + timedelta(days=30)).isoformat()}),
     ("post", "founder/dar/", {}),
 ]
 

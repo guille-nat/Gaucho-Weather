@@ -1,8 +1,6 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
-from django.core.exceptions import ValidationError
-from django.db import transaction
 
 from . import plans
 from .models import FounderProgram, Plan, PlanChange, PlanRequest, TermsAcceptance, User
@@ -18,16 +16,6 @@ class UserEditForm(UserChangeForm):
     class Meta:
         model = User
         fields = "__all__"
-
-    def clean_plan(self):
-        """A founder moves up to Empresa only by paying the difference (promociones SF4)."""
-        plan = self.cleaned_data["plan"]
-        try:
-            # self.instance still holds the saved plan here: the form copies its data later.
-            plans.refuse_free_empresa(self.instance, plan.code)
-        except plans.PlanRequestError as exc:
-            raise ValidationError(str(exc)) from exc
-        return plan
 
 
 class PlanChangeInline(admin.TabularInline):
@@ -71,7 +59,9 @@ class UserAdmin(BaseUserAdmin):
     list_display = ["email", "name", "plan", "founder_number", "plan_expires_at", "date_joined"]
     list_filter = ["plan", "is_staff", "is_active"]
     search_fields = ["email", "name"]
-    readonly_fields = ["founder_number"]
+    # Plans change only from the backoffice, where every change is logged and a free paid plan
+    # always has an end date (cortesias S6).
+    readonly_fields = ["plan", "plan_expires_at", "founder_number"]
     fieldsets = [
         (None, {"fields": ["email", "password"]}),
         ("Datos", {"fields": ["name"]}),
@@ -93,21 +83,6 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = [
         (None, {"classes": ["wide"], "fields": ["email", "name", "password1", "password2"]}),
     ]
-
-    def save_model(self, request, obj, form, change):
-        """A plan picked here goes through plans.change_plan, so it is recorded as `staff`."""
-        if not (change and "plan" in form.changed_data):
-            super().save_model(request, obj, form, change)
-            return
-        new_plan, expires_at = obj.plan_id, obj.plan_expires_at
-        obj.plan_id = User.objects.values_list("plan_id", flat=True).get(pk=obj.pk)
-        with transaction.atomic():
-            super().save_model(request, obj, form, change)
-            plans.change_plan(obj, new_plan, PlanChange.Reason.STAFF, by=request.user)
-            if "plan_expires_at" in form.changed_data:
-                # Staff set an expiry on purpose in the same edit: keep it.
-                obj.plan_expires_at = expires_at
-                obj.save(update_fields=["plan_expires_at"])
 
 
 @admin.register(Plan)

@@ -159,6 +159,11 @@ es un super admin, no el dueño de la cuenta; el registro deja constancia del ca
   el mismo lock de la cuenta, y después pone el vencimiento. Al vencer, la tarea de siempre
   (`expire_trials`) la pasa a Básico.
   - Fecha de hoy o pasada: 400 `{"hasta": ["La fecha tiene que ser futura."]}`.
+  - Más de 365 días después de hoy: 400 `{"hasta": ["La prueba dura como máximo un año: elegí
+    una fecha hasta el 16/11/2027."]}`. **Por qué:** decisión del usuario (cortesias L2), "Un
+    solo camino, todo con vencimiento": antes se podía dar Productor hasta 2099.
+  - Un super admin (la propia cuenta u otra) o una cuenta bloqueada: los mismos 400 que la
+    cortesía (ver "Cortesías").
   - Un founder: 400 `{"detail": "La cuenta es founder: ya tiene Productor sin vencimiento."}`.
   - Una cuenta que paga (suscripción `authorized` o `paused` sin terminar): 400
     `{"detail": "La cuenta tiene una suscripción paga: cancelala primero."}`.
@@ -172,6 +177,8 @@ es un super admin, no el dueño de la cuenta; el registro deja constancia del ca
   alta (`plans.start_membership`), y pone la cuenta en Productor sin vencimiento (motivo
   `staff`). Si ese número ya lo tiene otra cuenta (puesto a mano en el admin), usa el
   siguiente libre.
+  - Un super admin (la propia cuenta u otra) o una cuenta bloqueada: los mismos 400 que la
+    cortesía (ver "Cortesías").
   - Una cuenta que ya es founder: 400 `{"detail": "La cuenta ya es founder (n.º 3)."}`.
   - Una cuenta que paga: 400 `{"detail": "La cuenta tiene una suscripción paga: cancelala
     primero."}`. **Por qué:** founder es Productor gratis; sin cancelar, Mercado Pago le
@@ -206,20 +213,35 @@ es su `ends_at`, igual que una prueba. La lógica está en `apps/accounts/plans.
   - `motivo` obligatorio, no en blanco, hasta 200 caracteres (errores de campo).
   - La propia cuenta del super admin: 400 `{"detail": "No podés darte una cortesía a vos
     mismo."}`.
+  - Otro super admin: 400 `{"detail": "La cuenta es super admin: no recibe cortesías, pruebas
+    ni founder."}`. Una cuenta bloqueada: 400 `{"detail": "La cuenta está bloqueada."}`. Lo
+    mismo vale para `prueba/` y `founder/dar/` (`refuse_if_not_grantable`). **Por qué:** dos
+    super admins podían regalarse planes entre ellos, y un plan gratis solo sirve a una cuenta
+    de cliente que funciona (hallazgos del verificador, cortesias L5).
   - Un founder que pide Productor: 400 `{"detail": "La cuenta es founder: ya tiene Productor
     sin vencimiento."}`. Empresa sí se le puede dar: la cortesía es la excepción explícita del
     super admin y no pasa por `refuse_free_empresa`.
   - Una cuenta que paga o con días pagos de una cancelada: los mismos 400 que `prueba/`
     (`refuse_if_paying(..., trial=True)`).
   - Con 20 cortesías activas: 400 `{"detail": "Ya hay 20 cortesías activas. Revocá alguna
-    antes de dar otra."}`. Las filas activas se bloquean antes de contar, así dos altas a la
-    vez no pasan las dos el tope.
+    antes de dar otra."}`. Cada alta nueva toma primero un mismo lock de Postgres
+    (`pg_advisory_xact_lock`, hasta el commit) y después cuenta en una consulta nueva, así ve
+    la cortesía que otra alta acaba de guardar y dos altas a la vez no pasan las dos el tope.
+    (reemplazado el 2026-11-20: antes se bloqueaban las filas activas, y el conteo no veía la
+    fila que la otra alta había guardado mientras esperaba.)
 - Darla otra vez a una cuenta con una activa cambia el plan, la fecha y el motivo de esa
-  misma cortesía (no cuenta para el tope). El final nunca puede pasar de 365 días desde el
-  primer otorgamiento: 400 `{"detail": "La cortesía empezó el 01/03/2026: puede durar como
-  máximo hasta el 01/03/2027."}`. Si solo cambia la fecha, no hay `PlanChange` nuevo.
-  **Por qué:** el año se cuenta desde la primera vez, así no se renueva para siempre
-  (supuesto de la spec).
+  misma cortesía (no cuenta para el tope). Si solo cambia la fecha, no hay `PlanChange` nuevo.
+- **1 año en 2 años** (cortesias L5): en cualquier ventana de 730 días una cuenta suma como
+  máximo 365 días de cortesía. Cuentan todas: una revocada hasta su revocación, una vencida
+  hasta su fin (no hasta que corrió la tarea) y la activa hasta el `hasta` pedido. Los días se
+  cuentan en hora de Buenos Aires, de la fecha de inicio a la de fin. Al darla o cambiarla:
+  - si una fecha más corta entra: 400 `{"detail": "Una cuenta suma como máximo un año de
+    cortesía cada 2 años: esta puede terminar como máximo el 19/05/2027."}`;
+  - si no entra ni un día: 400 `{"detail": "Una cuenta suma como máximo un año de cortesía
+    cada 2 años: puede recibir otra desde el 01/06/2027."}`.
+  **Por qué:** decisión del usuario, "1 año en 2 años (Recomendado)". Antes el año se contaba
+  desde el primer otorgamiento de la cortesía activa, y revocarla y darla de nuevo empezaba
+  otro año completo. (reemplazado el 2026-11-20.)
 - `DELETE cortesia/` la termina ya: la cuenta pasa a Básico, o a Productor si es founder.
   `PlanChange` con motivo `courtesy_ended` y `by=<super admin>`, `BackofficeAction`
   `courtesy_revoke`. Sin cortesía activa: 404 `{"detail": "La cuenta no tiene una cortesía
@@ -233,8 +255,9 @@ es su `ends_at`, igual que una prueba. La lógica está en `apps/accounts/plans.
   el plan lo pone el pago (`payment`) una sola vez y la cortesía queda terminada; lo mismo
   bajarla a Básico, darle la prueba o el founder.
 - **Seguridad:** todo se valida en el servidor, solo para super admins, y cada alta, cambio y
-  revocación queda en el registro, que nadie edita. Pendiente: verificación en dos pasos para
-  super admins.
+  revocación queda en el registro, que nadie edita. En el admin de Django el plan y su
+  vencimiento son de solo lectura: un plan solo cambia desde el backoffice, donde queda
+  registrado. Pendiente: verificación en dos pasos para super admins.
 
 ### Mercado Pago desde el panel (S4)
 - `suscripcion/sincronizar/` toma la suscripción más nueva de la cuenta y le pide a Mercado
@@ -446,3 +469,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-19: prueba y founder se rechazan para una cuenta que paga (advertencia del verificador).
 - 2026-11-20: cortesías (`cortesia/`, dar, cambiar y revocar) y el cambio de plan solo baja al plan gratis (cortesias S1-S4, S6).
 - 2026-11-20: la ficha muestra, da, cambia y revoca cortesías; "Cambiar plan" solo ofrece el plan gratis; el registro describe `courtesy_grant` y `courtesy_revoke`, y el historial de planes del usuario dice "Empezó tu cortesía" y "Terminó tu cortesía" (cortesias S5).
+- 2026-11-20: correcciones del verificador (cortesias T3): el tope de 20 aguanta altas simultáneas, "1 año en 2 años" por cuenta, ni cortesía ni prueba ni founder a un super admin o a una cuenta bloqueada, prueba de como máximo un año, y plan y vencimiento de solo lectura en el admin de Django.

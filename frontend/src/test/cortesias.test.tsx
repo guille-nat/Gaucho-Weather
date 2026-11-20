@@ -211,6 +211,49 @@ describe('Refusals (S5, S6)', () => {
     );
   });
 
+  it('refuses a cortesía to a blocked account', async () => {
+    const db = dbFor();
+    db.backoffice.records[22] = {
+      plan_expires_at: null,
+      is_active: false,
+      plan_changes: [],
+      lotes: [],
+      alert_rules: [],
+    };
+    const { user, record } = await openRecord(MARTA, db);
+
+    const dialog = await openGrant(user, record);
+    fillGrant(dialog, daysAhead(30), 'Cliente grande');
+    await user.click(within(dialog).getByRole('button', { name: 'Dar cortesía' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cuenta está bloqueada.');
+    expect(db.backoffice.actions.some((a) => a.action === 'courtesy_grant')).toBe(false);
+  });
+
+  it('refuses a new cortesía once the account used a year in the last two', async () => {
+    const db = dbFor();
+    db.backoffice.records[22] = {
+      plan_expires_at: null,
+      is_active: true,
+      plan_changes: [],
+      lotes: [],
+      alert_rules: [],
+      // A year of cortesía that was revoked today.
+      pastCourtesies: [{ start: daysAhead(-365), end: daysAhead(0) }],
+    };
+    const { user, record } = await openRecord(MARTA, db);
+
+    const dialog = await openGrant(user, record);
+    fillGrant(dialog, daysAhead(30), 'Cliente grande');
+    await user.click(within(dialog).getByRole('button', { name: 'Dar cortesía' }));
+
+    const next = daysAhead(365).split('-').reverse().join('/');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      `Una cuenta suma como máximo un año de cortesía cada 2 años: puede recibir otra desde el ${next}.`,
+    );
+    expect(db.backoffice.records[22]?.courtesy ?? null).toBeNull();
+  });
+
   it('asks for the date and the reason before sending anything', async () => {
     const db = dbFor();
     const { user, record } = await openRecord(MARTA, db);
