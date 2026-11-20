@@ -66,7 +66,9 @@ Rechazos de `suscribirme/` (todos con `detail` en español):
 
 Borrar la cuenta (`DELETE /api/auth/me/`) cancela antes en Mercado Pago toda suscripción que
 todavía pueda cobrar (`pending`, `authorized` o `paused`). Si Mercado Pago no responde, 502 con
-el mismo mensaje y la cuenta no se borra: así nada sigue cobrándole a una cuenta que ya no existe. Las cuentas sin suscripción de Mercado Pago
+el mismo mensaje y la cuenta no se borra: así nada sigue cobrándole a una cuenta que ya no existe.
+Si Mercado Pago rechaza la cancelación, se consulta la suscripción: si allá ya figura cancelada
+(un webhook perdido), cuenta como hecha y la cuenta se borra igual. Las cuentas sin suscripción de Mercado Pago
 siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambios.
 
 ### Webhook

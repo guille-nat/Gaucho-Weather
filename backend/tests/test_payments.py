@@ -863,6 +863,7 @@ def test_deleting_the_account_when_mercadopago_fails_is_502_and_keeps_everything
     on_plan(user, Plan.PRODUCTOR)
     subscription(user, status="authorized", next_payment_at=NEXT)
     respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
     client = client_for(user)
 
     response = client.delete(ME, {"password": PASSWORD}, format="json")
@@ -874,6 +875,63 @@ def test_deleting_the_account_when_mercadopago_fails_is_502_and_keeps_everything
     assert User.objects.filter(pk=user.pk).exists()
     assert ProviderSubscription.objects.get().status == "authorized"
     assert client.get(ME).status_code == 200
+
+
+@respx.mock
+def test_deleting_the_account_when_mercadopago_already_cancelled_it(user):
+    """A missed webhook left the row authorized; Mercado Pago refuses the cancel but says it is
+    cancelled, so the account is deleted instead of being blocked for good."""
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(400))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert not User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_when_the_cancel_fails_and_it_is_still_running_is_502(user):
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(400))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="authorized"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 502
+    assert User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_after_a_partial_failure_retries_only_what_is_left(user):
+    older = subscription(user, status="authorized", next_payment_at=NEXT)
+    older.external_id = "older"
+    older.save()
+    newer = subscription(user, status="pending")  # newest first: cancelled before the older one
+    cancel_newer = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+    cancel_older = respx.put(f"{API}/preapproval/older").mock(return_value=httpx.Response(500))
+    respx.get(f"{API}/preapproval/older").mock(return_value=httpx.Response(500))
+    client = client_for(user)
+
+    assert client.delete(ME, {"password": PASSWORD}, format="json").status_code == 502
+    newer.refresh_from_db()
+    older.refresh_from_db()
+    assert (newer.status, older.status) == ("cancelled", "authorized")
+    assert client.get(ME).status_code == 200
+
+    cancel_older.mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled", external_id="older"))
+    )
+    assert client.delete(ME, {"password": PASSWORD}, format="json").status_code == 204
+    assert (cancel_newer.call_count, cancel_older.call_count) == (1, 2)
+    assert ProviderSubscription.objects.count() == 0
 
 
 @respx.mock

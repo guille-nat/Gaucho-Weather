@@ -384,15 +384,29 @@ def cancel_before_deleting(user: User) -> None:
     """Cancel at the provider every subscription that could still charge, before the account
     is deleted: a pending checkout, an authorized one and a paused one (it can be resumed).
 
-    If the provider cannot cancel one, raise PaymentRefusal(502) and the caller keeps the
+    If the provider cannot cancel one, it is read back: already cancelled there (a missed
+    webhook) counts as done. Otherwise raise PaymentRefusal(502) and the caller keeps the
     account: deleting it would leave a subscription charging an account that no longer exists.
     """
     for sub in user.provider_subscriptions.exclude(status=S.CANCELLED):
+        provider = get_provider(sub.provider)
         try:
-            remote = get_provider(sub.provider).cancel_subscription(sub.external_id)
+            remote = provider.cancel_subscription(sub.external_id)
         except ProviderError as exc:
-            raise PaymentRefusal(502, PROVIDER_DOWN) from exc
+            remote = _already_cancelled(provider, sub)
+            if remote is None:
+                raise PaymentRefusal(502, PROVIDER_DOWN) from exc
         sync_subscription(sub.provider, remote)
+
+
+def _already_cancelled(
+    provider: PaymentProvider, sub: ProviderSubscription
+) -> RemoteSubscription | None:
+    try:
+        remote = provider.fetch_subscription(sub.external_id)
+    except ProviderError:
+        return None
+    return remote if remote.status == S.CANCELLED else None
 
 
 def cancel(user: User) -> ProviderSubscription:
