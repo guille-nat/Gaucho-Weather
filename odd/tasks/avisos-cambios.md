@@ -19,12 +19,13 @@ The promises, verbatim from the texts:
 
 **S2 — The notice email, at once.**
 - On scheduling, every account with an authorized or paused Mercado Pago subscription whose monthly amount changes gets one email: plan, current amount, new amount, the date it applies from, and how to cancel. The amount is computed by `price_for` with the new prices, so a Productor change also reaches founders on Empresa (`founder_empresa_price`).
-- At most once per account and change, and a lost email never undoes the scheduling (same pattern as the confirmation email).
+- At most once per subscription and change. A lost email never undoes the scheduling; an unsent notice is retried by the daily task, and its subscription keeps the old amount until 30 days after it is sent.
+- A subscription that becomes authorized while a change is pending (it subscribed at the old price) gets its notice from the daily task.
 
 **S3 — Applying it on its date.**
-- A daily task, on the effective date, sets the plan's price and updates the amount of every authorized or paused subscription at Mercado Pago (`PUT /preapproval/{id}` with `auto_recurring.transaction_amount`, sandbox-verified: memory `mercadopago/preapproval-mutability`), then the local `amount`.
+- From the effective date, new checkouts use the new price (the plan's price is set).
+- Each notified subscription changes amount on `max(effective date, notice sent + 30 days)`: "al menos 30 días de anticipación" holds for every subscriber, including late ones. The daily task updates it at Mercado Pago (`PUT /preapproval/{id}` with `auto_recurring.transaction_amount`, sandbox-verified: memory `mercadopago/preapproval-mutability`), then the local `amount`.
 - A subscription that Mercado Pago refuses is retried on the next run; the rest are applied. Idempotent.
-- Assumption: a pending checkout created before the date is updated the same way, so it never charges the old price.
 - The immediate price edit stays as it is: it only prices new checkouts (today's behaviour).
 
 **S4 — Backoffice page.**
@@ -38,9 +39,9 @@ The promises, verbatim from the texts:
 ## Tasks
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1, S2 scheduled change model, backoffice API, notice emails | inline (no writer trigger) | pending | |
-| T2 | S3 provider amount update and the daily task | inline | pending | |
-| T3 | S4 backoffice Precios page | inline | pending | |
+| T1 | S1, S2 scheduled change model, backoffice API, notice emails | inline (no writer trigger) | done, verified | 4e792e3, 7021203 |
+| T2 | S3 provider amount update and the daily task | inline | done, verified (Risk item 1) | b24b30a, 7021203 |
+| T3 | S4 backoffice Precios page | inline | done | 46c36fb |
 | T4 | S5 terms versions with an effective date and notices | inline | pending | |
 
 Forecast: about 900 authored changed lines, over the 400 budget: PR slices T1+T2, T3, T4 (stacked-to-main).
@@ -49,3 +50,6 @@ Risk: T2 is item 1 (changes what Mercado Pago charges running subscriptions) and
 ## Log
 - **L1** (2026-11-20): from promociones L15 advisory 3 ("The texts promise emails that don't exist yet: a new terms version, and price changes."). Asked how to solve it; the user chose "Hacerlo en la app (Recomendado)".
 - **L2** (2026-11-20): map: no scheduled model exists; `PriceDetailView.put` applies at once and logs `PRICE_UPDATE`; the provider has no amount update; emails are plain `send_mail` with a `*_sent_at` field and `on_commit`; periodic jobs are thin Celery tasks over idempotent services in `CELERY_BEAT_SCHEDULE`; `TERMS_VERSION` is duplicated in `backend/apps/accounts/terms.py` and `frontend/src/lib/terms.ts`.
+- **L3** (2026-11-20): design decision: the notice is per subscription and each one changes amount 30 days after its own notice (never before the change's date), so a subscriber who joins at the old price while a change is pending also gets 30 days' notice. Pending checkouts are not updated: once authorized they get a notice like any late subscriber (replaces the S3 assumption).
+- **L4** (2026-11-20): T1 (4e792e3) and T2 (b24b30a) done; backend 872 passed. Independent verifier (Risk item 1): S1 pass; S2 and S3 failed on 2 blockers. (1) A Productor change re-priced non-founder Empresa subscribers, and an immediate price edit could reach running subscriptions through the daily notices. (2) With Productor and Empresa both changing, a founder on Empresa ended at a wrong difference (45000 instead of 43000). One correction batch (7021203): a notice's amount comes from scheduled prices only (`subscriber_prices`), a Productor change reaches only founders on Empresa, and the probes were kept as tests. Recheck of the verifier's 11 probes: all pass; backend 875 passed. Advisories not fixed: calendar-day counting (a notice at 23:30 gets about 29.3 days before the 07:00 run); applied changes are rescanned daily; an email could go twice if the commit fails after sending; a cancelled change sends no "cancelled" email (S1 assumption); USD subscriptions would get an ARS amount (USD is unavailable).
+- **L5** (2026-11-20): T3 done (46c36fb). Frontend 352 passed, 1 failed: the version-drift test inside the frontend container (promociones advisory 5, already known). tsc, eslint and prettier clean.
