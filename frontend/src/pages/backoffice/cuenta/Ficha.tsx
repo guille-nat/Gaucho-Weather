@@ -178,7 +178,8 @@ function confirmation(kind: AccountActionPath, account: AccountRecord): Confirma
         description: (
           <p className="fine">
             Mercado Pago deja de cobrarle. Sigue con {running?.plan.name ?? 'el plan'} hasta el fin
-            del mes pago y después pasa a Básico.
+            del mes pago y después pasa a {account.founder_number === null ? 'Básico' : 'Productor'}
+            .
           </p>
         ),
         confirm: 'Cancelar suscripción',
