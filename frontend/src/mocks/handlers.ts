@@ -26,7 +26,12 @@ import type {
   Subscription,
   User,
 } from '../api/types';
-import { createBackofficeHandlers, demoBackoffice, type BackofficeDb } from './backoffice';
+import {
+  createBackofficeHandlers,
+  demoBackoffice,
+  freeEmpresaRefusal,
+  type BackofficeDb,
+} from './backoffice';
 import { createReportHandlers } from './backofficeReports';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
@@ -167,6 +172,23 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
   };
 }
 
+/** Like services.founder_empresa_price: Empresa minus Productor, null unless it is positive. */
+function founderEmpresaPrice(plans: Plan[]): number | null {
+  const price = (code: string) => plans.find((p) => p.code === code)?.price_ars_month ?? null;
+  const empresa = price('empresa');
+  const productor = price('productor');
+  if (empresa === null || productor === null) return null;
+  return empresa - productor > 0 ? empresa - productor : null;
+}
+
+/** Like services.price_for: what the account pays a month for the plan, null if it cannot. */
+function priceFor(user: User, plan: Plan, plans: Plan[]): number | null {
+  if (user.founder_number != null) {
+    return plan.code === 'empresa' ? founderEmpresaPrice(plans) : null;
+  }
+  return plan.price_ars_month || null;
+}
+
 /** Like services.subscribe: the refusal of `POST /api/pagos/suscribirme/`, if any. */
 function subscribeRefusal(
   input: { plan?: string; currency?: string },
@@ -178,7 +200,7 @@ function subscribeRefusal(
   const plan = db.plans.find((p) => p.code === input.plan);
   if (!plan) return [400, 'Ese plan no existe.'];
   if (plan.code === 'basico') return [400, 'El plan Básico es gratis: no hace falta suscribirse.'];
-  if (user.founder_number != null) {
+  if (user.founder_number != null && plan.code !== 'empresa') {
     return [400, 'Como founder ya tenés Productor gratis para siempre.'];
   }
   const sub = db.providerSubscription;
@@ -188,7 +210,9 @@ function subscribeRefusal(
   if (user.plan?.code === plan.code && !user.plan_expires_at && sub?.status !== 'cancelled') {
     return [400, `Ya estás en el plan ${plan.name}.`];
   }
-  if (!plan.price_ars_month) return [409, 'Ese plan todavía no tiene precio en pesos.'];
+  if (priceFor(user, plan, db.plans) === null) {
+    return [409, 'Ese plan todavía no tiene precio en pesos.'];
+  }
   return null;
 }
 
@@ -246,6 +270,8 @@ function planRequestError(input: PlanRequestInput, user: User, db: MockDb): stri
   // On a trial, asking for the same plan means keeping it after the trial (as the backend).
   const onTrial = Boolean(user.plan_expires_at) && user.founder_number == null;
   if (user.plan?.code === plan.code && !onTrial) return `Ya estás en el plan ${plan.name}.`;
+  const free = freeEmpresaRefusal(user.founder_number != null, user.plan?.code, plan.code);
+  if (free) return free;
   if (db.planRequest) return 'Ya tenés un pedido pendiente.';
   return null;
 }
@@ -563,6 +589,7 @@ export function createHandlers(db: MockDb): HttpHandler[] {
         founders: db.founders,
         trial_days: db.trialDays,
         payments_enabled: db.paymentsEnabled,
+        founder_empresa_price_ars: founderEmpresaPrice(db.plans),
       }),
     ),
 

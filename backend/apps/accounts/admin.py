@@ -1,6 +1,7 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from . import plans
@@ -17,6 +18,16 @@ class UserEditForm(UserChangeForm):
     class Meta:
         model = User
         fields = "__all__"
+
+    def clean_plan(self):
+        """A founder moves up to Empresa only by paying the difference (promociones SF4)."""
+        plan = self.cleaned_data["plan"]
+        try:
+            # self.instance still holds the saved plan here: the form copies its data later.
+            plans.refuse_free_empresa(self.instance, plan.code)
+        except plans.PlanRequestError as exc:
+            raise ValidationError(str(exc)) from exc
+        return plan
 
 
 class PlanChangeInline(admin.TabularInline):
@@ -145,12 +156,15 @@ class PlanRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description="Aplicar pedidos seleccionados", permissions=["change"])
     def apply_requests(self, request, queryset):
-        done = [
-            pk
-            for pk in queryset.values_list("pk", flat=True)
-            if plans.apply_request(pk, request.user)
-        ]
-        self._report(request, queryset, done, "aplicados")
+        done, refused = [], []
+        for pk in queryset.values_list("pk", flat=True):
+            try:
+                if plans.apply_request(pk, request.user):
+                    done.append(pk)
+            except plans.PlanRequestError as exc:  # e.g. a founder asking for free Empresa
+                refused.append(pk)
+                self.message_user(request, f"Pedido {pk}: {exc}", messages.WARNING)
+        self._report(request, queryset.exclude(pk__in=refused), done, "aplicados")
 
     @admin.action(description="Rechazar pedidos seleccionados", permissions=["change"])
     def reject_requests(self, request, queryset):

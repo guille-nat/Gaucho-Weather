@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { founderDifferenceNote } from '../api/payments';
 import type { Plan, User } from '../api/types';
 import { Icon } from '../components/Icon';
 import { CurrencyChoice, PricingCard } from '../components/PricingCard';
@@ -13,12 +14,15 @@ function PlanCard({
   me,
   trialDays,
   paymentsEnabled,
+  founderPrice,
 }: {
   plan: Plan;
   currency: Currency;
   me: User | null | undefined;
   trialDays: number;
   paymentsEnabled: boolean;
+  /** `founder_empresa_price_ars` of /api/planes/ (promociones SF5). */
+  founderPrice: number | null;
 }) {
   const current = me?.plan?.code === plan.code;
   // A real reason to choose the highlighted plan now (precios-productor S2): a visitor gets the
@@ -31,6 +35,11 @@ function PlanCard({
       </Link>
     ) : null;
   const membershipLine = current && me ? membership(me) : null;
+  // A founder moving up pays only the difference, as the API prices it.
+  const founderLine =
+    subscribe && me?.founder_number != null && founderPrice !== null
+      ? founderDifferenceNote(founderPrice)
+      : null;
   return (
     <PricingCard
       plan={plan}
@@ -39,9 +48,10 @@ function PlanCard({
       current={current && !!me}
       perk={perk}
       note={
-        membershipLine || (current && subscribe) ? (
+        membershipLine || founderLine || (current && subscribe) ? (
           <>
             {membershipLine ? <p className="plan-membership">{membershipLine}</p> : null}
+            {founderLine ? <p className="fine">{founderLine}</p> : null}
             {/* The current card shows "Tu plan" in place of the action: a trial keeps the way in. */}
             {current ? subscribe : null}
           </>
@@ -66,11 +76,13 @@ function PlanCard({
 
 /**
  * With payments on (pagos-backoffice S8), a paid plan leads to Suscripción, where the checkout
- * starts. Not for Básico (free), a founder (Productor free for good, the API refuses them) or
- * the plan the account already pays; a trial account may subscribe to the plan it is trying.
+ * starts. Not for Básico (free) or the plan the account already pays; a trial account may
+ * subscribe to the plan it is trying. A founder has Productor free for good, so only Empresa,
+ * paying the difference (promociones SF5).
  */
 function canSubscribe(me: User, plan: Plan, current: boolean): boolean {
-  if (plan.code === 'basico' || me.founder_number != null) return false;
+  if (plan.code === 'basico') return false;
+  if (me.founder_number != null) return plan.code === 'empresa' && !current;
   const onTrial = !!me.plan_expires_at;
   return !current || onTrial;
 }
@@ -113,6 +125,7 @@ export function Planes() {
                 me={me.data}
                 trialDays={plans.data.trial_days}
                 paymentsEnabled={plans.data.payments_enabled ?? false}
+                founderPrice={plans.data.founder_empresa_price_ars ?? null}
               />
             ))}
           </div>

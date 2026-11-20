@@ -47,3 +47,7 @@ export function formatMoney(value: number, currency = 'ARS'): string {
   const symbol = currency === 'ARS' ? '$' : currency === 'USD' ? 'US$' : currency;
   return `${symbol} ${amount.format(value)}`;
 }
+
+/** Shown to a founder on the Empresa card (promociones SF5), from `founder_empresa_price_ars`. */
+export const founderDifferenceNote = (price: number) =>
+  `Como founder pagás solo la diferencia: $${amount.format(price)} por mes.`;

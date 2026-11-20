@@ -18,12 +18,25 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
    (no confía en el cuerpo) y aplica la regla:
    - suscripción `authorized`: `change_plan(..., reason="payment")`, que termina la prueba;
    - suscripción `cancelled` o `paused`: la cuenta conserva el plan hasta `next_payment_at` y
-     después pasa a Básico con `payment_ended`. Si nunca se pagó (venía de `pending`), se cierra sin
-     tocar el plan;
+     después pasa a Básico con `payment_ended` (un founder vuelve a Productor). Si nunca se pagó
+     (venía de `pending`), se cierra sin tocar el plan;
    - pagos (`payment` y `subscription_authorized_payment`): se crea o actualiza el `Payment`
      por su id de Mercado Pago. Un pago rechazado no baja el plan.
 5. La tarea `payments.end_cancelled_subscriptions` corre cada hora (minuto 30) y pasa a
-   Básico las suscripciones canceladas o pausadas cuyo mes pago ya terminó.
+   Básico (o a Productor, si es founder) las suscripciones canceladas o pausadas cuyo mes pago
+   ya terminó.
+
+### Founder que sube a Empresa (promociones SF1–SF5)
+- El monto lo calcula un solo lugar, `services.price_for(user, plan)`: el precio del plan, o
+  para un founder `Empresa − Productor` (`founder_empresa_price()`, $35.000 hoy). Lo usan el
+  preapproval, `ProviderSubscription.amount` y el reuso del checkout pendiente.
+- Un founder solo puede suscribirse a Empresa. Productor sigue rechazado con "Como founder ya
+  tenés Productor gratis para siempre."; si la diferencia no es positiva o falta un precio,
+  409 "Ese plan todavía no tiene precio en pesos.".
+- Al autorizarse pasa a Empresa (`payment`) y conserva `founder_number`. Al terminar el mes
+  pago de una baja o pausa, `_end` lo vuelve a Productor (`payment_ended`), nunca a Básico.
+- `GET /api/planes/` suma `founder_empresa_price_ars` (o `null`), el mismo para todos los
+  founders: la tabla sigue siendo pública y la SPA no tiene el monto escrito.
 
 ### Endpoints
 | Método y ruta | Qué hace |
@@ -33,13 +46,13 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
 | `POST /api/pagos/cancelar/` | Cancela en Mercado Pago; devuelve lo mismo que `GET /api/pagos/`. |
 | `POST /api/pagos/mercadopago/webhook/` | Público, sin CSRF; la firma es la autenticación. |
 
-`GET /api/planes/` suma `payments_enabled`.
+`GET /api/planes/` suma `payments_enabled` y `founder_empresa_price_ars`.
 
 Rechazos de `suscribirme/` (todos con `detail` en español):
 
 | Caso | Código |
 |---|---|
-| Plan inexistente, Básico, founder, ya suscripto, o ya está en ese plan sin prueba | 400 |
+| Plan inexistente, Básico, founder a un plan que no es Empresa, ya suscripto, o ya está en ese plan sin prueba | 400 |
 | `currency: "USD"`: "Pagar en dólares todavía no está disponible." | 409 |
 | El plan no tiene precio en pesos | 409 |
 | Mercado Pago no configurado: "Los pagos todavía no están habilitados." | 503 |
@@ -76,7 +89,10 @@ vacías los pagos están apagados: `payments_enabled` es `false` y suscribirse r
   hace `POST suscribirme/` con `{plan, currency: "ARS"}` y lleva al `checkout_url` con
   `window.location.assign`. Un rechazo muestra el `detail` tal cual.
 - Con dólares elegidos dice "Pagar en dólares: próximamente" (deshabilitado).
-- Un founder sigue con el pedido al equipo: la API rechaza su suscripción.
+- Un founder ve "Suscribirme" solo en Empresa, con "Como founder pagás solo la diferencia:
+  $35.000 por mes." (el monto viene de `founder_empresa_price_ars`). Nunca en Productor ni en
+  Básico. Si ya paga Empresa, Productor dice "Es el plan al que volvés gratis si te das de
+  baja." y la baja avisa que después pasa a Productor. En Planes pasa lo mismo.
 - En prueba, el plan que prueba también ofrece "Suscribirme" en vez de "Quedarme con".
 - Con los pagos apagados todo sigue como antes: "Pedir este plan" y el aviso de que el
   equipo aplica el pedido a mano, en las dos monedas.
@@ -167,6 +183,13 @@ cobro hecho (próximo cobro el 19/12):
   - si la persona se suscribe de nuevo, la pausada terminada se cancela antes en Mercado Pago,
     para que reanudarla no cobre dos veces.
   Una cancelada terminada no se revive.
+- **Decisión:** un founder sube a Empresa pagando solo la diferencia con Productor, y al
+  darse de baja vuelve a Productor gratis.
+  **Por qué:** decisión del usuario (promociones L5): el founder ya tiene Productor gratis para
+  siempre, así que cobrarle Empresa entero sería cobrarle lo que se le regaló, y bajarlo a
+  Básico rompería esa promesa. Antes no podía pagar nada y una baja lo dejaba con Empresa gratis.
+  **Alternativas descartadas:** cobrar Empresa entero; subirlo por pedido al equipo (quedaba
+  gratis para siempre).
 - **Decisión:** un pago rechazado no baja el plan.
   **Por qué:** Mercado Pago reintenta el cobro y cancela la suscripción si sigue fallando;
   esa cancelación es la que baja el plan.
@@ -195,7 +218,10 @@ cobro hecho (próximo cobro el 19/12):
 - Nueva pasarela (dólares): implementar `PaymentProvider`, registrarla en `PROVIDERS` y en
   `PROVIDERS_BY_CURRENCY["USD"]`, y sumar su webhook en `urls.py`.
 - El plan cambia solo por `plans.change_plan`; no escribir `user.plan` directo.
-- Tests: `backend/tests/test_payments.py` (la API de Mercado Pago está simulada).
+- Tests: `backend/tests/test_payments.py` y `test_founder_upgrade.py` (la API de Mercado Pago
+  está simulada); en la SPA, `pagos.test.tsx` y `founder-upgrade.test.tsx`.
+- Un precio nuevo o un descuento (cupones, referidos) entra por `price_for`, no por
+  `plan.price_ars_month` suelto.
 
 ## Pendientes
 - `ts` de la firma no se valida por antigüedad: una notificación capturada puede repetirse.
@@ -216,3 +242,5 @@ cobro hecho (próximo cobro el 19/12):
 - 2026-11-19: el webhook responde 401, no 500, ante un cuerpo malformado sin firma (verificación de T1–T4).
 - 2026-11-19: una suscripción pausada se trata como cancelada (S8).
 - 2026-11-19: prueba de punta a punta en el sandbox, en local y sin túnel; receta corregida.
+- 2026-11-19: un founder sube a Empresa pagando la diferencia y al darse de baja vuelve a
+  Productor (promociones SF).

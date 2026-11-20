@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
   cancelSubscription,
+  founderDifferenceNote,
   formatMoney,
   getMyPayments,
   goToCheckout,
@@ -362,6 +363,7 @@ function ChangePlan({
   paymentsEnabled,
   provider,
   foundersLeft,
+  founderPrice,
   saved,
   onSaved,
   onRequested,
@@ -373,6 +375,8 @@ function ChangePlan({
   /** The account's Mercado Pago subscription, once known. */
   provider: ProviderSubscription | null | undefined;
   foundersLeft: number;
+  /** `founder_empresa_price_ars` of /api/planes/ (promociones SF5). */
+  founderPrice: number | null;
   saved: string | null;
   onSaved: (message: string | null) => void;
   onRequested: () => void;
@@ -383,9 +387,12 @@ function ChangePlan({
   const currency = useCurrency();
   const blocked = request.isPending || sub.pending_request !== null;
   const basico = plans?.find((p) => p.code === 'basico');
-  // A founder already has Productor free and changes plan through the team (the API refuses a
-  // founder's subscription); everyone else pays online once payments are on (S6).
-  const payable = paymentsEnabled && sub.status !== 'founder';
+  const productor = plans?.find((p) => p.code === 'productor');
+  const founder = sub.status === 'founder';
+  // Everyone pays online once payments are on (S6). A founder already has Productor free, so
+  // only Empresa is paid, at the difference (promociones SF5).
+  const payable = paymentsEnabled;
+  const payableFor = (plan: Plan) => payable && (!founder || plan.code === 'empresa');
   // Leaving for Mercado Pago: the button stays off until the page is gone.
   const paying = pay.isPending || pay.isSuccess;
   const running = isRunning(provider) ? provider : null;
@@ -440,7 +447,7 @@ function ChangePlan({
   const actionFor = (plan: Plan) => {
     if (plan.code === sub.plan.code) {
       if (sub.status !== 'trial') return null;
-      if (payable) return payButton(plan);
+      if (payableFor(plan)) return payButton(plan);
       return (
         <button
           type="button"
@@ -452,10 +459,16 @@ function ChangePlan({
         </button>
       );
     }
+    if (founder && running) {
+      // Paying Empresa: the baja takes a founder back to free Productor (promociones SF3).
+      return plan.code === 'productor' ? (
+        <p className="fine">Es el plan al que volvés gratis si te das de baja.</p>
+      ) : null;
+    }
     if (plan.code === 'basico') {
       return <p className="fine">Es el plan al que pasás si te das de baja.</p>;
     }
-    if (payable) return payButton(plan);
+    if (payableFor(plan)) return payButton(plan);
     return (
       <button
         type="button"
@@ -502,7 +515,9 @@ function ChangePlan({
                   }
                   action={actionFor(plan)}
                   note={
-                    current && sub.status === 'founder' && sub.founder_number !== null ? (
+                    founder && !current && plan.code === 'empresa' && payable && founderPrice ? (
+                      <p className="fine">{founderDifferenceNote(founderPrice)}</p>
+                    ) : current && sub.status === 'founder' && sub.founder_number !== null ? (
                       // The card shows the plan's price; a founder pays none of it.
                       <p className="plan-membership">
                         Gratis para siempre: sos founder n.º {sub.founder_number}
@@ -524,7 +539,7 @@ function ChangePlan({
       <Saved message={saved} />
       {basico && sub.plan.code !== 'basico' && !ending ? (
         <CancelPlan
-          basico={basico}
+          basico={(founder && running && productor) || basico}
           current={sub.plan}
           usage={sub.usage}
           trial={sub.status === 'trial'}
@@ -666,6 +681,7 @@ export function Suscripcion() {
             paymentsEnabled={plans.data?.payments_enabled ?? false}
             provider={payments.data?.subscription}
             foundersLeft={plans.data?.founders.remaining ?? 0}
+            founderPrice={plans.data?.founder_empresa_price_ars ?? null}
             saved={saved}
             onSaved={setSaved}
             onRequested={() => setFocusPending(true)}

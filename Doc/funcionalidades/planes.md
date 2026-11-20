@@ -70,6 +70,13 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 - La migración `0005_backfill_founders` convirtió en founders a los usuarios
   que ya existían, del más antiguo al más nuevo (`date_joined`, `id`). Los staff
   nunca toman un lugar.
+- Un founder sube a Empresa solo pagando la diferencia con Mercado Pago (ver
+  [pagos.md](pagos.md)). `plans.refuse_free_empresa` lo frena en los otros caminos, con
+  "Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia." (400): su pedido
+  a Empresa, aplicar un pedido así en el backoffice (queda pendiente) y el cambio directo de
+  plan en el backoffice. Volverlo a Productor a mano sigue funcionando.
+  **Por qué:** decisión del usuario (promociones L5): "que nadie se la regale por error". Un
+  pedido aplicado a Empresa lo dejaba con Empresa gratis para siempre.
 
 ### Prueba de Productor
 - La tarea `accounts.expire_trials` corre todos los días a las 09:00 (beat,
@@ -90,7 +97,8 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 
 ### API y pantalla
 - `GET /api/planes/` (público, límite `THROTTLE_PLANS_RATE`):
-  `{plans: [...], founders: {limit, remaining}, trial_days}`.
+  `{plans: [...], founders: {limit, remaining}, trial_days, payments_enabled,
+  founder_empresa_price_ars}`.
 - `GET /api/auth/me/` suma `plan`, `plan_expires_at`, `founder_number` y
   `usage` (`{lotes, alert_rules}`). Ver [cuenta.md](cuenta.md).
 - Página pública `/planes` (`frontend/src/pages/Planes.tsx`): tres tarjetas,
@@ -115,7 +123,9 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
     del más nuevo al más viejo.
   - `POST /api/auth/suscripcion/pedido/` con `{kind: "change", plan}` o
     `{kind: "cancel"}` → 201 con el pedido. Errores 400: "Ya estás en el plan
-    <Nombre>.", "Ya tenés un pedido pendiente.", "Ese plan no existe.".
+    <Nombre>.", "Ya tenés un pedido pendiente.", "Ese plan no existe.", y para un
+    founder que pide Empresa "Como founder, Empresa se paga con Mercado Pago: pagás solo
+    la diferencia."
   - `DELETE /api/auth/suscripcion/pedido/` → 204 (retira el pedido); 404 "No
     tenés un pedido pendiente." si no hay.
 - Admin, "Pedidos de plan": acciones "Aplicar pedidos seleccionados" y
@@ -215,3 +225,7 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
   lleva a Suscripción. No lo muestra en Básico, para un founder ni en el plan que ya se paga; una
   cuenta en prueba lo ve bajo su aviso de prueba. Sin pagos sigue "Próximamente" (pagos-backoffice
   S8).
+- 2026-11-19 — Founder a Empresa: un founder ve "Suscribirme" solo en Empresa, con "Como founder
+  pagás solo la diferencia: $35.000 por mes." (monto de `founder_empresa_price_ars`); paga solo
+  la diferencia, vuelve a Productor al darse de baja, y no puede recibir Empresa por pedido ni
+  a mano en el backoffice (promociones SF).

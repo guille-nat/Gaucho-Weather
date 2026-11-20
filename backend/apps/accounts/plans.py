@@ -255,10 +255,20 @@ def _send_trial_ended(user: User) -> None:
 ALREADY_ON_PLAN = "Ya estás en el plan {name}."
 REQUEST_PENDING = "Ya tenés un pedido pendiente."
 NO_SUCH_PLAN = "Ese plan no existe."
+FOUNDER_PAYS_EMPRESA = "Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia."
 
 
 class PlanRequestError(Exception):
     """A request the user cannot make; the message is shown as is."""
+
+
+def refuse_free_empresa(user: User, plan_code: str) -> None:
+    """A founder moves up to Empresa only by paying the difference (promociones SF4).
+
+    So neither a request nor staff can give it for free by mistake. Raises PlanRequestError.
+    """
+    if user.is_founder and plan_code == Plan.EMPRESA and user.plan_id != Plan.EMPRESA:
+        raise PlanRequestError(FOUNDER_PAYS_EMPRESA)
 
 
 def request_plan(user: User, kind: str, plan_code: str | None = None) -> PlanRequest:
@@ -276,6 +286,7 @@ def request_plan(user: User, kind: str, plan_code: str | None = None) -> PlanReq
         on_trial = locked.plan_expires_at is not None and locked.founder_number is None
         if locked.plan_id == plan.code and not on_trial:
             raise PlanRequestError(ALREADY_ON_PLAN.format(name=plan.name))
+        refuse_free_empresa(locked, plan.code)
         if locked.plan_requests.filter(status=PlanRequest.Status.PENDING).exists():
             raise PlanRequestError(REQUEST_PENDING)
         return PlanRequest.objects.create(user=locked, kind=kind, plan=plan)
@@ -308,11 +319,15 @@ def apply_request(request_id: int, by: User) -> bool:
     """Staff apply a pending request: move the plan, record it, email the user after commit.
 
     False when the request is no longer pending (withdrawn or resolved by someone else).
+    Raises PlanRequestError for a founder's request to Empresa, which stays pending.
     """
     with transaction.atomic():
         request = PlanRequest.objects.select_for_update().select_related("user").get(pk=request_id)
         if request.status != PlanRequest.Status.PENDING:
             return False
+        refuse_free_empresa(
+            User.objects.select_for_update().get(pk=request.user_id), request.plan_id
+        )
         change_plan(request.user, request.plan_id, PlanChange.Reason.REQUEST, by=by)
         _resolve(request, PlanRequest.Status.APPLIED, by)
         user = request.user

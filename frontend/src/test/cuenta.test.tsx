@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createMockDb } from '../mocks/handlers';
 import { demoLotes, demoUser, planOf } from '../mocks/fixtures';
 import { renderApp } from './renderApp';
+import { rememberSignedOut } from '../lib/signedOut';
 
 const PASSWORD = 'pampa-humeda-2026';
 const withAccount = (overrides = {}) => {
@@ -123,6 +124,19 @@ describe('Cuenta en Perfil (S5)', () => {
     ).toBeInTheDocument();
     expect(db.accounts).toHaveLength(0);
     expect(db.lotes).toHaveLength(0);
+  });
+});
+
+describe('The signed-out notice survives the auth guard', () => {
+  it('still says why when the guard reached the login first', async () => {
+    // Under load the private-route guard can redirect (with its own state) before Perfil's
+    // navigation lands; the reason must not depend on which redirect wins.
+    rememberSignedOut('deleted');
+    renderApp('/ingresar', createMockDb());
+
+    expect(
+      await screen.findByText('Borramos tu cuenta, sus lotes y sus alertas.'),
+    ).toBeInTheDocument();
   });
 });
 

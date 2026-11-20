@@ -163,6 +163,10 @@ class AccountPlanView(BackofficeView):
             raise ValidationError({"detail": plans.NO_SUCH_PLAN})
         note = serializer.validated_data["note"]
         with transaction.atomic():
+            try:
+                plans.refuse_free_empresa(locked_account(target.pk), plan.code)
+            except plans.PlanRequestError as exc:
+                raise ValidationError({"detail": str(exc)}) from exc
             change = plans.change_plan(
                 target, plan.code, PlanChange.Reason.STAFF, by=request.user, note=note
             )
@@ -213,7 +217,11 @@ class ResolveRequestView(BackofficeView):
 
 class ApplyRequestView(ResolveRequestView):
     def resolve(self, request, plan_request, note):
-        if not plans.apply_request(plan_request.pk, request.user):
+        try:
+            applied = plans.apply_request(plan_request.pk, request.user)
+        except plans.PlanRequestError as exc:
+            raise Refused(str(exc)) from exc
+        if not applied:
             return False
         BackofficeAction.record(
             request.user,
@@ -313,7 +321,7 @@ def refuse_if_paying(target: User, *, trial: bool) -> None:
     A running subscription (authorized or paused) keeps charging, and a trial's expiry would
     let expire_trials move a paying account to Básico. A cancelled one still inside its paid
     month ends the plan at its next_payment_at, which would cut a longer trial short; a
-    founder is safe there (that end never touches founders).
+    founder is safe there (that end only takes a founder back to Productor).
     """
     open_subs = target.provider_subscriptions.filter(ended_at=None)
     if open_subs.filter(status__in=payment_services.RUNNING).exists():
