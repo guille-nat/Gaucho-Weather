@@ -16,6 +16,17 @@ import type {
 } from '../api/backoffice';
 import type { Plan, PlanCode, ProviderSubscriptionStatus, User } from '../api/types';
 
+/** Like plans.refuse_free_empresa: a founder moves up to Empresa only by paying (promociones SF4). */
+export function freeEmpresaRefusal(
+  founder: boolean,
+  from: PlanCode | undefined,
+  to: PlanCode | undefined,
+): string | null {
+  return founder && to === 'empresa' && from !== 'empresa'
+    ? 'Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia.'
+    : null;
+}
+
 /**
  * In-memory backoffice API (pagos-backoffice S4, S7), mirroring backend/apps/backoffice. Every
  * route answers 403 to anyone but a super admin, like IsSuperuser.
@@ -521,6 +532,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const { plan, note = '' } = (await request.json()) as { plan: PlanCode; note?: string };
       const to = planRef(plan);
       if (!to) return HttpResponse.json({ detail: 'Ese plan no existe.' }, { status: 400 });
+      const free = freeEmpresaRefusal(row.founder_number !== null, row.plan.code, plan);
+      if (free) return refuse(free);
       if (row.plan.code === plan && row.status !== 'trial') {
         return HttpResponse.json(
           { detail: `La cuenta ya está en el plan ${to.name}.` },
@@ -563,6 +576,13 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const describe = { request: row.id, kind: row.kind, plan: row.plan.code };
       const target = { id: row.user.id, name: row.user.name, email: row.user.email };
       if (params.verb === 'aplicar') {
+        const owner = db.backoffice.accounts.find((a) => a.id === row.user.id);
+        const free = freeEmpresaRefusal(
+          (owner?.founder_number ?? null) !== null,
+          owner?.plan.code ?? row.user.plan.code,
+          row.plan.code,
+        );
+        if (free) return refuse(free);
         row.status = 'applied';
         record('request_apply', target, describe);
       } else {

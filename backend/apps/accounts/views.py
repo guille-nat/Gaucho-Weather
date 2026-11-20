@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.providers import payments_enabled
+from apps.payments.services import founder_empresa_price
 
 from . import password_reset, plans
 from .authentication import enforce_csrf
@@ -151,7 +152,10 @@ class PasswordChangeView(APIView):
 
 
 class PlansView(APIView):
-    """Public price table: the plans, founder slots left and whether payments are on."""
+    """Public price table: the plans, founder slots left and whether payments are on.
+
+    `founder_empresa_price_ars` is the same for every founder, so the table stays public.
+    """
 
     permission_classes = [AllowAny]
     throttle_classes = [IPScopedRateThrottle]
@@ -165,6 +169,8 @@ class PlansView(APIView):
                 "founders": {"limit": program.limit, "remaining": program.remaining},
                 "trial_days": program.trial_days,
                 "payments_enabled": payments_enabled(),
+                # What a founder pays a month for Empresa (promociones SF1); null = no price.
+                "founder_empresa_price_ars": founder_empresa_price(),
             }
         )
 

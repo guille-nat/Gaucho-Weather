@@ -24,6 +24,11 @@ export interface PlansInfo {
   trial_days: number;
   /** Mercado Pago is configured (pagos-backoffice S3); absent from an API older than payments. */
   payments_enabled?: boolean;
+  /**
+   * What a founder pays a month for Empresa: the difference with Productor (promociones SF1).
+   * null while it has no positive price; absent from an older API.
+   */
+  founder_empresa_price_ars?: number | null;
 }
 
 export interface User {

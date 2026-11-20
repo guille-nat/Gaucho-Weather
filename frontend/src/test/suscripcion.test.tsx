@@ -16,6 +16,9 @@ const trialUser = account({
 
 const basicoUser = account({ id: 4, email: 'b@x.com', name: 'Beto', plan: planOf('basico') });
 
+/** Not a founder: a founder gets Empresa only by paying the difference (promociones SF4). */
+const productorUser = account({ id: 5, email: 'p@x.com', name: 'Pía' });
+
 const rule = (id: number): AlertRule => ({
   id,
   lote: 12,
@@ -182,7 +185,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
   });
 
   it('asks for another plan and shows the request as pending', async () => {
-    const db = dbFor(demoUser);
+    const db = dbFor(productorUser);
     const { user } = renderApp(ROUTE, db);
 
     const change = await region('Cambiar de plan');
@@ -255,7 +258,7 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
   });
 
   it('shows the API’s reason when a request is refused', async () => {
-    const db = dbFor(demoUser);
+    const db = dbFor(productorUser);
     const { user } = renderApp(ROUTE, db);
 
     const change = await region('Cambiar de plan');

@@ -255,7 +255,7 @@ def test_subscribing_needs_a_session(api_client):
         ),
         (
             "founder",
-            {"plan": "empresa", "currency": "ARS"},
+            {"plan": "productor", "currency": "ARS"},
             400,
             "Como founder ya tenés Productor gratis para siempre.",
         ),
@@ -833,7 +833,13 @@ def test_the_plan_request_cancel_flow_and_the_plans_fields_still_hold(user):
     assert (response.json()["kind"], response.json()["plan"]) == ("cancel", "basico")
     assert PlanRequest.objects.get().status == "pending"
     body = client.get(PLANS).json()
-    assert set(body) == {"plans", "founders", "trial_days", "payments_enabled"}
+    assert set(body) == {
+        "plans",
+        "founders",
+        "trial_days",
+        "payments_enabled",
+        "founder_empresa_price_ars",
+    }
     assert set(body["plans"][0]) == {
         "code",
         "name",

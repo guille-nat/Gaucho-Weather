@@ -178,13 +178,14 @@ describe('Suscribirse con Mercado Pago (S6)', () => {
     });
   });
 
-  it('leaves a founder on the request flow: the plan is already free', async () => {
+  it('lets a founder subscribe only to Empresa, for the difference (promociones SF5)', async () => {
+    expect(demoUser.founder_number).not.toBeNull();
     renderApp(ROUTE, dbFor(demoUser));
 
     const change = await region('Cambiar de plan');
-    expect(within(change).queryByRole('button', { name: 'Suscribirme' })).toBeNull();
     const empresa = within(change).getByRole('article', { name: 'Plan Empresa' });
-    expect(within(empresa).getByRole('button', { name: 'Pedir este plan' })).toBeEnabled();
+    expect(within(empresa).getByRole('button', { name: 'Suscribirme' })).toBeEnabled();
+    expect(within(change).getAllByRole('button', { name: 'Suscribirme' })).toHaveLength(1);
   });
 
   it('shows a refusal as the API words it', async () => {

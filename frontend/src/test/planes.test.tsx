@@ -161,11 +161,15 @@ describe('Planes when payments are on (pagos-backoffice S8)', () => {
     expect(within(productor).getByRole('link', { name: 'Suscribirme' })).toBeInTheDocument();
   });
 
-  it('offers a founder no subscription: Productor is free for good', async () => {
+  it('offers a founder only Empresa: Productor is free for good (promociones SF5)', async () => {
     renderApp('/planes', createMockDb({ user: demoUser, paymentsEnabled: true }));
 
     await screen.findByRole('article', { name: 'Plan Productor' });
-    expect(screen.queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+    expect(within(card('Productor')).queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+    expect(within(card('Básico')).queryByRole('link', { name: 'Suscribirme' })).toBeNull();
+    expect(within(card('Empresa')).getByRole('link', { name: 'Suscribirme' })).toBeInTheDocument();
+    // No Empresa price yet: no difference to tell.
+    expect(screen.queryByText(/Como founder pagás/)).toBeNull();
   });
 
   it('offers no Suscribirme on the paid plan an account already pays', async () => {

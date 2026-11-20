@@ -1,8 +1,9 @@
 """Subscribing, the webhook and cancelling (pagos-backoffice S3).
 
 A plan only changes through `plans.change_plan`: "payment" when the provider authorizes a
-subscription, "payment_ended" when a cancelled one's paid month is over. A rejected charge
-never downgrades: Mercado Pago retries it and cancels the subscription if it keeps failing.
+subscription, "payment_ended" when a cancelled one's paid month is over (back to Básico, or to
+Productor for a founder). A rejected charge never downgrades: Mercado Pago retries it and
+cancels the subscription if it keeps failing.
 """
 
 from __future__ import annotations
@@ -63,6 +64,35 @@ def _ending(user: User):
     return user.provider_subscriptions.filter(status=S.CANCELLED, ended_at=None)
 
 
+def founder_empresa_price() -> int | None:
+    """What a founder pays a month for Empresa: the difference with Productor (SF1).
+
+    A founder already has Productor for free, so only the rest is charged. None when a price
+    is missing or the difference is not positive.
+    """
+    prices = dict(
+        Plan.objects.filter(code__in=(Plan.PRODUCTOR, Plan.EMPRESA)).values_list(
+            "code", "price_ars_month"
+        )
+    )
+    empresa, productor = prices.get(Plan.EMPRESA), prices.get(Plan.PRODUCTOR)
+    if empresa is None or productor is None:
+        return None
+    difference = empresa - productor
+    return difference if difference > 0 else None
+
+
+def price_for(user: User, plan: Plan) -> int | None:
+    """The monthly peso amount `user` pays for `plan`; None when it cannot be charged.
+
+    The one place that prices a subscription: the preapproval, its ProviderSubscription and
+    the pending-checkout reuse check all use it.
+    """
+    if user.is_founder:
+        return founder_empresa_price() if plan.code == Plan.EMPRESA else None
+    return plan.price_ars_month or None
+
+
 def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription:
     provider = provider_for_currency(currency)
     if provider is None:
@@ -75,14 +105,16 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
     if plan.code == Plan.BASICO:
         raise PaymentRefusal(400, BASICO_IS_FREE)
     user = User.objects.get(pk=user.pk)
-    if user.is_founder:
+    # A founder has Productor free for good and pays only to move up to Empresa (SF1).
+    if user.is_founder and plan.code != Plan.EMPRESA:
         raise PaymentRefusal(400, FOUNDER_IS_FREE)
     if user.provider_subscriptions.filter(status__in=RUNNING, ended_at=None).exists():
         raise PaymentRefusal(400, ALREADY_SUBSCRIBED)
     on_trial = plans.membership_status(user) == "trial"
     if user.plan_id == plan.code and not on_trial and not _ending(user).exists():
         raise PaymentRefusal(400, plans.ALREADY_ON_PLAN.format(name=plan.name))
-    if not plan.price_ars_month:
+    amount = price_for(user, plan)
+    if amount is None:
         raise PaymentRefusal(409, NO_ARS_PRICE)
     with transaction.atomic():
         # One checkout per account at a time: a double click or a plan switch must never
@@ -91,9 +123,7 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         open_checkouts = user.provider_subscriptions.select_for_update().filter(
             status=S.PENDING, ended_at=None
         )
-        reusable = open_checkouts.filter(
-            plan=plan, currency=currency, amount=plan.price_ars_month
-        ).first()
+        reusable = open_checkouts.filter(plan=plan, currency=currency, amount=amount).first()
         if reusable is not None:
             return reusable
         # A paused subscription that already ran out its month could still be resumed at
@@ -108,7 +138,7 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         try:
             for old in stale:
                 _drop_checkout(provider, old)
-            return _start(provider, user, plan, currency)
+            return _start(provider, user, plan, currency, amount)
         except PaymentRefusal as exc:
             refusal = exc
     raise refusal
@@ -126,13 +156,13 @@ def _drop_checkout(provider: PaymentProvider, sub: ProviderSubscription) -> None
 
 
 def _start(
-    provider: PaymentProvider, user: User, plan: Plan, currency: str
+    provider: PaymentProvider, user: User, plan: Plan, currency: str, amount: int
 ) -> ProviderSubscription:
     try:
         checkout = provider.start_subscription(
             payer_email=user.email,
             reason=f"Gaucho Weather · plan {plan.name}",
-            amount=plan.price_ars_month,
+            amount=amount,
             currency=currency,
             reference=f"gw-user-{user.pk}-{plan.code}",
             back_url=back_url(),
@@ -144,7 +174,7 @@ def _start(
         plan=plan,
         provider=provider.name,
         currency=currency,
-        amount=plan.price_ars_month,
+        amount=amount,
         external_id=checkout.external_id,
         status=S.PENDING,
         checkout_url=checkout.checkout_url,
@@ -201,21 +231,25 @@ def sync_subscription(
 
 
 def _end(sub: ProviderSubscription, now: datetime) -> None:
-    """The paid month of a locked, cancelled subscription is over: back to Básico."""
+    """The paid month of a locked, cancelled subscription is over: back to the free plan.
+
+    That is Básico, or Productor for a founder, who keeps it free for good (SF3).
+    """
     user = User.objects.get(pk=sub.user_id)
     replaced = (
         user.provider_subscriptions.exclude(pk=sub.pk)
         .filter(status__in=RUNNING, ended_at=None)
         .exists()
     )
-    if not replaced and user.plan_id == sub.plan_id and not user.is_founder:
-        plans.change_plan(user, Plan.BASICO, PlanChange.Reason.PAYMENT_ENDED)
+    if not replaced and user.plan_id == sub.plan_id:
+        free_plan = Plan.PRODUCTOR if user.is_founder else Plan.BASICO
+        plans.change_plan(user, free_plan, PlanChange.Reason.PAYMENT_ENDED)
     sub.ended_at = now
     sub.save(update_fields=["ended_at", "updated_at"])
 
 
 def end_cancelled_subscriptions(now: datetime | None = None) -> int:
-    """Move every cancelled or paused subscription whose paid month is over to Básico.
+    """Move every cancelled or paused subscription whose paid month is over to the free plan.
 
     Idempotent.
 
