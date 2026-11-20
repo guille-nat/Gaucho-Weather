@@ -12,16 +12,25 @@ function PlanCard({
   currency,
   me,
   trialDays,
+  paymentsEnabled,
 }: {
   plan: Plan;
   currency: Currency;
   me: User | null | undefined;
   trialDays: number;
+  paymentsEnabled: boolean;
 }) {
   const current = me?.plan?.code === plan.code;
   // A real reason to choose the highlighted plan now (precios-productor S2): a visitor gets the
   // trial. The founder places left are the banner above the cards, said once.
   const perk = plan.highlighted && !me ? `Probalo ${trialDays} días gratis` : null;
+  const subscribe =
+    me && paymentsEnabled && canSubscribe(me, plan, current) ? (
+      <Link className="btn btn--primary btn--block" to="/perfil/suscripcion">
+        Suscribirme
+      </Link>
+    ) : null;
+  const membershipLine = current && me ? membership(me) : null;
   return (
     <PricingCard
       plan={plan}
@@ -30,10 +39,18 @@ function PlanCard({
       current={current && !!me}
       perk={perk}
       note={
-        current && me && membership(me) ? <p className="plan-membership">{membership(me)}</p> : null
+        membershipLine || (current && subscribe) ? (
+          <>
+            {membershipLine ? <p className="plan-membership">{membershipLine}</p> : null}
+            {/* The current card shows "Tu plan" in place of the action: a trial keeps the way in. */}
+            {current ? subscribe : null}
+          </>
+        ) : null
       }
       action={
-        me ? (
+        me && paymentsEnabled ? (
+          subscribe
+        ) : me ? (
           <button type="button" className="btn btn--secondary btn--block" disabled>
             Próximamente
           </button>
@@ -45,6 +62,17 @@ function PlanCard({
       }
     />
   );
+}
+
+/**
+ * With payments on (pagos-backoffice S8), a paid plan leads to Suscripción, where the checkout
+ * starts. Not for Básico (free), a founder (Productor free for good, the API refuses them) or
+ * the plan the account already pays; a trial account may subscribe to the plan it is trying.
+ */
+function canSubscribe(me: User, plan: Plan, current: boolean): boolean {
+  if (plan.code === 'basico' || me.founder_number != null) return false;
+  const onTrial = !!me.plan_expires_at;
+  return !current || onTrial;
 }
 
 /** S1, S8: three plans, the middle one recommended, and the founder slots left. */
@@ -84,6 +112,7 @@ export function Planes() {
                 currency={currency}
                 me={me.data}
                 trialDays={plans.data.trial_days}
+                paymentsEnabled={plans.data.payments_enabled ?? false}
               />
             ))}
           </div>
@@ -93,8 +122,11 @@ export function Planes() {
             </Link>
           ) : null}
           <p className="fine">
-            Todavía no cobramos: cuando habilitemos el pago te avisamos antes. Quien no es founder
-            prueba Productor {plans.data.trial_days} días y después pasa a Básico.
+            {plans.data.payments_enabled
+              ? 'Los planes pagos se cobran en pesos con Mercado Pago, todos los meses, y te podés dar de baja cuando quieras.'
+              : 'Todavía no cobramos: cuando habilitemos el pago te avisamos antes.'}{' '}
+            Quien no es founder prueba Productor {plans.data.trial_days} días y después pasa a
+            Básico.
           </p>
         </>
       ) : (

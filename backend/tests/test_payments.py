@@ -363,6 +363,35 @@ def test_a_webhook_with_a_non_ascii_signature_is_401(user):
     assert not route.called
 
 
+@pytest.mark.parametrize("body", ['{"data": "x"}', '{"data": ["x"]}', '{"data": 7}'])
+@respx.mock
+def test_an_unsigned_webhook_with_a_malformed_body_is_401(user, body):
+    subscription(user)
+
+    response = APIClient(raise_request_exception=False).post(
+        WEBHOOK, data=body, content_type="application/json"
+    )
+
+    assert response.status_code == 401
+    assert ProviderSubscription.objects.get().status == "pending"
+
+
+@respx.mock
+def test_a_signed_webhook_with_an_odd_type_is_acknowledged_and_ignored(user):
+    subscription(user)
+    route = respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = APIClient(raise_request_exception=False).post(
+        f"{WEBHOOK}?data.id={PREAPPROVAL_ID}",
+        data=json.dumps({"type": ["payment"], "data": {"id": PREAPPROVAL_ID}}),
+        content_type="application/json",
+        **sign(PREAPPROVAL_ID),
+    )
+
+    assert response.status_code == 200
+    assert not route.called
+
+
 @pytest.mark.parametrize(
     "headers",
     [
@@ -485,6 +514,108 @@ def test_cancelled_keeps_the_plan_until_the_period_end_then_basico(user):
     assert user.plan_id == "basico"
     assert PlanChange.objects.filter(user=user, reason="payment_ended").count() == 1
     assert ProviderSubscription.objects.get().ended_at is not None
+
+
+# --- A paused subscription is treated like a cancelled one (S8) --------------------------------
+
+
+@time_machine.travel(NOW, tick=False)
+@respx.mock
+def test_paused_keeps_the_plan_until_the_period_end_then_basico(user):
+    on_plan(user, Plan.PRODUCTOR)
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    # Mercado Pago may drop next_payment_date on a paused preapproval: the stored one counts.
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="paused", next_payment=None))
+    )
+
+    notify("subscription_preapproval", PREAPPROVAL_ID)
+
+    user.refresh_from_db()
+    sub = ProviderSubscription.objects.get()
+    assert (sub.status, sub.next_payment_at, sub.ended_at) == ("paused", NEXT, None)
+    assert user.plan_id == "productor"
+    assert client_for(user).get(MINE).json()["subscription"]["ends_at"] is not None
+    assert tasks.end_cancelled_subscriptions() == 0
+
+    with time_machine.travel(NEXT + timedelta(minutes=1), tick=False):
+        assert tasks.end_cancelled_subscriptions() == 1
+        assert tasks.end_cancelled_subscriptions() == 0
+
+    user.refresh_from_db()
+    assert user.plan_id == "basico"
+    assert PlanChange.objects.filter(user=user, reason="payment_ended").count() == 1
+
+
+@time_machine.travel(NOW, tick=False)
+@respx.mock
+def test_paused_with_no_period_left_moves_to_basico_at_once(user):
+    on_plan(user, Plan.PRODUCTOR)
+    subscription(user, status="authorized", next_payment_at=NOW - timedelta(days=1))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="paused", next_payment=None))
+    )
+
+    notify("subscription_preapproval", PREAPPROVAL_ID)
+
+    user.refresh_from_db()
+    assert user.plan_id == "basico"
+    assert ProviderSubscription.objects.get().ended_at is not None
+
+
+@time_machine.travel(NOW, tick=False)
+@respx.mock
+def test_a_paused_subscription_resumed_after_it_ended_gives_the_plan_back(user):
+    on_plan(user, Plan.BASICO)
+    subscription(user, status="paused", next_payment_at=NOW - timedelta(days=1))
+    ProviderSubscription.objects.update(ended_at=NOW - timedelta(hours=1))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="authorized"))
+    )
+
+    notify("subscription_preapproval", PREAPPROVAL_ID)
+
+    user.refresh_from_db()
+    sub = ProviderSubscription.objects.get()
+    assert (sub.status, sub.ended_at) == ("authorized", None)
+    assert user.plan_id == "productor"
+
+
+@time_machine.travel(NOW, tick=False)
+@respx.mock
+def test_a_cancelled_subscription_that_ended_stays_ended(user):
+    on_plan(user, Plan.BASICO)
+    subscription(user, status="cancelled", next_payment_at=NOW - timedelta(days=1))
+    ProviderSubscription.objects.update(ended_at=NOW - timedelta(hours=1))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="authorized"))
+    )
+
+    notify("subscription_preapproval", PREAPPROVAL_ID)
+
+    user.refresh_from_db()
+    assert user.plan_id == "basico"
+
+
+@time_machine.travel(NOW, tick=False)
+@respx.mock
+def test_subscribing_again_cancels_an_ended_paused_subscription_first(user):
+    subscription(user, status="paused", next_payment_at=NOW - timedelta(days=1))
+    ProviderSubscription.objects.update(ended_at=NOW - timedelta(hours=1))
+    cancel = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+    respx.post(f"{API}/preapproval").mock(
+        return_value=httpx.Response(201, json=preapproval(external_id="new-preapproval"))
+    )
+
+    response = client_for(user).post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+    )
+
+    assert response.status_code == 201
+    assert cancel.called  # a resumed old one would charge twice
+    assert ProviderSubscription.objects.get(external_id=PREAPPROVAL_ID).status == "cancelled"
 
 
 @time_machine.travel(NOW, tick=False)

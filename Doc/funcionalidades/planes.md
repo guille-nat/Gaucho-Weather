@@ -211,3 +211,7 @@ Básico. Los planes pagos se cobran en pesos con Mercado Pago (ver
 - 2026-11-19 — Cobro: los planes pagos se cobran en pesos con Mercado Pago; el plan
   cambia con los motivos `payment` y `payment_ended` (feature `pagos-backoffice`, T1;
   ver [pagos.md](pagos.md)).
+- 2026-11-19 — Pantalla Planes: con pagos habilitados, un plan pago muestra "Suscribirme" y
+  lleva a Suscripción. No lo muestra en Básico, para un founder ni en el plan que ya se paga; una
+  cuenta en prueba lo ve bajo su aviso de prueba. Sin pagos sigue "Próximamente" (pagos-backoffice
+  S8).

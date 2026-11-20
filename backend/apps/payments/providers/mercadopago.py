@@ -166,8 +166,12 @@ class MercadoPago(PaymentProvider):
             body = request.data if isinstance(request.data, dict) else {}
         except ParseError:
             body = {}  # the signature does not cover the body: the query string is enough
-        data_id = request.query_params.get("data.id") or str(
-            (body.get("data") or {}).get("id") or ""
+        # The body is unauthenticated input read before the signature check: never assume
+        # its shape, or a malformed body answers 500 instead of 401.
+        data = body.get("data")
+        body_id = data.get("id") if isinstance(data, dict) else None
+        data_id = request.query_params.get("data.id") or (
+            str(body_id) if isinstance(body_id, str | int) else ""
         )
         parts = {}
         for part in request.headers.get("x-signature", "").split(","):
@@ -192,7 +196,9 @@ class MercadoPago(PaymentProvider):
         if not hmac.compare_digest(expected.encode(), received.encode()):
             raise InvalidSignature("x-signature does not match")
         topic = request.query_params.get("type") or request.query_params.get("topic")
-        kind = WEBHOOK_TOPICS.get(topic or body.get("type"))
+        if not topic and isinstance(body.get("type"), str):
+            topic = body["type"]
+        kind = WEBHOOK_TOPICS.get(topic) if topic else None
         if kind is None or not data_id:
             return None
         return WebhookEvent(kind=kind, resource_id=data_id)

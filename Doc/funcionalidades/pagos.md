@@ -17,13 +17,13 @@ suscripción quedó autorizada. Pagar en dólares todavía no existe. Vive en
 4. Mercado Pago llama al webhook. El backend verifica la firma, **pide el recurso a la API**
    (no confía en el cuerpo) y aplica la regla:
    - suscripción `authorized`: `change_plan(..., reason="payment")`, que termina la prueba;
-   - suscripción `cancelled`: la cuenta conserva el plan hasta `next_payment_at` y después
-     pasa a Básico con `payment_ended`. Si nunca se pagó (venía de `pending`), se cierra sin
+   - suscripción `cancelled` o `paused`: la cuenta conserva el plan hasta `next_payment_at` y
+     después pasa a Básico con `payment_ended`. Si nunca se pagó (venía de `pending`), se cierra sin
      tocar el plan;
    - pagos (`payment` y `subscription_authorized_payment`): se crea o actualiza el `Payment`
      por su id de Mercado Pago. Un pago rechazado no baja el plan.
 5. La tarea `payments.end_cancelled_subscriptions` corre cada hora (minuto 30) y pasa a
-   Básico las suscripciones canceladas cuyo mes pago ya terminó.
+   Básico las suscripciones canceladas o pausadas cuyo mes pago ya terminó.
 
 ### Endpoints
 | Método y ruta | Qué hace |
@@ -49,7 +49,8 @@ Rechazos de `suscribirme/` (todos con `detail` en español):
 siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambios.
 
 ### Webhook
-- Firma inválida o ausente: 401. Sin credenciales configuradas: 503.
+- Firma inválida o ausente: 401, aunque el cuerpo venga malformado (el cuerpo se lee antes de
+  verificar la firma, así que nunca se asume su forma). Sin credenciales configuradas: 503.
 - Si la API de Mercado Pago falla, responde 502 para que Mercado Pago reintente.
 - Es idempotente: la suscripción se busca por su `external_id` con `select_for_update`, y el
   pago se guarda con `update_or_create` sobre su id único.
@@ -69,23 +70,60 @@ siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambi
 `MERCADOPAGO_API_URL` (por defecto `https://api.mercadopago.com`). Con las dos primeras
 vacías los pagos están apagados: `payments_enabled` es `false` y suscribirse responde 503.
 
+### En la app (frontend)
+`frontend/src/pages/Suscripcion.tsx`, API en `frontend/src/api/payments.ts`:
+- Con `payments_enabled` y pesos elegidos, cada plan pago dice "Suscribirme". El botón
+  hace `POST suscribirme/` con `{plan, currency: "ARS"}` y lleva al `checkout_url` con
+  `window.location.assign`. Un rechazo muestra el `detail` tal cual.
+- Con dólares elegidos dice "Pagar en dólares: próximamente" (deshabilitado).
+- Un founder sigue con el pedido al equipo: la API rechaza su suscripción.
+- En prueba, el plan que prueba también ofrece "Suscribirme" en vez de "Quedarme con".
+- Con los pagos apagados todo sigue como antes: "Pedir este plan" y el aviso de que el
+  equipo aplica el pedido a mano, en las dos monedas.
+- `?pago=ok|pendiente|error` (la vuelta de Mercado Pago) muestra un aviso arriba.
+- "Darme de baja" usa `POST cancelar/` si hay una suscripción `authorized` o `paused`, y
+  avisa hasta cuándo sigue el plan. Sin suscripción usa el pedido de baja de siempre. Una
+  suscripción ya cancelada no muestra el botón: el plan termina solo.
+- "Tus pagos" muestra la suscripción (estado, monto por mes, próximo cobro o fin) y los
+  pagos con fecha, monto y estado.
+
 ## Probar en el sandbox
-1. En el panel de Mercado Pago, "Tus integraciones", creá (o abrí) la aplicación con
-   suscripciones, y creá un vendedor y un comprador de prueba.
-2. Copiá el access token `TEST-...` del vendedor de prueba en `MERCADOPAGO_ACCESS_TOKEN`.
-3. En "Webhooks > Configurar notificaciones" cargá la URL pública
-   `https://<tu-dominio>/api/pagos/mercadopago/webhook/` con los eventos de suscripciones y
-   pagos, y copiá la clave secreta en `MERCADOPAGO_WEBHOOK_SECRET`. En local hace falta un
-   túnel (por ejemplo ngrok o cloudflared) hacia el backend.
-4. Reiniciá `backend` y `worker`, suscribite desde la app con el email del comprador de
-   prueba y pagá con una tarjeta de prueba.
-5. En el admin (`/api/admin/`, sección `Payments`) tienen que aparecer la suscripción `authorized` y el
-   pago, y la cuenta en el plan elegido.
+Probado de punta a punta en local el 2026-11-19 (alta, pago aprobado, plan cambiado, pago
+registrado).
+
+1. En el panel (https://www.mercadopago.com.ar/developers/panel/app) creá una aplicación con la
+   solución **Suscripciones**. En "Cuentas de prueba" tenés (o creás) un vendedor y un
+   comprador de Argentina.
+2. Copiá el access token de la app en `MERCADOPAGO_ACCESS_TOKEN`. Aunque sea de prueba empieza
+   con `APP_USR-`; `GET /users/me` con ese token tiene que traer el tag `test_user`.
+3. `.env` local: `PUBLIC_APP_URL=http://127.0.0.1:5173` y abrí la app en esa dirección.
+   Mercado Pago rechaza un `back_url` con `localhost` ("Invalid value for back_url").
+4. `docker compose up -d backend worker` (con `restart` no se relee el `.env`).
+5. El usuario local que se suscribe tiene que tener el email del comprador de prueba:
+   `test_user_<números del nickname TESTUSER...>@testuser.com` (no es el User ID; el panel no
+   lo muestra). Con un email real, Mercado Pago responde "Both payer and collector must be
+   real or test users". `POST /users/test_user {"site_id": "MLA"}` crea un comprador nuevo y
+   devuelve su email.
+6. En el checkout, entrá con el comprador de prueba y pagá con una tarjeta de prueba
+   (titular `APRO`, DNI 12345678 para un pago aprobado).
+7. Webhook: con URL pública, cargala en "Webhooks > Configurar notificaciones" con los
+   eventos "Planes y suscripciones" y "Pagos" y copiá la clave secreta en
+   `MERCADOPAGO_WEBHOOK_SECRET`. Sin túnel, usá cualquier secreto y mandá vos la notificación
+   firmada al backend: `POST /api/pagos/mercadopago/webhook/?type=subscription_preapproval&data.id=<preapproval>`
+   con `x-request-id` y `x-signature: ts=<ts>,v1=<HMAC-SHA256 de "id:<data.id>;request-id:<x-request-id>;ts:<ts>;">`.
+   Para el cobro, lo mismo con `type=subscription_authorized_payment` y el id que devuelve
+   `GET /authorized_payments/search?preapproval_id=<preapproval>`.
+8. En el admin (`/api/admin/`, sección `Payments`) o en el backoffice tienen que aparecer la
+   suscripción `authorized` y el pago, y la cuenta en el plan elegido.
 
 En producción se usan las credenciales `APP_USR-...` de la cuenta real; la URL de la API es
 la misma.
 
 ## Decisiones y por qué
+- **Decisión:** en la app, el aviso "próximamente" en dólares aparece solo con los pagos
+  encendidos.
+  **Por qué:** con los pagos apagados no se cobra online en ninguna moneda; el pedido al
+  equipo cubre las dos. (Interpretación de S5/S6 sin confirmar con el usuario.)
 - **Decisión:** solo pesos con Mercado Pago; dólares quedan "próximamente".
   **Por qué:** la documentación oficial solo muestra `currency_id: "ARS"` para
   `auto_recurring`, y Mercado Pago no convierte: mandar 10 por "USD 10" cobra $10.
@@ -105,6 +143,16 @@ la misma.
 - **Decisión:** al cancelar, el plan sigue hasta `next_payment_at`.
   **Por qué:** el productor ya pagó ese mes. Se usa una tarea propia porque
   `accounts.expire_trials` solo maneja pruebas.
+- **Decisión:** una suscripción pausada se trata como una cancelada: conserva el plan hasta
+  `next_payment_at` (la guardada, porque Mercado Pago puede no mandarla al pausar) y después
+  pasa a Básico.
+  **Por qué:** decisión del usuario (2026-11-19). Al pausar se cortan los cobros; antes la
+  cuenta se quedaba con el plan pago sin fecha de fin.
+  Una pausada se puede reanudar en Mercado Pago:
+  - si vuelve a `authorized` después de terminada, el plan vuelve;
+  - si la persona se suscribe de nuevo, la pausada terminada se cancela antes en Mercado Pago,
+    para que reanudarla no cobre dos veces.
+  Una cancelada terminada no se revive.
 - **Decisión:** un pago rechazado no baja el plan.
   **Por qué:** Mercado Pago reintenta el cobro y cancela la suscripción si sigue fallando;
   esa cancelación es la que baja el plan.
@@ -136,14 +184,21 @@ la misma.
 - Tests: `backend/tests/test_payments.py` (la API de Mercado Pago está simulada).
 
 ## Pendientes
-- Una suscripción `paused` mantiene el plan pago sin fecha de fin (falta decidir qué hacer).
 - `ts` de la firma no se valida por antigüedad: una notificación capturada puede repetirse.
   El daño es acotado porque el estado siempre se vuelve a pedir a la API. No se agregó una
   ventana de tiempo sin confirmar cómo manda `ts` Mercado Pago en los reintentos.
 - Un pago cuya suscripción todavía no se conoce se responde 200 y no se reintenta: puede
   faltar en el historial (no afecta el plan).
+- Una notificación firmada de un recurso que Mercado Pago responde 404 da 502, y Mercado Pago
+  la sigue reintentando; podría responderse 200.
+- Si Mercado Pago rechaza el alta con un 4xx, el usuario lee "No pudimos conectar con Mercado
+  Pago…", que no es exacto.
 
 ## Historial
 - 2026-11-19: versión inicial (feature `pagos-backoffice`, T1).
 - 2026-11-19: un checkout pendiente por cuenta y firma comparada en bytes (review de T1).
 - 2026-11-19: la cancelación remota de un checkout viejo no se pierde si falla el nuevo (review del fix).
+- 2026-11-19: pantalla de pagos en Tu suscripción (T4).
+- 2026-11-19: el webhook responde 401, no 500, ante un cuerpo malformado sin firma (verificación de T1–T4).
+- 2026-11-19: una suscripción pausada se trata como cancelada (S8).
+- 2026-11-19: prueba de punta a punta en el sandbox, en local y sin túnel; receta corregida.

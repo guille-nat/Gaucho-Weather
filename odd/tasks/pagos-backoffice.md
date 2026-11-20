@@ -44,6 +44,9 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
   - "Darme de baja" uses `/api/pagos/cancelar/` when a provider subscription exists.
   - The payment history is listed on the page.
   - `/backoffice`, only for superusers (others are redirected), has tabs Resumen, Cuentas, Pedidos, Pagos, Precios and Registro. It is reached from Perfil by a link shown only to superusers. It is Operate mode in the "Cielo vivo" system and uses the width on desktop.
+- **S8 — Follow-ups decided by the user** (L15):
+  - Planes: with `payments_enabled`, a logged-in user's paid plan leads to Suscripción instead of "Todavía no cobramos" / "Próximamente".
+  - A `paused` subscription is treated like a cancelled one: it keeps the plan until `next_payment_at`, then moves to Básico with `payment_ended`.
 - **S7 — Backoffice payments** (unit A, after phase 1): `GET /api/backoffice/pagos/` lists payments and subscriptions; `resumen` adds monthly ARS revenue from authorized subscriptions and payments this month.
 
 ## Tasks
@@ -53,7 +56,8 @@ Branch: `feat/cielo-animado` (continues; not pushed) · Delivery: ask-on-risk ·
 | T2 | S4 | delegated, unit B, parallel with T1 | done | RED 43 failed → GREEN 73 passed; parent spot check 73 passed |
 | T1b | S3 (review advisories) | inline | done | RED 4 failed → GREEN 40 passed; suite 580 passed |
 | T3 | S7 | inline (≈250 lines, one behaviour: no writer reason) | done | RED 9 failed → GREEN; suite 589 passed |
-| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | in progress | |
+| T5 | S8 | inline | done | backend RED 4 → GREEN, suite 598; frontend RED 3 → GREEN, suite 288 with one known flaky timeout (passes alone) |
+| T4 | S5, S6 (+ Pagos tab for S7) | delegated, unit C (Writer trigger b: context backstop) | done | RED 26/31 → GREEN 31/31; parent spot check 74/74 in the six related files |
 
 Route evidence: Writer trigger (a) parallelism (A and B are independent behaviours with disjoint edit surfaces, each several files) plus (b) the context backstop. The parent owns `config/settings/base.py` (INSTALLED_APPS) and `config/urls.py`, registered upfront.
 
@@ -115,3 +119,44 @@ An independent verifier runs after T1–T4.
 - **L11** (2026-11-19): RDD assess of 3566828 (T3): medium, `under_budget` (290 lines), so it stays pending in the open slice.
   - T4 was delegated to one bounded writer under the context backstop.
   - Allowed edit surfaces: the frontend pages, api, mocks, tests and styles, plus the three docs.
+- **L12** (2026-11-19): unit C (T4) is done, about 3.5k lines, one behaviour across six tabs and with its tests.
+  - Verification:
+    - `npm test`: 281/282, with one flaky 1s timeout that also fails at HEAD;
+    - `npm run typecheck` and `npm run build`: fail only on `src/sw.ts`, because `workbox-*` is declared in package.json but not installed in the host `node_modules` (environment, also at HEAD);
+    - `npm run lint`: eslint and prettier are clean on `src`; the only failure is the git-ignored `.impeccable/hook.cache.json`.
+  - Choices the writer made, pending the user's confirmation:
+    1. "próximamente" for dollars is shown only when payments are on;
+    2. a founder keeps the request flow;
+    3. a trial account sees "Suscribirme";
+    4. a cancelled subscription inside its paid month hides "Darme de baja";
+    5. a non-superuser is redirected to /perfil;
+    6. "Aplicar" acts at once, while "Rechazar" opens a dialog for a note;
+    7. the wording of the notices;
+    8. Planes.tsx still says "Todavía no cobramos" and "Próximamente" even with payments on (open question).
+- **L13** (2026-11-19): independent verifier over T1–T4.
+  - Verdicts: S1, S2, S4, S5, S6 and S7 PASS; S3 PARTIAL because of blocker B1.
+  - B1: an unsigned webhook whose `data` is not a dict answered 500 instead of 401, at `mercadopago.py:170`.
+  - Invariants hold: the touched endpoints differ from the baseline only by the added `payments_enabled` and `resumen.payments`.
+  - One correction batch fixed B1 and advisory 1 (a non-string `type`). RED was 4 failed; GREEN is a suite of 593 passed.
+  - The recheck is those 4 tests.
+  - Advisories 2 (a provider 404 gives 502 and Mercado Pago keeps retrying) and 3 (the wording of a 4xx) are logged in `pagos.md`.
+- **L14** (2026-11-19): the slice 63568b5..2dc8a6e was reviewed under lineage review-0e1bb17d9dd195cd: approved and acknowledged, with one advisory.
+  - The advisory: Pedidos stayed on a page that no longer existed after its last request was resolved.
+  - Fixed: Pedidos now steps back a page. RED was re-checked against the old code; GREEN is a frontend suite of 283/283.
+  - Open questions for the user: Planes still says "Todavía no cobramos" with payments on; and what a `paused` subscription does to the plan.
+- **L15** (2026-11-19, user, verbatim): "dale, hacé el 1 y el 2 y yo busco credenciales de test para MP".
+  - 1 = Planes leads to Suscripción when payments are on.
+  - 2 = paused is treated like cancelled (the parent's proposal, accepted).
+- **L16** (2026-11-19): T5 (S8) done.
+  - Paused is now treated like cancelled.
+  - A paused subscription that ended revives on `authorized`; an ended cancelled one never does.
+  - Re-subscribing cancels an ended paused subscription first.
+  - Planes leads to Suscripción ("Suscribirme") when payments are on. It does not for Básico, a founder, or the plan already paid. A trial keeps the link under its note.
+- **L17** (2026-11-19): 6d5a615..530dcef was reviewed with the risk and reliability lenses: approved with no findings and acknowledged.
+  - The reviewed boundary is now 530dcef.
+  - Next: the end-to-end Mercado Pago sandbox test, once the user loads `TEST-...` credentials.
+- **L18** (2026-11-19): end-to-end sandbox test passed locally, without a tunnel.
+  - User: "lo vamos a probar en local".
+  - Real MP sandbox: preapproval created from the app, test buyer paid $14.900 (approved), signed simulated webhooks moved the subscription to `authorized`, the account to Productor, and saved the approved Payment 14900 ARS.
+  - Findings: MP rejects a `localhost` back_url (use 127.0.0.1); test users' email is `test_user_<nickname digits>@testuser.com`; test app tokens start with `APP_USR-`. Recipe updated in `Doc/funcionalidades/pagos.md`.
+  - Next (user's decision): production webhook URL and credentials, push/PR.

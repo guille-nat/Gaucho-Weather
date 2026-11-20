@@ -40,6 +40,8 @@ NO_SUBSCRIPTION = "No tenés una suscripción con Mercado Pago."
 
 S = ProviderSubscription.Status
 RUNNING = (S.AUTHORIZED, S.PAUSED)  # the account has (or keeps) the paid plan
+# Charges stopped: the plan is kept until the paid month is over (S8 treats paused as cancelled).
+STOPPED = (S.CANCELLED, S.PAUSED)
 
 
 class PaymentRefusal(Exception):
@@ -94,11 +96,18 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         ).first()
         if reusable is not None:
             return reusable
+        # A paused subscription that already ran out its month could still be resumed at
+        # Mercado Pago and charge again next to the new one: cancel it as well.
+        stale = list(open_checkouts) + list(
+            user.provider_subscriptions.select_for_update()
+            .filter(status=S.PAUSED)
+            .exclude(ended_at=None)
+        )
         # A remote cancel cannot be rolled back, so a failure after it must not roll back
         # its local record either: keep the refusal, let the block commit, then raise it.
         try:
-            for stale in open_checkouts:
-                _drop_checkout(provider, stale)
+            for old in stale:
+                _drop_checkout(provider, old)
             return _start(provider, user, plan, currency)
         except PaymentRefusal as exc:
             refusal = exc
@@ -174,12 +183,15 @@ def sync_subscription(
             sub.next_payment_at = remote.next_payment_at
         sub.save(update_fields=["status", "next_payment_at", "updated_at"])
         if sub.ended_at is not None:
-            return sub  # finished already: a late notification changes nothing
+            if not (previous == S.PAUSED and sub.status == S.AUTHORIZED):
+                return sub  # finished already: a late notification changes nothing
+            sub.ended_at = None  # a paused subscription was resumed: it runs again
+            sub.save(update_fields=["ended_at", "updated_at"])
         if sub.status == S.AUTHORIZED:
             plans.change_plan(sub.user, sub.plan_id, PlanChange.Reason.PAYMENT)
             # A new subscription replaces one still running out its paid month.
             _ending(sub.user).exclude(pk=sub.pk).update(ended_at=now)
-        elif sub.status == S.CANCELLED:
+        elif sub.status in STOPPED:
             if previous == S.PENDING:
                 sub.ended_at = now  # never paid: there is no plan to take back
                 sub.save(update_fields=["ended_at", "updated_at"])
@@ -203,19 +215,21 @@ def _end(sub: ProviderSubscription, now: datetime) -> None:
 
 
 def end_cancelled_subscriptions(now: datetime | None = None) -> int:
-    """Move every cancelled subscription whose paid month is over to Básico. Idempotent.
+    """Move every cancelled or paused subscription whose paid month is over to Básico.
+
+    Idempotent.
 
     Trials expire on their own task (`accounts.expire_trials`), which only handles trials.
     """
     now = now or timezone.now()
     due = ProviderSubscription.objects.filter(
-        status=S.CANCELLED, ended_at=None, next_payment_at__lte=now
+        status__in=STOPPED, ended_at=None, next_payment_at__lte=now
     ).values_list("pk", flat=True)
     ended = 0
     for pk in due:
         with transaction.atomic():
             sub = ProviderSubscription.objects.select_for_update().get(pk=pk)
-            if sub.status != S.CANCELLED or sub.ended_at is not None:
+            if sub.status not in STOPPED or sub.ended_at is not None:
                 continue  # authorized again or ended meanwhile
             _end(sub, now)
         ended += 1

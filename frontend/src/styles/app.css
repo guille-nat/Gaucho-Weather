@@ -3777,6 +3777,489 @@ button.alert-event-tap:focus-visible {
   gap: 0 20px;
 }
 
+/* Payments on Suscripción (pagos-backoffice S6): the Mercado Pago subscription, then each charge. */
+.sub-return {
+  font-weight: 700;
+}
+
+.sub-provider {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sub-provider-plan {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.sub-payments {
+  display: grid;
+}
+
+.sub-payment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding-block: 10px;
+}
+
+.sub-payment + .sub-payment {
+  border-top: 1px solid var(--line);
+}
+
+.sub-payment-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── Backoffice (pagos-backoffice S6): Operate mode, the whole content column ───────── */
+
+.page-backoffice {
+  display: grid;
+  gap: 16px;
+}
+
+.page-backoffice .page-head {
+  padding-bottom: 4px;
+}
+
+/* One block, so the page's entrance moves the tabs and their panel together. */
+.bo-tabs {
+  display: grid;
+  gap: 20px;
+}
+
+/*
+ * Six tabs in one row (modern-web-guidance `tabs`): on a phone the row scrolls and its edges
+ * fade where more tabs wait, instead of wrapping into two rows.
+ */
+@property --bo-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --bo-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+.bo-tablist {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: 2.5rem;
+  border-bottom: 1px solid var(--line);
+  --bo-fade-size: 2.5rem;
+  mask:
+    linear-gradient(black, black) no-clip subtract,
+    linear-gradient(to right, black, transparent) 0 0 / var(--bo-fade-start) 100% no-repeat no-clip,
+    linear-gradient(to right, transparent, black) 100% 0 / var(--bo-fade-end) 100% no-repeat no-clip;
+  animation:
+    bo-fade-start linear both,
+    bo-fade-end linear both;
+  animation-timeline: scroll(self inline);
+  animation-range:
+    0 var(--bo-fade-size),
+    calc(100% - var(--bo-fade-size)) 100%;
+}
+
+.bo-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes bo-fade-start {
+  to {
+    --bo-fade-start: var(--bo-fade-size);
+  }
+}
+
+@keyframes bo-fade-end {
+  from {
+    --bo-fade-end: var(--bo-fade-size);
+  }
+}
+
+.bo-tab-btn {
+  position: relative;
+  flex: none;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: var(--text-body);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.bo-tab-btn:hover {
+  color: var(--ink);
+}
+
+.bo-tab-btn:focus-visible {
+  outline: var(--focus);
+  outline-offset: -3px;
+  border-radius: var(--radius-control);
+}
+
+/* The open tab: white, plus the gold bar of the active state, so colour never carries it alone.
+   A border, not a shadow, so forced-colours mode keeps it. */
+.bo-tab-btn[aria-selected='true'] {
+  color: var(--ink);
+}
+
+.bo-tab-btn[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 12px 0;
+  border-block-end: 4px solid var(--gold);
+  border-radius: 4px 4px 0 0;
+}
+
+.bo-tab {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+/* Resumen: three groups of figures, label left and figure right, read like a ledger. */
+.bo-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.bo-summary-note {
+  grid-column: 1 / -1;
+}
+
+.bo-summary-group .panel-title {
+  margin-bottom: 4px;
+}
+
+.bo-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 10px;
+}
+
+.bo-fact + .bo-fact {
+  border-top: 1px solid var(--line);
+}
+
+.bo-fact dt {
+  color: var(--ink-2);
+}
+
+.bo-fact dd {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Cuentas: the search and its two filters in one row once there is room. */
+.bo-filters {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+@media (min-width: 760px) {
+  .bo-filters {
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+  }
+}
+
+.bo-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bo-kind {
+  justify-self: start;
+}
+
+/*
+ * Tables (modern-web-guidance `responsive-table`): a scrolling panel on a wide column; below
+ * 640 px of its own width each row becomes a block with its labels, so nothing is cut off.
+ */
+.bo-table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  container-type: inline-size;
+}
+
+.bo-table-wrap:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.bo-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.bo-table th,
+.bo-table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bo-table thead th {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bo-table tbody th {
+  font-weight: 400;
+}
+
+.bo-table tbody tr > * {
+  border-top: 1px solid var(--line);
+}
+
+.bo-table :is(th, td):first-child {
+  padding-left: 16px;
+}
+
+.bo-table :is(th, td):last-child {
+  padding-right: 16px;
+}
+
+.bo-table .bo-num {
+  text-align: right;
+}
+
+.bo-person {
+  display: grid;
+}
+
+.bo-person-name,
+.bo-strong {
+  font-weight: 700;
+}
+
+.bo-person-email {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.bo-person + .chip {
+  margin-top: 6px;
+}
+
+.bo-when,
+.bo-table td[data-label='Alta'],
+.bo-table td[data-label='Fecha'],
+.bo-table td[data-label='Pedido el'],
+.bo-table td[data-label='Último ingreso'] {
+  white-space: nowrap;
+}
+
+.bo-what {
+  min-width: 18rem;
+  text-wrap: pretty;
+}
+
+.bo-mono {
+  overflow-wrap: anywhere;
+}
+
+.bo-actions {
+  white-space: nowrap;
+}
+
+.bo-actions > .btn + .btn {
+  margin-left: 8px;
+}
+
+.bo-row-btn {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+@container (width < 640px) {
+  .bo-table,
+  .bo-table tbody,
+  .bo-table tr,
+  .bo-table th,
+  .bo-table td {
+    display: block;
+  }
+
+  .bo-table thead {
+    display: none;
+  }
+
+  .bo-table tbody tr {
+    padding: 12px 16px;
+  }
+
+  .bo-table tbody tr + tr {
+    border-top: 1px solid var(--line);
+  }
+
+  .bo-table tbody tr > * {
+    border-top: 0;
+    padding: 4px 0;
+  }
+
+  .bo-table tbody :is(th, td):is(:first-child, :last-child) {
+    padding-inline: 0;
+  }
+
+  .bo-table tbody th {
+    padding-bottom: 8px;
+  }
+
+  .bo-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 40%) minmax(0, 1fr);
+    gap: 12px;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .bo-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--ink-2);
+  }
+
+  .bo-table .bo-num {
+    text-align: left;
+  }
+
+  .bo-what {
+    min-width: 0;
+  }
+
+  .bo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px;
+  }
+
+  .bo-actions > .btn + .btn {
+    margin-left: 0;
+  }
+}
+
+.bo-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bo-pager-where {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Precios: one form per plan, side by side once there is room. */
+.bo-prices {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 760px) {
+  .bo-prices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.bo-price-set {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bo-price-name {
+  margin-bottom: 4px;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.bo-price-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.bo-price .btn {
+  justify-self: start;
+}
+
+/* A write on one row, as a native modal like the plan cancel confirm (no display rule here). */
+.bo-dialog {
+  width: min(32rem, 100% - 2 * var(--gutter));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--ink);
+}
+
+.bo-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+.bo-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(4 16 42 / 0.6);
+}
+
+.bo-dialog-box {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--panel-deep);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.bo-dialog-title {
+  font-size: 1.125rem;
+  text-wrap: balance;
+}
+
+/* The action and the way out stacked, never a thumb apart. */
+.bo-dialog-actions {
+  display: grid;
+  gap: 10px;
+}
+
 /* ───────── Lote waiting for its first forecast (cuenta-planes-alertas S12) ───────── */
 
 /* A calm sweep on a thin track: progress without a number we could not keep. */
@@ -4008,7 +4491,7 @@ button.alert-event-tap:focus-visible {
 }
 
 /* Dialogs grow from 96 % with a fade and close a little faster; the backdrop fades with them. */
-:is(.crops-dialog, .sub-cancel-dialog) {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog) {
   opacity: 0;
   transition-property: opacity, scale, display, overlay;
   transition-duration: 160ms;
@@ -4016,7 +4499,7 @@ button.alert-event-tap:focus-visible {
   transition-behavior: allow-discrete;
 }
 
-:is(.crops-dialog, .sub-cancel-dialog)[open] {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open] {
   opacity: 1;
   transition-duration: 240ms;
 
@@ -4026,11 +4509,11 @@ button.alert-event-tap:focus-visible {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :is(.crops-dialog, .sub-cancel-dialog) {
+  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog) {
     scale: 0.96;
   }
 
-  :is(.crops-dialog, .sub-cancel-dialog)[open] {
+  :is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open] {
     scale: 1;
 
     @starting-style {
@@ -4039,7 +4522,7 @@ button.alert-event-tap:focus-visible {
   }
 }
 
-:is(.crops-dialog, .sub-cancel-dialog)::backdrop {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)::backdrop {
   opacity: 0;
   transition-property: opacity, display, overlay;
   transition-duration: 160ms;
@@ -4047,7 +4530,7 @@ button.alert-event-tap:focus-visible {
   transition-behavior: allow-discrete;
 }
 
-:is(.crops-dialog, .sub-cancel-dialog)[open]::backdrop {
+:is(.crops-dialog, .sub-cancel-dialog, .bo-dialog)[open]::backdrop {
   opacity: 1;
   transition-duration: 240ms;
 

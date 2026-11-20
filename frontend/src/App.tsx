@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { AppShell } from './components/AppShell';
 import { PublicOnly, RequireAuth } from './components/Guards';
 import { Alertas } from './pages/Alertas';
+import { Backoffice } from './pages/Backoffice';
 import { Buscar } from './pages/Buscar';
 import { Inicio } from './pages/Inicio';
 import { LoteDetail } from './pages/LoteDetail';
@@ -39,6 +40,8 @@ export function AppRoutes() {
           <Route path="/alertas" element={<Alertas />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/perfil/suscripcion" element={<Suscripcion />} />
+          {/* Super admins only: the page itself sends everyone else back (pagos-backoffice S6). */}
+          <Route path="/backoffice" element={<Backoffice />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
