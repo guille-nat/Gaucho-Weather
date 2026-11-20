@@ -58,6 +58,8 @@ class SprayHour:
     time: datetime
     level: Level
     causes: tuple[str, ...]  # worst first; empty when green
+    delta_t_c: float | None = None  # dry bulb − wet bulb, unrounded; None without the data
+    inversion: bool = False  # the inversion rule fired (possible or probable)
 
 
 @dataclass(frozen=True, slots=True)

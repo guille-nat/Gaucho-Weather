@@ -1,15 +1,6 @@
-import {
-  useEffect,
-  useId,
-  useImperativeHandle,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-  type Ref,
-} from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import type { Lote } from '../api/types';
 import { FormAlert } from '../components/Field';
 import { ForecastSkeleton, ForecastView } from '../components/ForecastView';
@@ -20,7 +11,6 @@ import { PlantingsEditor } from '../components/PlantingsEditor';
 import { StatusChip } from '../components/StatusChip';
 import { useOnline } from '../hooks/useOnline';
 import {
-  cropLabels,
   draftsFrom,
   plantingsError,
   plantingsOf,
@@ -28,13 +18,13 @@ import {
   type PlantingDraft,
   type PlantingsErrors,
 } from '../lib/crops';
+import { formatStamp } from '../lib/format';
 import { formError } from '../lib/formErrors';
-import { loteMeta } from '../lib/lote';
+import { loteHeaderLine } from '../lib/lote';
 import { applySky, skyTheme } from '../lib/sky';
 import {
   FORECAST_WAIT,
   isForecastPending,
-  useDeleteLote,
   useLote,
   useLoteForecast,
   useRetryLoteForecast,
@@ -42,8 +32,27 @@ import {
 } from '../query/hooks';
 import { Saved } from './Perfil';
 
-/** The forecast part of the lote: the Inicio layout plus its decisions (S5). */
-function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
+/** `Pronóstico jue 19 · 18:00 · 3 modelos`: how old the forecast below is (lote-tablero S2). */
+function ForecastStamp({ loteId }: { loteId: number }) {
+  const forecast = useLoteForecast(loteId).data?.forecast;
+  if (!forecast) return null;
+  const count = forecast.models.length;
+  const models = count ? ` · ${count} ${count === 1 ? 'modelo' : 'modelos'}` : '';
+  return (
+    <p className="forecast-stamp">{`Pronóstico ${formatStamp(forecast.fetched_at)}${models}`}</p>
+  );
+}
+
+/** The forecast part of the lote: a decision board (lote-tablero), with `after` before credits. */
+function LoteForecast({
+  lote,
+  header,
+  after,
+}: {
+  lote: Lote;
+  header: ReactNode;
+  after: ReactNode;
+}) {
   const forecast = useLoteForecast(lote.id);
   const retry = useRetryLoteForecast(lote.id);
   const online = useOnline();
@@ -104,6 +113,7 @@ function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
       decisions="block"
       frostModels={models}
       notice={stale ? <OfflineStrip servedAt={snapshot.servedAt} /> : null}
+      after={after}
     />
   );
 }
@@ -113,13 +123,7 @@ function LoteForecast({ lote, header }: { lote: Lote; header: ReactNode }) {
  * modal dialog that saves only `plantings`. The browser keeps focus inside, closes it on Esc and
  * the back gesture (dropping the unsaved rows) and gives focus back to "Cambiar cultivos".
  */
-/** What the page calls to open the crops dialog from elsewhere (the header's crops button). */
-interface CropsDialog {
-  open: () => void;
-}
-
-/** One dialog per page; "Cambiar cultivos" here and the header's crops button both open it. */
-function ChangeCrops({ lote, ref }: { lote: Lote; ref?: Ref<CropsDialog> }) {
+function ChangeCrops({ lote }: { lote: Lote }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const update = useUpdateLote(lote.id);
@@ -135,7 +139,6 @@ function ChangeCrops({ lote, ref }: { lote: Lote; ref?: Ref<CropsDialog> }) {
     });
     dialogRef.current?.showModal();
   }
-  useImperativeHandle(ref, () => ({ open }));
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -190,48 +193,9 @@ function ChangeCrops({ lote, ref }: { lote: Lote; ref?: Ref<CropsDialog> }) {
   );
 }
 
-function DeleteLote({ lote }: { lote: Lote }) {
-  const [asking, setAsking] = useState(false);
-  const remove = useDeleteLote(lote.id);
-  const navigate = useNavigate();
-
-  if (!asking) {
-    return (
-      <button type="button" className="btn btn--danger btn--block" onClick={() => setAsking(true)}>
-        <Icon name="trash" />
-        Borrar lote
-      </button>
-    );
-  }
-  return (
-    <div className="confirm" role="group" aria-labelledby="confirm-delete">
-      <p id="confirm-delete" className="confirm-text">
-        ¿Borrar {lote.name}? Se pierden sus datos y no se puede deshacer.
-      </p>
-      <FormAlert message={remove.error?.message} />
-      <div className="confirm-actions">
-        <button
-          type="button"
-          className="btn btn--danger-solid"
-          disabled={remove.isPending}
-          onClick={() =>
-            remove.mutate(undefined, { onSuccess: () => navigate('/lotes', { replace: true }) })
-          }
-        >
-          {remove.isPending ? 'Borrando…' : 'Sí, borrar'}
-        </button>
-        <button type="button" className="btn btn--secondary" onClick={() => setAsking(false)}>
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function LoteDetail() {
   const id = Number(useParams().id);
   const lote = useLote(id);
-  const crops = useRef<CropsDialog>(null);
 
   if (!lote.data) {
     return (
@@ -252,8 +216,7 @@ export function LoteDetail() {
   }
 
   const data = lote.data;
-  const meta = loteMeta(data, { crops: false });
-  const cropNames = cropLabels(plantingsOf(data)).join(' · ');
+  // One edit action (the pencil) and the crops named once, with their sowing date (S2, S5).
   const header = (
     <header className="place-bar place-bar--lote">
       <div className="place-names">
@@ -262,19 +225,8 @@ export function LoteDetail() {
           Mis lotes
         </Link>
         <h1 className="place-name">{data.name}</h1>
-        <p className="place-region">{[data.establishment, meta].filter(Boolean).join(' · ')}</p>
-        {/* S2: the crops change from the top of the page, not only from the facts below. */}
-        <button type="button" className="crops-quick" onClick={() => crops.current?.open()}>
-          <Icon name="sprout" size={20} />
-          {cropNames ? (
-            <span>
-              <span className="sr-only">Cambiar cultivos:</span> {cropNames}
-            </span>
-          ) : (
-            <span>Agregar cultivos</span>
-          )}
-          <Icon name="pencil" size={16} strokeWidth={2.4} />
-        </button>
+        <p className="place-region">{loteHeaderLine(data)}</p>
+        <ForecastStamp loteId={data.id} />
       </div>
       <Link
         className="icon-btn icon-btn--solid"
@@ -285,11 +237,10 @@ export function LoteDetail() {
       </Link>
     </header>
   );
-  return (
-    <div className="page page-detail">
-      <LoteForecast lote={data} header={header} />
-
-      <section className="section lote-history" aria-label="Histórico">
+  // After the 7 days: the history (a tool), then the static data folded away (S5).
+  const after = (
+    <div className="board-after">
+      <section className="lote-history" aria-label="Histórico">
         <Link className="history-link" to={`/lotes/${data.id}/historico`}>
           <Icon name="history" size={26} />
           <span className="history-link-text">
@@ -299,20 +250,18 @@ export function LoteDetail() {
           <Icon name="chevronRight" strokeWidth={2.6} />
         </Link>
       </section>
-
-      <section className="section lote-facts" aria-labelledby="sec-facts">
-        <h2 id="sec-facts" className="panel-title">
+      <details className="lote-facts">
+        <summary className="lote-facts-summary">
+          <Icon name="chevronRight" className="lote-facts-chevron" strokeWidth={2.6} />
           Datos del lote
-        </h2>
-        <LoteFacts lote={data} cropsAction={<ChangeCrops lote={data} ref={crops} />} />
-        <div className="detail-actions">
-          <Link className="btn btn--light btn--block" to={`/lotes/${data.id}/editar`}>
-            <Icon name="pencil" />
-            Editar lote
-          </Link>
-          <DeleteLote lote={data} />
-        </div>
-      </section>
+        </summary>
+        <LoteFacts lote={data} cropsAction={<ChangeCrops lote={data} />} />
+      </details>
+    </div>
+  );
+  return (
+    <div className="page page-detail">
+      <LoteForecast lote={data} header={header} after={after} />
     </div>
   );
 }

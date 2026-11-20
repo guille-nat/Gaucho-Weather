@@ -300,6 +300,33 @@ def _hour_skies(models: dict[str, list[Hour]], series: list[Hour]) -> dict[datet
     }
 
 
+def _hour_sprays(series: list[Hour], upcoming: list[Hour], payloads: dict[str, dict]) -> dict:
+    """The engine's spray rating of each upcoming daylight hour (lote-tablero S1).
+
+    Same rule and the same consensus series as the "Pulverizar hoy" decision, with each
+    day's own sun times; night hours and days without sun times are not rated.
+    """
+    index = {h.time: i for i, h in enumerate(series)}
+    sun: dict[date, tuple[datetime | None, datetime | None]] = {}
+    sprays: dict[datetime, dict | None] = {}
+    for hour in upcoming:
+        day = hour.time.date()
+        if day not in sun:
+            sun[day] = _sun_times(payloads, day)
+        sunrise, sunset = sun[day]
+        if sunrise is None or sunset is None or not sunrise <= hour.time < sunset:
+            sprays[hour.time] = None
+            continue
+        rated = engine.rate_spray_hour(series, index[hour.time], sunrise, sunset)
+        sprays[hour.time] = {
+            "level": rated.level,
+            "causes": list(rated.causes),
+            "delta_t_c": _round(rated.delta_t_c),
+            "inversion": rated.inversion,
+        }
+    return sprays
+
+
 class Forecast(NamedTuple):
     payload: dict  # the S5 body
     headline: engine.Headline  # the most urgent decision, for the lote card
@@ -327,6 +354,7 @@ def build_forecast(archive: CellArchive, now: datetime) -> Forecast:
     daily = [_day(models, d, daily_probability.get(d)) for d in days]
     sunrise, sunset = _sun_times(archive.deterministic, today)
     upcoming = [h for h in series if h.time >= now_hour][:HOURLY_HOURS]
+    hour_spray = _hour_sprays(series, upcoming, archive.deterministic)
 
     start, end = tonight_window(now_local.replace(tzinfo=None))
     frost = engine.frost_tonight(models, start.replace(tzinfo=TZ), end.replace(tzinfo=TZ))
@@ -381,6 +409,8 @@ def build_forecast(archive: CellArchive, now: datetime) -> Forecast:
                 "rain_probability_pct": hourly_probability.get(h.time),
                 "sky": hour_sky[h.time],
                 "cloud_cover_pct": _round(h.cloud_cover_pct),
+                "wind_direction_deg": h.wind_dir_deg,
+                "spray": hour_spray[h.time],
             }
             for h in upcoming
         ],

@@ -77,7 +77,7 @@ describe('session end clears this phone', () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
     const { user } = renderApp('/lotes/4', db);
 
-    await screen.findByRole('region', { name: 'Decisiones para este lote' });
+    await screen.findByRole('region', { name: 'Hoy en este lote' });
     await waitFor(async () =>
       expect((await readPersisted()).text).toContain('Noche despejada y calma'),
     );

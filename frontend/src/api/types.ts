@@ -167,6 +167,19 @@ export interface ForecastHour {
   rain_probability_pct: number | null;
   sky?: Sky;
   cloud_cover_pct?: number | null;
+  /** Degrees the 10 m wind comes from (lote forecast only; missing in older caches). */
+  wind_direction_deg?: number | null;
+  /** The engine's spray rating of this hour; null when it does not rate it (lote forecast only). */
+  spray?: SprayHour | null;
+}
+
+/** One hour as `rate_spray_hour` rates it: the same rules as "Pulverizar hoy". */
+export interface SprayHour {
+  level: Level;
+  /** Worst first, already in words: "Delta T alto", "posible inversión térmica". */
+  causes: string[];
+  delta_t_c: number | null;
+  inversion: boolean;
 }
 
 export interface FrostDecision {
