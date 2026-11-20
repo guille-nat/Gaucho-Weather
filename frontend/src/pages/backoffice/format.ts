@@ -58,6 +58,8 @@ export const REASON_WORDS: Record<PlanChangeReason, string> = {
   staff: 'Cambio del equipo',
   payment: 'Pago aprobado',
   payment_ended: 'Suscripción terminada',
+  courtesy: 'Cortesía',
+  courtesy_ended: 'Fin de la cortesía',
 };
 
 /** A subscription status from a log payload, in the words Suscripción uses. */
@@ -70,3 +72,6 @@ const isoDay = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE });
 
 /** Tomorrow in Buenos Aires as `YYYY-MM-DD`: the first day a trial can be given until. */
 export const tomorrowInBuenosAires = (now = Date.now()) => isoDay.format(now + 86_400_000);
+
+/** A year from today in Buenos Aires: the last day a cortesía can be given until (cortesias S1). */
+export const lastCourtesyDay = (now = Date.now()) => tomorrowInBuenosAires(now + 364 * 86_400_000);

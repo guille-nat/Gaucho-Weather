@@ -99,6 +99,16 @@ function describeAction({ action, payload }: ActionRow): string {
         'Suscripción cancelada desde el backoffice: ' +
         `${subscriptionWord(payload.before)} → ${subscriptionWord(payload.after)}`
       );
+    case 'courtesy_grant':
+      return (
+        `Cortesía de ${planName(payload.plan)} hasta el ${calendarDay(payload.until)} ` +
+        `(venía de ${planName(payload.from_plan)}). Motivo: «${String(payload.reason ?? '')}»`
+      );
+    case 'courtesy_revoke':
+      return (
+        `Cortesía de ${planName(payload.plan)} revocada ` +
+        `(era hasta el ${calendarDay(payload.until)}): pasó a ${planName(payload.to_plan)}`
+      );
     case 'export':
       return (
         `Exportación CSV: ${String(payload.file)} ` +

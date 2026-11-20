@@ -389,7 +389,9 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - Las escrituras usan `apiFetch`, que manda el CSRF. Después de cada una se vuelven a
   pedir todas las listas y el resumen.
 - El Registro describe cada acción en palabras, también las nuevas (por ejemplo "Prueba de
-  Productor hasta el 1 de diciembre de 2026 (venía de Básico)").
+  Productor hasta el 1 de diciembre de 2026 (venía de Básico)", o "Cortesía de Empresa hasta
+  el 31 de marzo de 2027 (venía de Básico). Motivo: «Cooperativa piloto»" y "Cortesía de
+  Empresa revocada (era hasta el 31 de marzo de 2027): pasó a Básico").
 
 ### Ficha de cuenta
 `frontend/src/pages/backoffice/cuenta/`. El nombre de cada cuenta en la pestaña Cuentas es un
@@ -399,8 +401,9 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 
 - Secciones: Datos (plan, estado, acceso, alta, último ingreso; "Editar nombre y email"),
   Acceso (bloquear o desbloquear, dar o quitar super admin, mandar el mail de la contraseña),
-  Plan y founder ("Cambiar plan", "Dar o extender prueba", "Marcar founder" o "Quitar
-  founder", e historial de planes), Mercado Pago ("Sincronizar con Mercado Pago", "Cancelar
+  Plan y founder (la cortesía activa, "Cambiar plan", "Dar cortesía" o "Cambiar cortesía" y
+  "Revocar cortesía", "Dar o extender prueba", "Marcar founder" o "Quitar founder", e
+  historial de planes), Mercado Pago ("Sincronizar con Mercado Pago", "Cancelar
   suscripción", suscripciones y pagos) y Lotes y alertas.
 - Cada acción abre un diálogo nativo (`BackofficeDialog`) que explica qué va a pasar antes de
   mandar nada. En las confirmaciones el foco arranca en la salida segura ("Cancelar" o
@@ -410,6 +413,18 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
   al campo.
 - La prueba se elige con un `<input type="date">` cuyo mínimo es mañana en Buenos Aires; la
   fecha viaja como texto `YYYY-MM-DD`, sin pasar por `Date`, así no se corre un día.
+- Cortesías (cortesias S5): con una activa, la sección muestra plan, hasta cuándo, motivo y
+  quién la dio, y el estado de Datos dice "Cortesía de <Plan> hasta el <fecha>". "Dar
+  cortesía" abre un diálogo con plan (Productor o Empresa; a un founder solo Empresa), fecha
+  (`min` mañana y `max` un año, `lastCourtesyDay` en `pages/backoffice/format.ts`) y motivo;
+  sin fecha o con el motivo en blanco avisa junto al campo y no manda nada. Con una activa el
+  botón dice "Cambiar cortesía" y el diálogo arranca con sus datos. "Revocar cortesía" pide
+  confirmación con el foco en "Cancelar" y manda `DELETE cortesia/`.
+  **Por qué el `max` y los avisos si el servidor ya valida:** evitan un viaje que se sabe
+  rechazado; las reglas (tope, paga, founder, el año) siguen solo en el servidor (S6) y su
+  rechazo se ve en el diálogo.
+- "Cambiar plan" ofrece solo Básico, y además Productor a un founder, con la nota "Para dar
+  un plan pago sin cobrar, usá una cortesía." (cortesias S4).
 - El diálogo de "Marcar founder" muestra cuántos lugares quedan (`founders_left` del
   resumen) y avisa si el cupo está completo, sin impedirlo.
 - En la ficha propia no aparecen "Bloquear cuenta" ni "Quitar super admin", y una nota lo
@@ -430,3 +445,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-19: ficha de cuenta con edición, control de acceso, prueba y founder a mano, y sincronizar o cancelar la suscripción de Mercado Pago (backoffice-superadmin S1-S4).
 - 2026-11-19: prueba y founder se rechazan para una cuenta que paga (advertencia del verificador).
 - 2026-11-20: cortesías (`cortesia/`, dar, cambiar y revocar) y el cambio de plan solo baja al plan gratis (cortesias S1-S4, S6).
+- 2026-11-20: la ficha muestra, da, cambia y revoca cortesías; "Cambiar plan" solo ofrece el plan gratis; el registro describe `courtesy_grant` y `courtesy_revoke`, y el historial de planes del usuario dice "Empezó tu cortesía" y "Terminó tu cortesía" (cortesias S5).

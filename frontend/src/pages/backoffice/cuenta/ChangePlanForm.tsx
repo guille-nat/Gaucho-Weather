@@ -5,19 +5,24 @@ import { FormAlert, SelectField, TextField } from '../../../components/Field';
 import { PLAN_NAMES } from '../format';
 import { useBackofficeMutation } from '../queries';
 
-const PLAN_CODES = Object.keys(PLAN_NAMES) as PlanCode[];
-
-/** `POST cuentas/{id}/plan/`: the same change_plan as the Django admin, logged with the note. */
+/**
+ * `POST cuentas/{id}/plan/`: the same change_plan as the Django admin, logged with the note. It
+ * only moves down to the free plan, Básico, or Productor for a founder (cortesias S4, S5): a
+ * paid plan for free is a cortesía, with an end date.
+ */
 export function ChangePlanForm({
   account,
   onDone,
   onCancel,
 }: {
-  account: Pick<AccountRow, 'id' | 'name' | 'plan'>;
+  account: Pick<AccountRow, 'id' | 'name' | 'plan' | 'founder_number'>;
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
-  const [plan, setPlan] = useState<PlanCode>(account.plan.code);
+  const plans: PlanCode[] = account.founder_number === null ? ['basico'] : ['basico', 'productor'];
+  const [plan, setPlan] = useState<PlanCode>(
+    plans.find((code) => code === account.plan.code) ?? 'basico',
+  );
   const [note, setNote] = useState('');
   const change = useBackofficeMutation((input: { plan: PlanCode; note: string }) =>
     changeAccountPlan(account.id, input.plan, input.note),
@@ -35,18 +40,19 @@ export function ChangePlanForm({
     <form className="form" onSubmit={submit} noValidate>
       <p className="fine">
         Ahora está en {account.plan.name}. El cambio queda en el registro y en su historial de
-        planes, y termina una prueba.
+        planes, y termina una prueba o una cortesía.
       </p>
       <SelectField
         label="Plan nuevo"
         name="plan"
         value={plan}
+        hint="Para dar un plan pago sin cobrar, usá una cortesía."
         onChange={(e) => {
           change.reset();
           setPlan(e.target.value as PlanCode);
         }}
       >
-        {PLAN_CODES.map((code) => (
+        {plans.map((code) => (
           <option key={code} value={code}>
             {PLAN_NAMES[code]}
           </option>

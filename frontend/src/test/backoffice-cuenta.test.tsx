@@ -373,16 +373,16 @@ describe('Plan and founder by hand (S3)', () => {
 
   it('still changes the plan from the record', async () => {
     const db = dbFor();
-    const { user, record } = await openRecord(MARTA, db);
+    const { user, record } = await openRecord(JUAN, db);
 
     await user.click(within(record).getByRole('button', { name: 'Cambiar plan' }));
-    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Marta Ríos' });
-    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'empresa');
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Juan Gómez' });
+    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'basico');
     await user.click(within(dialog).getByRole('button', { name: 'Cambiar plan' }));
 
-    expect(await within(record).findByText('Marta Ríos pasó al plan Empresa.')).toBeVisible();
+    expect(await within(record).findByText('Juan Gómez pasó al plan Básico.')).toBeVisible();
     await waitFor(() =>
-      expect(fact(within(record).getByRole('region', { name: 'Datos' }), 'Plan')).toBe('Empresa'),
+      expect(fact(within(record).getByRole('region', { name: 'Datos' }), 'Plan')).toBe('Básico'),
     );
   });
 });

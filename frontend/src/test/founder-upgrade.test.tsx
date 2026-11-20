@@ -186,7 +186,7 @@ describe('The backoffice never gives a founder Empresa (SF4)', () => {
     return screen.findByRole('tabpanel', { name });
   }
 
-  it('refuses to move a founder to Empresa, as the API words it', async () => {
+  it('does not offer Empresa to a founder in the plan change, and sends nothing', async () => {
     const db = createMockDb({ user: admin });
     const { user } = renderApp('/backoffice', db);
 
@@ -197,13 +197,17 @@ describe('The backoffice never gives a founder Empresa (SF4)', () => {
         name: 'Cambiar plan',
       }),
     );
+    // Only down to the free plan (cortesias S4); the API's refusal is covered by the backend.
     const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Ana Ferreyra' });
-    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'empresa');
-    await user.click(within(dialog).getByRole('button', { name: 'Cambiar plan' }));
+    const plan = within(dialog).getByLabelText('Plan nuevo');
+    expect(
+      within(plan)
+        .getAllByRole('option')
+        .map((o) => o.getAttribute('value')),
+    ).toEqual(['basico', 'productor']);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Como founder, Empresa se paga con Mercado Pago: pagás solo la diferencia.',
-    );
+    expect(db.sent.filter((r) => r.method !== 'GET')).toEqual([]);
     expect(db.backoffice.accounts.find((a) => a.id === 1)?.plan.code).toBe('productor');
     expect(db.backoffice.actions.some((a) => a.action === 'plan_change')).toBe(false);
   });

@@ -10,12 +10,19 @@ import type {
   PendingPriceChange,
   Person,
   RecordAlertRule,
+  RecordCourtesy,
   RecordLote,
   RecordPlanChange,
   RequestRow,
   SubscriptionRow,
 } from '../api/backoffice';
-import type { Plan, PlanCode, ProviderSubscriptionStatus, User } from '../api/types';
+import type {
+  Plan,
+  PlanChangeReason,
+  PlanCode,
+  ProviderSubscriptionStatus,
+  User,
+} from '../api/types';
 import { tomorrowInBuenosAires } from '../pages/backoffice/format';
 
 /** Like plans.refuse_free_empresa: a founder moves up to Empresa only by paying (promociones SF4). */
@@ -65,6 +72,8 @@ export interface RecordExtras {
   plan_changes: RecordPlanChange[];
   lotes: RecordLote[];
   alert_rules: RecordAlertRule[];
+  /** The active cortesía (cortesias S1); missing in older fixtures means none. */
+  courtesy?: RecordCourtesy | null;
 }
 
 /** What the backoffice handlers need from the app's mock (src/mocks/handlers.ts). */
@@ -88,6 +97,15 @@ export const NO_SUBSCRIPTION = 'La cuenta no tiene una suscripción con Mercado 
 export const PROVIDER_DOWN = 'No pudimos conectar con Mercado Pago. Probá de nuevo en un rato.';
 const NOT_ENABLED = 'Los pagos todavía no están habilitados.';
 const EMAIL_IN_USE = 'Ya hay una cuenta con ese email.';
+// cortesias S1, S2, S4: the words of backoffice/views.py, serializers.py and accounts/plans.py.
+export const USE_COURTESY = 'Para dar un plan pago sin cobrar, usá una cortesía.';
+const COURTESY_SELF = 'No podés darte una cortesía a vos mismo.';
+const NO_COURTESY = 'La cuenta no tiene una cortesía activa.';
+const FOUNDER_HAS_PRODUCTOR = 'La cuenta es founder: ya tiene Productor sin vencimiento.';
+const COURTESY_CAP = 20;
+const COURTESY_CAP_REACHED = 'Ya hay 20 cortesías activas. Revocá alguna antes de dar otra.';
+const COURTESY_MAX_DAYS = 365;
+const REQUIRED = 'Este campo es requerido.';
 const PAGE_SIZE = 50;
 
 const ana: Person = { id: 1, name: 'Ana Ferreyra', email: 'ana@lacampana.com.ar' };
@@ -291,8 +309,13 @@ export function backofficeGate(db: BackofficeHost, csrf: CsrfCheck) {
 const membershipOf = (founder: number | null, expiresAt: string | null) =>
   founder !== null ? 'founder' : expiresAt ? 'trial' : 'active';
 
-/** Buenos Aires is UTC−3 all year: today there, as `YYYY-MM-DD`. */
-const todayInBuenosAires = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+/** Buenos Aires is UTC−3 all year: the day of an instant there, as `YYYY-MM-DD`. */
+const dayInBuenosAires = (ms: number) => new Date(ms - 3 * 3_600_000).toISOString().slice(0, 10);
+const todayInBuenosAires = () => dayInBuenosAires(Date.now());
+const addDays = (day: string, days: number) =>
+  new Date(Date.parse(`${day}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+/** `31/12/2026`, as Python's `strftime("%d/%m/%Y")`. */
+const slashed = (day: string) => day.split('-').reverse().join('/');
 
 export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): HttpHandler[] {
   const gate = backofficeGate(db, csrf);
@@ -347,6 +370,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
         .map(({ user: _user, ...payment }) => payment),
       lotes: extras.lotes,
       alert_rules: extras.alert_rules,
+      courtesy: extras.courtesy ?? null,
     };
   };
   const findAccount = (id: unknown) => db.backoffice.accounts.find((a) => a.id === Number(id));
@@ -367,6 +391,21 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     });
     row.plan = { code: 'productor', name: 'Productor' };
     extras.plan_expires_at = null;
+    extras.courtesy = null; // plans._switch ends an active cortesía on any other move
+  };
+  /** Like plans._switch: a recorded move, by the super admin. */
+  const moveTo = (row: AccountRow, code: PlanCode, reason: PlanChangeReason, note = '') => {
+    const to = planRef(code)!;
+    extrasOf(row).plan_changes.unshift({
+      id: db.nextId++,
+      at: new Date().toISOString(),
+      from_plan: row.plan,
+      to_plan: to,
+      reason,
+      by: actor(),
+      note,
+    });
+    row.plan = to;
   };
   const restatus = (row: AccountRow) => {
     row.status = membershipOf(row.founder_number, extrasOf(row).plan_expires_at);
@@ -539,6 +578,9 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (!to) return HttpResponse.json({ detail: 'Ese plan no existe.' }, { status: 400 });
       const free = freeEmpresaRefusal(row.founder_number !== null, row.plan.code, plan);
       if (free) return refuse(free);
+      if (plan !== 'basico' && !(plan === 'productor' && row.founder_number !== null)) {
+        return refuse(USE_COURTESY);
+      }
       if (row.plan.code === plan && row.status !== 'trial') {
         return HttpResponse.json(
           { detail: `La cuenta ya está en el plan ${to.name}.` },
@@ -548,7 +590,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const from = row.plan.code;
       // change_plan ends a trial; a founder keeps the number.
       Object.assign(row, { plan: to, status: row.founder_number !== null ? 'founder' : 'active' });
-      extrasOf(row).plan_expires_at = null;
+      Object.assign(extrasOf(row), { plan_expires_at: null, courtesy: null });
       record(
         'plan_change',
         { id: row.id, name: row.name, email: row.email },
@@ -814,6 +856,103 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       extrasOf(row).plan_expires_at = new Date(`${hasta}T23:59:59-03:00`).toISOString();
       restatus(row);
       record('trial_grant', person(row), { until: hasta, from_plan: fromPlan });
+      return HttpResponse.json(recordOf(row));
+    }),
+
+    /** Like CourtesyView.post (cortesias S1): the same checks, in the same order. */
+    http.post('*/api/backoffice/cuentas/:id/cortesia/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const row = findAccount(params.id);
+      if (!row) return notFound();
+      if (row.id === db.user!.id) return refuse(COURTESY_SELF);
+      const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      const errors: Record<string, string[]> = {};
+      const { plan, hasta, motivo } = body;
+      if (plan === undefined || plan === null || plan === '') errors.plan = [REQUIRED];
+      else if (plan !== 'productor' && plan !== 'empresa') {
+        errors.plan = [`"${String(plan)}" no es una elección válida.`];
+      }
+      const today = todayInBuenosAires();
+      const last = addDays(today, COURTESY_MAX_DAYS);
+      if (hasta === undefined || hasta === null || hasta === '') errors.hasta = [REQUIRED];
+      else if (typeof hasta !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+        errors.hasta = [
+          'Fecha con formato erróneo. Use uno de los siguientes formatos en su lugar: YYYY-MM-DD.',
+        ];
+      } else if (hasta <= today) errors.hasta = ['La fecha tiene que ser futura.'];
+      else if (hasta > last) {
+        errors.hasta = [
+          `La cortesía dura como máximo un año: elegí una fecha hasta el ${slashed(last)}.`,
+        ];
+      }
+      const reason = typeof motivo === 'string' ? motivo.trim() : '';
+      if (motivo === undefined || motivo === null) errors.motivo = [REQUIRED];
+      else if (!reason) errors.motivo = ['Este campo no puede estar en blanco.'];
+      else if (reason.length > 200) {
+        errors.motivo = ['Asegúrese de que este campo no tenga más de 200 caracteres.'];
+      }
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      const code = plan as 'productor' | 'empresa';
+      const until = hasta as string;
+      if (row.founder_number !== null && code === 'productor') {
+        return refuse(FOUNDER_HAS_PRODUCTOR);
+      }
+      const paying = payingRefusal(row, true);
+      if (paying) return paying;
+      const extras = extrasOf(row);
+      const active = extras.courtesy ?? null;
+      if (!active) {
+        const count = Object.values(db.backoffice.records).filter((r) => r.courtesy).length;
+        if (count >= COURTESY_CAP) return refuse(COURTESY_CAP_REACHED);
+      } else {
+        const start = dayInBuenosAires(Date.parse(active.starts_at));
+        const longest = addDays(start, COURTESY_MAX_DAYS);
+        if (until > longest) {
+          return refuse(
+            `La cortesía empezó el ${slashed(start)}: puede durar como máximo hasta el ${slashed(longest)}.`,
+          );
+        }
+      }
+      const fromPlan = row.plan.code;
+      if (!active || fromPlan !== code) moveTo(row, code, 'courtesy', reason);
+      const endsAt = new Date(`${until}T23:59:59-03:00`).toISOString();
+      extras.plan_expires_at = endsAt;
+      extras.courtesy = {
+        plan: planRef(code)!,
+        starts_at: active?.starts_at ?? new Date().toISOString(),
+        ends_at: endsAt,
+        reason,
+        granted_by: active?.granted_by ?? actor(),
+      };
+      restatus(row);
+      record('courtesy_grant', person(row), {
+        plan: code,
+        until,
+        reason,
+        from_plan: fromPlan,
+      });
+      return HttpResponse.json(recordOf(row));
+    }),
+
+    /** Like CourtesyView.delete (cortesias S2): back to the free plan now, without an email. */
+    http.delete('*/api/backoffice/cuentas/:id/cortesia/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const row = findAccount(params.id);
+      if (!row) return notFound();
+      const extras = extrasOf(row);
+      const active = extras.courtesy;
+      if (!active) return refuse(NO_COURTESY, 404);
+      const to: PlanCode = row.founder_number === null ? 'basico' : 'productor';
+      moveTo(row, to, 'courtesy_ended');
+      Object.assign(extras, { plan_expires_at: null, courtesy: null });
+      restatus(row);
+      record('courtesy_revoke', person(row), {
+        plan: active.plan.code,
+        until: dayInBuenosAires(Date.parse(active.ends_at)),
+        to_plan: to,
+      });
       return HttpResponse.json(recordOf(row));
     }),
 

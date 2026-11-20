@@ -146,26 +146,27 @@ describe('Backoffice tabs', () => {
 
     const panel = await openTab(user, 'Cuentas');
     const table = await within(panel).findByRole('table', { name: 'Cuentas' });
-    const marta = within(table).getByRole('row', { name: /Marta Ríos/ });
-    await user.click(within(marta).getByRole('button', { name: 'Cambiar plan' }));
+    const juan = within(table).getByRole('row', { name: /Juan Gómez/ });
+    await user.click(within(juan).getByRole('button', { name: 'Cambiar plan' }));
 
-    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Marta Ríos' });
-    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'empresa');
-    await user.type(within(dialog).getByLabelText('Nota (opcional)'), 'Pagó por transferencia');
+    // Only down to the free plan (cortesias S4): Juan ends his trial on Básico.
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Juan Gómez' });
+    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'basico');
+    await user.type(within(dialog).getByLabelText('Nota (opcional)'), 'No usa Productor');
     await user.click(within(dialog).getByRole('button', { name: 'Cambiar plan' }));
 
-    expect(await within(panel).findByText('Marta Ríos pasó al plan Empresa.')).toBeInTheDocument();
+    expect(await within(panel).findByText('Juan Gómez pasó al plan Básico.')).toBeInTheDocument();
     expect(backofficeCalls(db).find((r) => r.method === 'POST')).toEqual({
       method: 'POST',
-      path: '/api/backoffice/cuentas/22/plan/',
-      body: { plan: 'empresa', note: 'Pagó por transferencia' },
+      path: '/api/backoffice/cuentas/21/plan/',
+      body: { plan: 'basico', note: 'No usa Productor' },
     });
     expect(db.unsafeRequests.at(-1)).toMatchObject({
-      path: '/api/backoffice/cuentas/22/plan/',
+      path: '/api/backoffice/cuentas/21/plan/',
       csrf: db.csrfToken,
     });
     await waitFor(() =>
-      expect(within(table).getByRole('row', { name: /Marta Ríos/ })).toHaveTextContent('Empresa'),
+      expect(within(table).getByRole('row', { name: /Juan Gómez/ })).toHaveTextContent('Básico'),
     );
   });
 
