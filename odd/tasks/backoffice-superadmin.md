@@ -52,6 +52,9 @@ Common rules for every spec:
   - (A) Marking works even when the program's quota is used up. The super admin decides by hand, and the confirmation dialog shows the remaining quota.
 - Removing founder clears `founder_number` and is logged as `founder_revoke`.
   - (A) The plan is left as it is: no expiry, so the account stays "active" on that plan. The super admin changes the plan separately if needed.
+- (L7) A paying account is protected:
+  - A running subscription (authorized or paused, not ended) refuses both a trial and a founder grant with 400 "La cuenta tiene una suscripción paga: cancelala primero."
+  - A cancelled subscription still inside its paid month refuses a trial with 400 "La cuenta tiene días pagos hasta el DD/MM/AAAA: dale la prueba después de esa fecha.", but still allows a founder grant.
 
 **S4 — Mercado Pago from the panel.** "Mercado Pago: volver a pedirle a Mercado Pago el estado de una suscripción (por si se perdió un webhook) y cancelarla desde el panel."
 - Sync:
@@ -101,10 +104,10 @@ Frontend:
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T0 | scaffolding (action types and migration 0002, Informes stubs and wiring, `backofficeGate`) | inline | done | (this commit) |
-| T1 | S1–S4 backend + frontend + docs | delegated writer A (parallel with T2) | pending | |
-| T2 | S5–S8 backend + frontend + docs | delegated writer B (parallel with T1) | pending | |
-| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | pending | |
+| T0 | scaffolding (action types and migration 0002, Informes stubs and wiring, `backofficeGate`) | inline | done | 452cb84, 2b8110c |
+| T1 | S1–S4 backend + frontend + docs | delegated writer A (parallel with T2) | done (verification pending) | 4d13fc6 |
+| T2 | S5–S8 backend + frontend + docs | delegated writer B (parallel with T1) | done (verification pending) | fce2b80 |
+| T3 | independent verifier over T1–T2 (S2 and S4 touch auth and payments: high-risk item 2) | delegated verifier | done: no blockers, every S# passes | 4bfc2de (guards) |
 
 Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and each is several hundred lines. They are launched together (Writer trigger a). The parent context is also past the backstop (b).
 
@@ -116,3 +119,29 @@ Route evidence: T1 and T2 are independent units with disjoint edit surfaces, and
   - Informes stubs are wired into the URLs, the mocks and the tabs (seven tabs).
   - Migration 0002 adds the action types.
   - Checks: backend `tests/test_backoffice.py` 55 passed; frontend `backoffice.test.tsx` 17 passed.
+- **L4** (2026-11-19): Writers A and B returned with all of S1–S8 implemented. Both reported `partial`, but only because the backend tests inside the container ran with `config.settings.dev`: the `DJANGO_SETTINGS_MODULE` env var beats `pytest.ini`.
+  - Fixed in 7dc9df7: `addopts` now passes `--ds=config.settings.test`.
+  - Seam check after both units: backend 705 passed and ruff clean; frontend 315 passed and eslint clean; typecheck shows only the 12 known `src/sw.ts` workbox errors.
+  - Commits: fce2b80 (T2) and 4d13fc6 (T1, high-risk, on its own).
+- **L5** (2026-11-19): extra assumptions the writers documented in the docs:
+  - a repeated reset email within 10 minutes answers 429;
+  - a write that changes nothing answers 200 and logs nothing;
+  - the URLs use Spanish verbs;
+  - the charge search reads only Mercado Pago's first page;
+  - `pagos_aprobados` and `pagos_rechazados` count every currency;
+  - `founders.usados` is the program's `next_number - 1`.
+- **L6** (2026-11-19): T3 verifier found no blockers; S1–S8 all pass.
+  - Probes: 36 guard tests committed as `tests/test_backoffice_superadmin_guards.py` (4bfc2de). The baseline's 598 tests pass on HEAD, and the output of existing endpoints is identical byte for byte.
+  - Advisories:
+    1. A trial granted to an account already paying through Mercado Pago sets an expiry, so the nightly `expire_trials` would move a paying account to Básico.
+    2. A founder granted to a paying account keeps its Mercado Pago charge.
+    3. Cancel calls Mercado Pago inside the database transaction.
+    4. A race on the email check, or on two super admins revoking each other, ends in a 500 or in no super admin left.
+    5. An export GET writes a log row, so another site could trigger it.
+    6. Sync reads only the first page of charges.
+  - Native review: user granted consent, but START refused with `lens_context_budget_exceeded` (530dcef..HEAD, 6086 lines). No authority was created.
+- **L7** (2026-11-19): the verifier's advisory became a user decision.
+  - User: "y si no le cancelamos ala sub osea que tome como debito el dia siguiente de la fecha pero que si no han pasado uncilo de cierre no le cobre? tambien la posibilidad de codigos de referidos, promocionales hay que tenerlas en cuenta, hay que manejarlo como lo manejan todos que tiene saas por subscipcion"
+  - Proposal: an experiment in the Mercado Pago sandbox (pause/resume, change the amount), then a design for credits, coupons and referrals; meanwhile, the guard. User: "dale".
+  - The guard was added to S3, test-first. Backend RED: 5 failed. Frontend RED: 1 failed without the mock guard. GREEN: backend 749 passed; frontend 316 passed; typecheck and lint clean.
+  - Next: the sandbox experiment, then a new feature document for credits, coupons and referrals.

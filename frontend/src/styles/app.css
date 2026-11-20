@@ -4260,6 +4260,108 @@ button.alert-event-tap:focus-visible {
   gap: 10px;
 }
 
+.bo-confirm-text {
+  display: grid;
+  gap: 8px;
+}
+
+/* ───────── Cuentas: one account's record (backoffice-superadmin S1-S4) ───────── */
+
+/* The name opens the record: a link that still reads as the row's title. */
+.bo-person-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.bo-person-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.bo-record-back {
+  justify-self: start;
+}
+
+.bo-record-head {
+  display: grid;
+  gap: 4px;
+}
+
+.bo-record-title {
+  font-size: 1.5rem;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.bo-record-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bo-record-chips:empty {
+  display: none;
+}
+
+.bo-record-section {
+  display: grid;
+  gap: 12px;
+}
+
+.bo-record-section .panel-title {
+  margin-bottom: 0;
+}
+
+/* Words, not figures: the ledger look of Resumen without its large numerals. */
+.bo-fact--text dd {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  white-space: normal;
+  text-align: right;
+}
+
+.bo-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bo-record-actions:empty {
+  display: none;
+}
+
+.bo-record-subtitle {
+  font-size: 1rem;
+  color: var(--ink-2);
+}
+
+.bo-record-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 16px;
+}
+
+.bo-record-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bo-record-list > li + li {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 40rem) {
+  .bo-record-actions {
+    display: grid;
+  }
+}
+
 /* ───────── Lote waiting for its first forecast (cuenta-planes-alertas S12) ───────── */
 
 /* A calm sweep on a thin track: progress without a number we could not keep. */

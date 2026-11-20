@@ -5,6 +5,8 @@ Official docs (mercadopago.com.ar/developers):
   `init_point` where the payer chooses how to pay; GET and PUT /preapproval/{id}
   (PUT {"status": "cancelled"} cancels it);
 - GET /v1/payments/{id} and GET /authorized_payments/{id} (a subscription's charge);
+  GET /authorized_payments/search?preapproval_id={id} lists a subscription's charges, each with
+  its `payment` once Mercado Pago tried to collect it;
 - webhooks: the `x-signature` header carries `ts` and `v1`, an HMAC-SHA256 in hex of
   "id:{data.id};request-id:{x-request-id};ts:{ts};" with the application's webhook secret.
   A pair whose value is missing is left out of the manifest; an alphanumeric data.id goes
@@ -86,13 +88,15 @@ class MercadoPago(PaymentProvider):
 
     # --- REST API ---------------------------------------------------------------------------
 
-    def _request(self, method: str, path: str, json: dict | None = None) -> dict:
+    def _request(
+        self, method: str, path: str, json: dict | None = None, params: dict | None = None
+    ) -> dict:
         headers = {"Authorization": f"Bearer {settings.MERCADOPAGO_ACCESS_TOKEN}"}
         try:
             with httpx.Client(
                 base_url=settings.MERCADOPAGO_API_URL, headers=headers, timeout=TIMEOUT
             ) as client:
-                response = client.request(method, path, json=json)
+                response = client.request(method, path, json=json, params=params)
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as exc:
@@ -158,6 +162,19 @@ class MercadoPago(PaymentProvider):
             str(payment_id) if payment_id else None,
             str(preapproval_id) if preapproval_id else None,
         )
+
+    def subscription_payment_ids(self, external_id: str) -> list[str]:
+        body = self._request(
+            "GET", "/authorized_payments/search", params={"preapproval_id": external_id}
+        )
+        results = body.get("results")
+        ids = []
+        for charge in results if isinstance(results, list) else []:
+            payment = charge.get("payment") if isinstance(charge, dict) else None
+            payment_id = payment.get("id") if isinstance(payment, dict) else None
+            if payment_id:
+                ids.append(str(payment_id))
+        return ids
 
     # --- Webhook ----------------------------------------------------------------------------
 

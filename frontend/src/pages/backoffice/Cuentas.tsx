@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
-  changeAccountPlan,
   listAccounts,
   type AccountFilters,
   type AccountRow,
@@ -10,14 +10,17 @@ import type { PlanCode } from '../../api/types';
 import { BackofficeDialog } from '../../components/backoffice/BackofficeDialog';
 import { LoadFailed, Loading } from '../../components/backoffice/Loading';
 import { Pager } from '../../components/backoffice/Pager';
-import { FormAlert, SelectField, TextField } from '../../components/Field';
+import { SelectField, TextField } from '../../components/Field';
 import { Icon } from '../../components/Icon';
 import { DASH } from '../../lib/format';
 import { founderLabel } from '../../lib/membership';
 import { queryKeys } from '../../query/keys';
 import { Saved } from '../Perfil';
 import { formatDay, MEMBERSHIP_WORDS, PLAN_NAMES, plural } from './format';
-import { useBackofficeMutation, useBackofficeQuery } from './queries';
+import { ChangePlanForm } from './cuenta/ChangePlanForm';
+import { Ficha } from './cuenta/Ficha';
+import { recordLink } from './cuenta/link';
+import { useBackofficeQuery } from './queries';
 
 const NO_FILTERS: AccountFilters = { q: '', plan: '', estado: '', page: 1 };
 const PLAN_CODES = Object.keys(PLAN_NAMES) as PlanCode[];
@@ -80,74 +83,8 @@ function Filters({ onApply }: { onApply: (filters: AccountFilters) => void }) {
   );
 }
 
-/** `POST cuentas/{id}/plan/`: the same change_plan as the Django admin, logged with the note. */
-function ChangePlanForm({
-  account,
-  onDone,
-  onCancel,
-}: {
-  account: AccountRow;
-  onDone: (message: string) => void;
-  onCancel: () => void;
-}) {
-  const [plan, setPlan] = useState<PlanCode>(account.plan.code);
-  const [note, setNote] = useState('');
-  const change = useBackofficeMutation((input: { plan: PlanCode; note: string }) =>
-    changeAccountPlan(account.id, input.plan, input.note),
-  );
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    change.mutate(
-      { plan, note: note.trim() },
-      { onSuccess: (row) => onDone(`${row.name} pasó al plan ${row.plan.name}.`) },
-    );
-  }
-
-  return (
-    <form className="form" onSubmit={submit} noValidate>
-      <p className="fine">
-        Ahora está en {account.plan.name}. El cambio queda en el registro y en su historial de
-        planes, y termina una prueba.
-      </p>
-      <SelectField
-        label="Plan nuevo"
-        name="plan"
-        value={plan}
-        onChange={(e) => {
-          change.reset();
-          setPlan(e.target.value as PlanCode);
-        }}
-      >
-        {PLAN_CODES.map((code) => (
-          <option key={code} value={code}>
-            {PLAN_NAMES[code]}
-          </option>
-        ))}
-      </SelectField>
-      <TextField
-        label="Nota (opcional)"
-        name="note"
-        maxLength={200}
-        hint="Por qué se cambia, para el registro. Hasta 200 caracteres."
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
-      <FormAlert message={change.error?.message} />
-      <div className="bo-dialog-actions">
-        <button type="submit" className="btn btn--primary" disabled={change.isPending}>
-          {change.isPending ? 'Cambiando…' : 'Cambiar plan'}
-        </button>
-        <button type="button" className="btn btn--secondary" onClick={onCancel}>
-          Cancelar
-        </button>
-      </div>
-    </form>
-  );
-}
-
 /** Every account, newest first, with the filters of S4 and the plan change. */
-export function Cuentas() {
+function AccountList() {
   const [filters, setFilters] = useState(NO_FILTERS);
   const [editing, setEditing] = useState<AccountRow | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -193,7 +130,9 @@ export function Cuentas() {
                     <tr key={row.id}>
                       <th scope="row" data-label="Cuenta">
                         <span className="bo-person">
-                          <span className="bo-person-name">{row.name}</span>
+                          <Link className="bo-person-name bo-person-link" to={recordLink(row.id)}>
+                            {row.name}
+                          </Link>
                           <span className="bo-person-email">{row.email}</span>
                         </span>
                         {row.is_superuser ? <span className="chip">Super admin</span> : null}
@@ -257,4 +196,14 @@ export function Cuentas() {
       </BackofficeDialog>
     </div>
   );
+}
+
+/**
+ * The Cuentas tab: the list, or one account's record when the address names it
+ * (`?cuenta=<id>`, backoffice-superadmin S1), so a reload or a shared link opens it again.
+ */
+export function Cuentas() {
+  const [params] = useSearchParams();
+  const id = Number(params.get('cuenta'));
+  return Number.isInteger(id) && id > 0 ? <Ficha key={id} id={id} /> : <AccountList />;
 }

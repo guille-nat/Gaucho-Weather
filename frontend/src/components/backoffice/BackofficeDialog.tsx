@@ -5,6 +5,10 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
  * cancel confirm on Suscripción: the browser keeps focus inside, closes it on Esc and gives focus
  * back to the button that opened it. Its content mounts only while open, so every opening
  * starts from a clean form.
+ *
+ * A control marked `data-autofocus` gets the focus once the dialog is open: React does not write
+ * the `autofocus` attribute that showModal() looks for, and a confirmation must start on its safe
+ * action (modern-web-guidance `dialog`).
  */
 export function BackofficeDialog({
   open,
@@ -23,7 +27,10 @@ export function BackofficeDialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 

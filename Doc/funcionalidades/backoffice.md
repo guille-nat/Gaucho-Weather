@@ -3,7 +3,7 @@
 
 ## Qué hace
 Una API para que los super admins administren cuentas, pedidos de plan y precios sin entrar
-al admin de Django. La usa la pantalla `/backoffice` del frontend. Vive en
+al admin de Django, y hagan cambios a mano en una cuenta desde su ficha. La usa la pantalla `/backoffice` del frontend. Vive en
 `backend/apps/backoffice` y responde bajo `/api/backoffice/`.
 
 ## Quién puede entrar
@@ -31,7 +31,16 @@ backoffice solo a quien puede usarlo. El campo es de solo lectura.
 |---|---|
 | `GET resumen/` | Totales de cuentas, cupos de founder libres, pedidos pendientes, altas de los últimos 30 días e ingresos en pesos. |
 | `GET cuentas/?q=&plan=&estado=&page=` | Lista paginada de cuentas. |
+| `GET cuentas/{id}/` | Ficha de una cuenta: perfil, historial de planes, suscripciones, pagos, lotes y alertas. |
+| `PATCH cuentas/{id}/` | Edita nombre y/o email. |
 | `POST cuentas/{id}/plan/` | Cambia el plan de una cuenta. |
+| `POST cuentas/{id}/bloquear/` y `desbloquear/` | Bloquea o desbloquea la cuenta (`is_active`). |
+| `POST cuentas/{id}/superadmin/dar/` y `superadmin/quitar/` | Da o quita super admin (`is_superuser` e `is_staff`). |
+| `POST cuentas/{id}/restablecer-contrasena/` | Manda el mail para restablecer la contraseña. |
+| `POST cuentas/{id}/prueba/` | Da o extiende la prueba de Productor hasta una fecha. |
+| `POST cuentas/{id}/founder/dar/` y `founder/quitar/` | Marca o quita founder. |
+| `POST cuentas/{id}/suscripcion/sincronizar/` | Vuelve a pedirle a Mercado Pago la última suscripción y sus cobros. |
+| `POST cuentas/{id}/suscripcion/cancelar/` | Cancela la suscripción en Mercado Pago. |
 | `GET pedidos/?page=` | Pedidos de plan pendientes, del más viejo al más nuevo. |
 | `POST pedidos/{id}/aplicar/` | Aplica un pedido pendiente. |
 | `POST pedidos/{id}/rechazar/` | Rechaza un pedido pendiente. |
@@ -80,6 +89,117 @@ octubre para el negocio. Los montos son números, como en el resto de la API
 - Cada fila: `id`, `name`, `email`, `plan` (`{code, name}`), `status`, `founder_number`,
   `lotes` (cantidad), `date_joined`, `last_login`, `is_superuser`. Orden: altas más nuevas
   primero.
+
+### Ficha de una cuenta (backoffice-superadmin S1)
+`GET cuentas/{id}/` devuelve en una sola respuesta:
+
+- el perfil: `id`, `name`, `email`, `plan` (`{code, name}`), `status`, `founder_number`,
+  `plan_expires_at`, `is_active`, `is_superuser`, `date_joined`, `last_login`;
+- `plan_changes`: el historial de planes, del más nuevo al más viejo, con `id`, `at`,
+  `from_plan` (`null` en el alta), `to_plan`, `reason`, `by` (`{id, name, email}` o `null`) y
+  `note`;
+- `subscriptions`: las suscripciones de Mercado Pago, con los campos de `pagos/?tipo=suscripciones`
+  menos `user`;
+- `payments`: los pagos, con los campos de `pagos/` menos `user`;
+- `lotes`: `{id, name, created_at}`;
+- `alert_rules`: `{id, variable, name, lote, enabled}` (`name` es la variable en palabras,
+  `lote` el nombre del lote).
+
+Nunca devuelve contraseñas, `checkout_url` ni el `payload` de Mercado Pago. Cuenta
+inexistente: 404. **Por qué una sola respuesta:** el super admin abre la ficha para decidir
+qué hacer con una cuenta, y necesita verlo todo junto; son pocas filas por cuenta.
+
+Todas las escrituras de abajo responden la ficha actualizada, así la pantalla la reemplaza sin
+pedirla de nuevo. Una escritura que no cambia nada (bloquear una cuenta ya bloqueada, editar
+con los mismos datos) responde 200 y no deja fila en el registro.
+
+### Editar nombre y email
+`PATCH cuentas/{id}/` con `{"name": "...", "email": "..."}`, uno o los dos. El email se
+normaliza como en el alta (sin espacios y en minúsculas).
+
+- Un email que ya usa otra cuenta, sin importar mayúsculas: 400
+  `{"email": ["Ya hay una cuenta con ese email."]}`.
+- Un email inválido o un nombre vacío: 400 con el error en ese campo.
+- El registro guarda `{before, after}` solo con los campos que cambiaron.
+
+A diferencia de `PATCH /api/auth/me/`, no pide la contraseña actual. **Por qué:** quien edita
+es un super admin, no el dueño de la cuenta; el registro deja constancia del cambio.
+
+### Control de acceso (S2)
+- `bloquear/` pone `is_active` en `False`. Django rechaza las cuentas inactivas: no pueden
+  entrar y una sesión abierta deja de funcionar en el próximo pedido. `desbloquear/` lo
+  vuelve a `True`.
+- (A) Bloquear no cancela la suscripción de Mercado Pago. **Por qué:** cobrarle o no a una
+  cuenta es otra decisión; se cancela aparte desde la misma ficha.
+- `superadmin/dar/` y `superadmin/quitar/` cambian `is_superuser` e `is_staff` juntos.
+  **Por qué juntos:** un super admin también usa el admin de Django, y quitar uno solo dejaría
+  un permiso a medias.
+- Un super admin no puede bloquearse ni quitarse el super admin a sí mismo: 400
+  `{"detail": "No podés hacer eso con tu propia cuenta."}`. **Por qué:** así nadie se queda
+  afuera por error, y siempre queda al menos el super admin que hizo el cambio.
+- `restablecer-contrasena/` llama a `apps.accounts.password_reset.send_reset_email`, el mismo
+  mail que "Olvidé mi contraseña" (enlace de 1 hora, de un solo uso).
+  - Cuenta bloqueada: 400 `{"detail": "La cuenta está bloqueada."}`.
+  - (A) Respeta la misma espera de 10 minutos entre mails a una dirección: un segundo pedido
+    dentro de ese tiempo da 429
+    `{"detail": "Ya le mandamos un mail hace menos de 10 minutos. Probá de nuevo más tarde."}`
+    y no se registra. **Por qué:** `send_reset_email` ya tiene ese límite contra el envío
+    masivo; saltearlo desde el backoffice abriría otra puerta.
+
+### Plan y founder a mano (S3)
+- `prueba/` con `{"hasta": "2026-12-01"}` pone la cuenta en Productor con `plan_expires_at` al
+  final de ese día en hora de Buenos Aires (23:59:59). Si ya estaba en prueba, la fecha nueva
+  reemplaza la anterior. Pasa por `plans._switch` con motivo `staff` y `by=<super admin>`, bajo
+  el mismo lock de la cuenta, y después pone el vencimiento. Al vencer, la tarea de siempre
+  (`expire_trials`) la pasa a Básico.
+  - Fecha de hoy o pasada: 400 `{"hasta": ["La fecha tiene que ser futura."]}`.
+  - Un founder: 400 `{"detail": "La cuenta es founder: ya tiene Productor sin vencimiento."}`.
+  - Una cuenta que paga (suscripción `authorized` o `paused` sin terminar): 400
+    `{"detail": "La cuenta tiene una suscripción paga: cancelala primero."}`.
+  - Una suscripción cancelada que todavía tiene días pagos: 400 `{"detail": "La cuenta tiene
+    días pagos hasta el 06/12/2026: dale la prueba después de esa fecha."}`.
+  - **Por qué:** con la suscripción andando, el vencimiento de la prueba haría que
+    `expire_trials` pase a Básico una cuenta que sigue pagando. Con una cancelada, el fin de
+    sus días pagos (`end_cancelled_subscriptions`) cortaría antes una prueba más larga. Hasta
+    que existan los créditos (meses gratis sin cancelar), primero se cancela.
+- `founder/dar/` toma el próximo número de `FounderProgram` con `select_for_update`, como el
+  alta (`plans.start_membership`), y pone la cuenta en Productor sin vencimiento (motivo
+  `staff`). Si ese número ya lo tiene otra cuenta (puesto a mano en el admin), usa el
+  siguiente libre.
+  - Una cuenta que ya es founder: 400 `{"detail": "La cuenta ya es founder (n.º 3)."}`.
+  - Una cuenta que paga: 400 `{"detail": "La cuenta tiene una suscripción paga: cancelala
+    primero."}`. **Por qué:** founder es Productor gratis; sin cancelar, Mercado Pago le
+    seguiría cobrando. Una suscripción cancelada con días pagos no frena el founder (ese fin
+    nunca toca a un founder).
+  - (A) Funciona aunque el cupo esté completo. **Por qué:** es una decisión a mano del super
+    admin; la pantalla le muestra antes cuántos lugares quedan.
+- `founder/quitar/` borra `founder_number`. El número no se vuelve a dar.
+  - Una cuenta que no es founder: 400 `{"detail": "La cuenta no es founder."}`.
+  - (A) El plan queda como está, sin vencimiento, así que la cuenta queda "activa" en ese
+    plan. **Por qué:** quitar el founder y cambiar el plan son dos decisiones; el plan se
+    cambia aparte si hace falta.
+
+### Mercado Pago desde el panel (S4)
+- `suscripcion/sincronizar/` toma la suscripción más nueva de la cuenta y le pide a Mercado
+  Pago su estado (`GET /preapproval/{id}`) y sus cobros
+  (`GET /authorized_payments/search?preapproval_id={id}`, y `GET /v1/payments/{id}` de cada
+  cobro que ya tiene pago). Primero lee todo; después aplica la respuesta con
+  `payments.services.sync_subscription` y `record_payment`, las mismas funciones del webhook,
+  en la misma transacción que el registro. **Por qué:** sirve cuando se perdió un webhook, y
+  si Mercado Pago falla a mitad de camino no queda nada aplicado a medias. El payload de cada
+  pago se filtra igual que en el webhook (`PAYLOAD_KEYS`).
+- `suscripcion/cancelar/` llama a `payments.services.cancel(user)`, el mismo botón "Darme de
+  baja" del usuario: cancela en Mercado Pago y la cuenta conserva el plan hasta el fin del mes
+  pago.
+- Errores de los dos:
+  - Sin suscripción (para cancelar: sin una activa o pausada vigente): 404
+    `{"detail": "La cuenta no tiene una suscripción con Mercado Pago."}`.
+  - Mercado Pago falla o no responde: 502
+    `{"detail": "No pudimos conectar con Mercado Pago. Probá de nuevo en un rato."}`.
+  - Pagos sin configurar: 503 `{"detail": "Los pagos todavía no están habilitados."}`, sin
+    llamar a Mercado Pago.
+- La búsqueda de cobros trae la primera página que devuelve Mercado Pago, que alcanza para
+  muchos meses de una suscripción mensual.
 
 ### Cambiar el plan
 Cuerpo `{"plan": "empresa", "note": "opcional, hasta 200 caracteres"}`. Pasa por
@@ -146,6 +266,16 @@ lectura.
 | `request_apply` | pedido aplicado | `{request, kind, plan}` |
 | `request_reject` | pedido rechazado | `{request, kind, plan, note}` |
 | `price_update` | precio actualizado | `{plan, before, after}` con los dos precios |
+| `account_update` | nombre o email editados | `{before, after}`, solo los campos que cambiaron |
+| `account_block` / `account_unblock` | cuenta bloqueada o desbloqueada | `{}` |
+| `superadmin_grant` / `superadmin_revoke` | super admin dado o quitado | `{}` |
+| `password_reset` | mail para restablecer la contraseña | `{}` |
+| `trial_grant` | prueba dada o extendida | `{until, from_plan}` (`until` es `YYYY-MM-DD`) |
+| `founder_grant` | founder dado | `{number, from_plan}` |
+| `founder_revoke` | founder quitado | `{number}` |
+| `subscription_sync` | suscripción sincronizada | `{subscription, before, after, payments}`: el id en Mercado Pago, el estado antes y después, y cuántos pagos se registraron |
+| `subscription_cancel` | suscripción cancelada | `{subscription, before, after}` |
+| `export` | exportación CSV (S8, ver [backoffice-informes.md](backoffice-informes.md)) | `{file, rows}` |
 
 Las acciones hechas desde el admin de Django no entran en este registro: el admin ya guarda
 su propio historial y el `PlanChange` registra quién movió el plan.
@@ -158,12 +288,41 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - Sin `me.is_superuser` redirige a `/perfil` sin llamar a la API (la SPA trata un 403 que
   no es de CSRF como sesión perdida). Si igual llega un 403, se vuelve a pedir `me` y se
   sale sin cerrar la sesión.
-- Pestañas: Resumen, Cuentas (búsqueda, plan y estado; "Cambiar plan" con nota),
+- Pestañas: Resumen, Cuentas (búsqueda, plan y estado; "Cambiar plan" con nota; el nombre
+  abre la ficha),
   Pedidos (Aplicar; Rechazar con nota), Pagos (pagos o suscripciones), Precios (los dos
   precios de cada plan; vacío es `null`) y Registro. La pestaña abierta queda en
   `?seccion=`.
 - Las escrituras usan `apiFetch`, que manda el CSRF. Después de cada una se vuelven a
   pedir todas las listas y el resumen.
+- El Registro describe cada acción en palabras, también las nuevas (por ejemplo "Prueba de
+  Productor hasta el 1 de diciembre de 2026 (venía de Básico)").
+
+### Ficha de cuenta
+`frontend/src/pages/backoffice/cuenta/`. El nombre de cada cuenta en la pestaña Cuentas es un
+enlace a `?seccion=cuentas&cuenta=<id>`, que muestra la ficha en lugar de la lista; "Todas las
+cuentas" vuelve. **Por qué en la dirección:** recargar o compartir el enlace abre la misma
+ficha, y el botón Atrás del navegador vuelve a la lista.
+
+- Secciones: Datos (plan, estado, acceso, alta, último ingreso; "Editar nombre y email"),
+  Acceso (bloquear o desbloquear, dar o quitar super admin, mandar el mail de la contraseña),
+  Plan y founder ("Cambiar plan", "Dar o extender prueba", "Marcar founder" o "Quitar
+  founder", e historial de planes), Mercado Pago ("Sincronizar con Mercado Pago", "Cancelar
+  suscripción", suscripciones y pagos) y Lotes y alertas.
+- Cada acción abre un diálogo nativo (`BackofficeDialog`) que explica qué va a pasar antes de
+  mandar nada. En las confirmaciones el foco arranca en la salida segura ("Cancelar" o
+  "Volver"): el diálogo enfoca el control marcado con `data-autofocus` al abrirse, porque React
+  no escribe el atributo `autofocus` que busca `showModal()`. Un rechazo de la API queda en el
+  diálogo con sus palabras; los errores de un campo (email en uso, fecha pasada) quedan junto
+  al campo.
+- La prueba se elige con un `<input type="date">` cuyo mínimo es mañana en Buenos Aires; la
+  fecha viaja como texto `YYYY-MM-DD`, sin pasar por `Date`, así no se corre un día.
+- El diálogo de "Marcar founder" muestra cuántos lugares quedan (`founders_left` del
+  resumen) y avisa si el cupo está completo, sin impedirlo.
+- En la ficha propia no aparecen "Bloquear cuenta" ni "Quitar super admin", y una nota lo
+  explica; la API igual lo rechaza.
+- La respuesta de cada escritura reemplaza la ficha en la caché, y además se vuelven a pedir
+  la lista y el resumen.
 - Es modo Operate de "Cielo vivo" y usa todo el ancho de la columna. En el teléfono, las
   tablas pasan a bloques con etiquetas.
 
@@ -175,3 +334,5 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - 2026-11-19: pagos y suscripciones (`pagos/`) e ingresos en pesos en `resumen/` (S7).
 - 2026-11-19: pantalla `/backoffice` en el frontend (T4).
 - 2026-11-19: Pedidos vuelve a la página anterior al resolver el último pedido de una página (el review vio que quedaba en error con 404 "Página inválida.").
+- 2026-11-19: ficha de cuenta con edición, control de acceso, prueba y founder a mano, y sincronizar o cancelar la suscripción de Mercado Pago (backoffice-superadmin S1-S4).
+- 2026-11-19: prueba y founder se rechazan para una cuenta que paga (advertencia del verificador).

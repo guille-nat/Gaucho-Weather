@@ -88,6 +88,10 @@ class PaymentProvider(ABC):
         """(payment id, subscription id) of a subscription charge; either may be unknown."""
 
     @abstractmethod
+    def subscription_payment_ids(self, external_id: str) -> list[str]:
+        """The payment ids of a subscription's charges; a charge not attempted yet has none."""
+
+    @abstractmethod
     def verify_webhook(self, request) -> WebhookEvent | None:
         """Check the signature (raises InvalidSignature) and say what changed.
 
