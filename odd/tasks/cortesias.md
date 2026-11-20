@@ -19,6 +19,8 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
   - a founder asking for Productor (they already have it);
   - when 20 cortesías are already active: "Ya hay 20 cortesías activas. Revocá alguna antes de dar otra." (assumption: the cap is 20, a setting-free constant).
 - Calling it again on an account with an active cortesía changes its plan or date, but the end can never be more than 365 days after the day the cortesía was first given (assumption: the year counts from the first grant, so it cannot be renewed forever).
+- Rule from L5 ("1 año en 2 años"): in any window of 2 years (730 days) an account adds up at most 365 days of cortesía, counting every cortesía it had (revoked ones count up to their revoke, expired ones up to their end). A grant or re-grant that would exceed it is refused with the date it could end at most, or the day a new one becomes possible.
+- The cap of 20 holds under concurrent grants (one shared lock before counting).
 
 **S2 — Revoke.**
 - `DELETE /api/backoffice/cuentas/{id}/cortesia/` ends an active cortesía now: the account goes to Básico, or to Productor for a founder. `BackofficeAction` `courtesy_revoke`. Without an active cortesía: 404.
@@ -38,6 +40,10 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 
 **S6 — Security (from the user's "no comprometer la seguridad").**
 - Every rule above is enforced on the server, never only in the UI; superuser only; every grant and revoke is in the backoffice log, which nobody edits.
+- From the verifier's findings and the user's decision L2 ("Un solo camino, todo con vencimiento"):
+  - No cortesía, trial or founder grant to a superuser account (yours or another's) or to a blocked account.
+  - The backoffice trial grant ends at most 365 days ahead, like a cortesía.
+  - In the Django admin, `plan` and `plan_expires_at` are read-only: plans change only through the backoffice, where every change is logged.
 - Out of scope, recorded as a follow-up: two-step verification for super admins.
 
 ## Tasks
@@ -45,6 +51,8 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 |---|---|---|---|---|
 | T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | done | 96f80e3 |
 | T2 | S5 frontend (and S6 in the UI) | delegated writer (same reason) | done | abd3941 |
+
+| T3 | S1, S6 verifier blockers and hardening | delegated writer (context backstop) | pending | |
 
 Risk: item 2 (permissions and guards: who can give a paid plan for free) and item 3 (changes the backoffice plan-change API, requested by the user). Independent verifier after T2.
 
@@ -59,3 +67,4 @@ Risk: item 2 (permissions and guards: who can give a paid plan for free) and ite
 - **L4** (2026-11-20): T2 done in abd3941 (S5, S6 in the UI). RED first: the 13 tests in `frontend/src/test/cortesias.test.tsx` failed before the code (the user-history one checked separately); all pass now. Two existing tests that moved Marta to Empresa through "Cambiar plan" now move Juan down to Básico. With the parent's approval, `founder-upgrade.test.tsx` now asserts that "Cambiar plan" offers a founder only Básico and Productor and sends nothing (the backend tests cover the refusal), and `PlanChangeReason` in `api/types.ts` gained `courtesy` and `courtesy_ended`. The user's plan history in `Suscripcion.tsx` says "Empezó tu cortesía" and "Terminó tu cortesía", in the second person like its other entries. Check: `docker compose exec -T frontend sh -c 'npx tsc --noEmit -p . && npx eslint src --max-warnings 0 && npx prettier --check src && npx vitest run'` → tsc, eslint and prettier clean; 365 passed, 1 failed: the known `terminos.test.tsx > shows the same version as the backend` (the container mounts only ./frontend). Deviations accepted by the parent:
   1. With an active cortesía the button reads "Cambiar cortesía" and the dialog starts from its plan, date and reason (the re-grant of S1).
   2. "Dar cortesía" is not hidden on the super admin's own account: the server refuses it and the dialog shows the refusal.
+- **L5** (2026-11-20): independent verifier: S2–S5 pass; S1 and S6 fail. Blockers: (1) two concurrent grants at 19 active leave 21 (`len()` of a `select_for_update` list does not see rows committed meanwhile); (2) revoke (or expiry) then a fresh grant starts another full year. Advisories: the trial grant gives Productor until 2099 even to oneself; the Django admin edits plan and expiry without a log; founder self-grant; super admins can give each other cortesías; a blocked account can get one. User's decision for (2): "1 año en 2 años (Recomendado)": "En cualquier ventana de 2 años una cuenta suma como máximo 365 días de cortesía." S1 and S6 rewritten; T3 opened for the correction batch.
