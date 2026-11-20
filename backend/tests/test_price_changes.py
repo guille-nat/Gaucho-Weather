@@ -56,10 +56,13 @@ def subscribed(email, plan=Plan.PRODUCTOR, status="authorized", amount=14900, **
     return user, sub
 
 
-def schedule(client, code="productor", price=16900, effective_on=IN_30_DAYS):
+ARS, USD, REQUIRED = "price_ars_month", "price_usd_month", "Este campo es requerido."
+
+
+def schedule(client, code="productor", price=16900, effective_on=IN_30_DAYS, usd=12):
     return client.post(
         f"{PRICES}{code}/cambio/",
-        {"price_ars_month": price, "effective_on": effective_on},
+        {"price_ars_month": price, "price_usd_month": usd, "effective_on": effective_on},
         format="json",
     )
 
@@ -67,6 +70,7 @@ def schedule(client, code="productor", price=16900, effective_on=IN_30_DAYS):
 def change_of(code):
     return {
         "price_ars_month": 16900,
+        "price_usd_month": 12,
         "effective_on": IN_30_DAYS,
         "notices": 0,
         "notices_sent": 0,
@@ -91,18 +95,21 @@ def test_scheduling_saves_the_change_records_it_and_keeps_the_current_price(
         "pending_change": change_of("productor"),
     }
     change = PriceChange.objects.get()
-    assert (change.plan_id, change.price_ars_month, change.effective_on) == (
+    assert (change.plan_id, change.price_ars_month, change.price_usd_month) == (
         "productor",
         16900,
-        date(2026, 12, 20),
+        12,
     )
+    assert change.effective_on == date(2026, 12, 20)
     assert change.created_by == admin_user
-    assert Plan.objects.get(code="productor").price_ars_month == 14900
+    productor = Plan.objects.get(code="productor")
+    assert (productor.price_ars_month, productor.price_usd_month) == (14900, 10)
     action = BackofficeAction.objects.get()
     assert (action.actor, action.action) == (admin_user, "price_schedule")
     assert action.payload == {
         "plan": "productor",
         "price_ars_month": 16900,
+        "price_usd_month": 12,
         "effective_on": IN_30_DAYS,
     }
 
@@ -120,15 +127,32 @@ def test_the_price_list_shows_the_pending_change(admin_client):
     "body,field,message",
     [
         (
-            {"price_ars_month": 16900, "effective_on": TOO_SOON},
+            {"price_ars_month": 16900, "price_usd_month": 12, "effective_on": TOO_SOON},
             "effective_on",
             "La fecha tiene que ser al menos 30 días después de hoy.",
         ),
-        ({"price_ars_month": 16900}, "effective_on", "Este campo es requerido."),
-        ({"price_ars_month": 0, "effective_on": IN_30_DAYS}, "price_ars_month", None),
-        ({"price_ars_month": None, "effective_on": IN_30_DAYS}, "price_ars_month", None),
-        ({"price_ars_month": "mucho", "effective_on": IN_30_DAYS}, "price_ars_month", None),
-        ({"effective_on": IN_30_DAYS}, "price_ars_month", "Este campo es requerido."),
+        ({"price_ars_month": 16900, "price_usd_month": 12}, "effective_on", REQUIRED),
+        ({"price_ars_month": 0, "price_usd_month": 12, "effective_on": IN_30_DAYS}, ARS, None),
+        ({"price_ars_month": None, "price_usd_month": 12, "effective_on": IN_30_DAYS}, ARS, None),
+        (
+            {"price_ars_month": "mucho", "price_usd_month": 12, "effective_on": IN_30_DAYS},
+            ARS,
+            None,
+        ),
+        ({"price_usd_month": 12, "effective_on": IN_30_DAYS}, ARS, REQUIRED),
+        # avisos-cambios L8: the dollar price is required too, a whole number from 1.
+        ({"price_ars_month": 16900, "effective_on": IN_30_DAYS}, USD, REQUIRED),
+        ({"price_ars_month": 16900, "price_usd_month": 0, "effective_on": IN_30_DAYS}, USD, None),
+        (
+            {"price_ars_month": 16900, "price_usd_month": None, "effective_on": IN_30_DAYS},
+            USD,
+            None,
+        ),
+        (
+            {"price_ars_month": 16900, "price_usd_month": 12.5, "effective_on": IN_30_DAYS},
+            USD,
+            None,
+        ),
     ],
 )
 def test_scheduling_refusals(admin_client, body, field, message):
@@ -188,6 +212,7 @@ def test_cancelling_a_pending_change(admin_client, admin_user):
     assert action.payload == {
         "plan": "productor",
         "price_ars_month": 16900,
+        "price_usd_month": 12,
         "effective_on": IN_30_DAYS,
     }
     assert mail.outbox == []
@@ -208,7 +233,7 @@ def test_only_super_admins_can_schedule(method):
 
     response = getattr(client_for(staff), method)(
         f"{PRICES}productor/cambio/",
-        {"price_ars_month": 16900, "effective_on": IN_30_DAYS},
+        {"price_ars_month": 16900, "price_usd_month": 12, "effective_on": IN_30_DAYS},
         format="json",
     )
 

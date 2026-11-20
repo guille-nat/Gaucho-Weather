@@ -101,6 +101,7 @@ class PlanPriceSerializer(serializers.ModelSerializer):
             return None
         return {
             "price_ars_month": change.price_ars_month,
+            "price_usd_month": change.price_usd_month,
             "effective_on": change.effective_on.isoformat(),
             "notices": change.notices.count(),
             "notices_sent": change.notices.exclude(sent_at=None).count(),
@@ -108,9 +109,10 @@ class PlanPriceSerializer(serializers.ModelSerializer):
 
 
 class PriceChangeSerializer(serializers.Serializer):
-    """A scheduled peso price (avisos-cambios S1): at least 30 days ahead."""
+    """Scheduled prices in pesos and in dollars (avisos-cambios S1, L8): at least 30 days ahead."""
 
     price_ars_month = serializers.IntegerField(min_value=1)
+    price_usd_month = serializers.IntegerField(min_value=1)
     effective_on = serializers.DateField()
 
     def validate_effective_on(self, value):

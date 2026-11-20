@@ -48,7 +48,7 @@ backoffice solo a quien puede usarlo. El campo es de solo lectura.
 | `POST pedidos/{id}/rechazar/` | Rechaza un pedido pendiente. |
 | `GET precios/` | Los tres planes con su precio en pesos y en dólares. |
 | `PUT precios/{code}/` | Actualiza los dos precios de un plan. |
-| `POST precios/{code}/cambio/` | Programa un precio nuevo en pesos y avisa a los suscriptores. |
+| `POST precios/{code}/cambio/` | Programa precios nuevos en pesos y en dólares y avisa a los suscriptores. |
 | `DELETE precios/{code}/cambio/` | Cancela el cambio de precio pendiente. |
 | `GET registro/?page=` | Registro de acciones del backoffice, de la más nueva a la más vieja. |
 | `GET pagos/?tipo=pagos\|suscripciones&page=` | Pagos (por defecto) o suscripciones de Mercado Pago, de la más nueva a la más vieja. |
@@ -340,14 +340,17 @@ campo. Plan inexistente: 404. Es la actualización trimestral de precios; ver
 
 El `PUT` cambia el precio en el momento, pero solo lo pagan los checkouts nuevos. Para que lo
 paguen también las suscripciones que ya cobran, hay que programar un cambio (avisos-cambios).
-Cada plan trae `pending_change`: `null` o `{price_ars_month, effective_on, notices,
-notices_sent}`, que dice a cuántas suscripciones llega el cambio y cuántos avisos ya salieron.
+Cada plan trae `pending_change`: `null` o `{price_ars_month, price_usd_month, effective_on,
+notices, notices_sent}`, que dice a cuántas suscripciones llega el cambio y cuántos avisos ya salieron.
 
-`POST precios/{code}/cambio/` recibe `{"price_ars_month": 16900, "effective_on": "2026-12-20"}`
-y responde 201 con el plan:
+`POST precios/{code}/cambio/` recibe `{"price_ars_month": 16900, "price_usd_month": 12,
+"effective_on": "2026-12-20"}` y responde 201 con el plan:
 - La fecha tiene que caer al menos 30 días después de hoy: "La fecha tiene que ser al menos 30
   días después de hoy." Los términos prometen ese aviso, también cuando el precio baja.
-- El precio es un entero mayor o igual a 1. Plan Básico: 400. Si el plan ya tiene un cambio
+- Los dos precios son obligatorios, enteros mayores o iguales a 1 (avisos-cambios L8). En su
+  fecha el plan toma los dos; las suscripciones se cobran en pesos, así que los avisos y los
+  montos de Mercado Pago solo usan el precio en pesos. **Por qué:** decisión del usuario, "cargo
+  yo el peso y el dolar". Plan Básico: 400. Si el plan ya tiene un cambio
   pendiente: 409 ("Cancelalo antes de programar otro").
 - Les manda un email a todas las suscripciones `authorized` o `paused` cuyo monto cambia. El
   monto se calcula con `price_for`, así que un cambio en Productor también les llega a los
@@ -387,7 +390,7 @@ lectura.
 | `request_apply` | pedido aplicado | `{request, kind, plan}` |
 | `request_reject` | pedido rechazado | `{request, kind, plan, note}` |
 | `price_update` | precio actualizado | `{plan, before, after}` con los dos precios |
-| `price_schedule` / `price_unschedule` | cambio de precio programado o cancelado | `{plan, price_ars_month, effective_on}` |
+| `price_schedule` / `price_unschedule` | cambio de precio programado o cancelado | `{plan, price_ars_month, price_usd_month, effective_on}` (las filas de antes del 2026-11-20 no traen `price_usd_month`) |
 | `account_update` | nombre o email editados | `{before, after}`, solo los campos que cambiaron |
 | `account_block` / `account_unblock` | cuenta bloqueada o desbloqueada | `{}` |
 | `superadmin_grant` / `superadmin_revoke` | super admin dado o quitado | `{}` |
@@ -415,8 +418,8 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - Pestañas: Resumen, Cuentas (búsqueda, plan y estado; "Cambiar plan" con nota; el nombre
   abre la ficha),
   Pedidos (Aplicar; Rechazar con nota), Pagos (pagos o suscripciones), Precios (los dos
-  precios de cada plan; vacío es `null`; debajo, "Cambio para los suscriptores": programar un
-  precio en pesos con fecha, en un diálogo que avisa que el email sale en el momento, o ver el
+  precios de cada plan; vacío es `null`; debajo, "Cambio para los suscriptores": programar los
+  precios en pesos y en dólares con fecha, en un diálogo que avisa que el email sale en el momento, o ver el
   pendiente con cuántos avisos salieron y cancelarlo con confirmación; Básico no lo tiene) y
   Registro. La pestaña abierta queda en
   `?seccion=`.
@@ -482,3 +485,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-20: la ficha muestra, da, cambia y revoca cortesías; "Cambiar plan" solo ofrece el plan gratis; el registro describe `courtesy_grant` y `courtesy_revoke`, y el historial de planes del usuario dice "Empezó tu cortesía" y "Terminó tu cortesía" (cortesias S5).
 - 2026-11-20: correcciones del verificador (cortesias T3): el tope de 20 aguanta altas simultáneas, "1 año en 2 años" por cuenta, ni cortesía ni prueba ni founder a un super admin o a una cuenta bloqueada, prueba de como máximo un año, y plan y vencimiento de solo lectura en el admin de Django.
 - 2026-11-20: el cambio de plan rechaza una cuenta que paga; la lista y la ficha suman `paying` y no ofrecen "Cambiar plan" para ella (cortesias T4, L8).
+- 2026-11-20: un cambio de precio programado lleva el precio en pesos y en dólares; Precios y Registro muestran los dos (avisos-cambios T5, L8).

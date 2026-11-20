@@ -765,9 +765,13 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       }
       const body = (await request.json()) as Record<string, unknown>;
       const errors: Record<string, string[]> = {};
-      const amount = body.price_ars_month;
-      if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
-        errors.price_ars_month = ['Asegúrese de que este valor sea mayor o igual a 1.'];
+      // Like PriceChangeSerializer: both prices, whole numbers from 1 (avisos-cambios L8).
+      for (const field of ['price_ars_month', 'price_usd_month'] as const) {
+        const value = body[field];
+        if (value === undefined) errors[field] = ['Este campo es requerido.'];
+        else if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+          errors[field] = ['Asegúrese de que este valor sea mayor o igual a 1.'];
+        }
       }
       const day = body.effective_on;
       const earliest = tomorrowInBuenosAires(Date.now() + 29 * 86_400_000);
@@ -790,7 +794,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           row.plan.code === plan.code && (row.status === 'authorized' || row.status === 'paused'),
       ).length;
       const change = {
-        price_ars_month: amount as number,
+        price_ars_month: body.price_ars_month as number,
+        price_usd_month: body.price_usd_month as number,
         effective_on: day as string,
         notices: reached,
         notices_sent: reached,
@@ -799,6 +804,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       record('price_schedule', null, {
         plan: plan.code,
         price_ars_month: change.price_ars_month,
+        price_usd_month: change.price_usd_month,
         effective_on: change.effective_on,
       });
       return HttpResponse.json(
@@ -831,6 +837,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       record('price_unschedule', null, {
         plan: plan.code,
         price_ars_month: change.price_ars_month,
+        price_usd_month: change.price_usd_month,
         effective_on: change.effective_on,
       });
       return HttpResponse.json({

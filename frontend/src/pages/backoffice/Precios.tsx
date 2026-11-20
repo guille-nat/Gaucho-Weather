@@ -51,25 +51,53 @@ function ScheduleForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [amount, setAmount] = useState('');
+  const [text, setText] = useState<Record<Field, string>>({
+    price_ars_month: '',
+    price_usd_month: '',
+  });
   const [day, setDay] = useState('');
-  const [invalid, setInvalid] = useState<{ price?: string; day?: string }>({});
-  const schedule = useBackofficeMutation(
-    (input: { price_ars_month: number; effective_on: string }) =>
-      schedulePriceChange(price.code, input),
+  const [invalid, setInvalid] = useState<Partial<Record<Field | 'day', string>>>({});
+  const schedule = useBackofficeMutation((input: Parameters<typeof schedulePriceChange>[1]) =>
+    schedulePriceChange(price.code, input),
   );
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const value = amount.trim();
+    // Both prices, parsed like the immediate edit, and both required here (avisos-cambios L8).
+    const whole = (field: Field) => {
+      const value = parsePrice(text[field]);
+      return typeof value === 'number' && value > 0 ? value : null;
+    };
+    const ars = whole('price_ars_month');
+    const usd = whole('price_usd_month');
     const errors = {
-      price: /^\d+$/.test(value) && Number(value) > 0 ? undefined : NOT_A_PRICE,
+      price_ars_month: ars ? undefined : NOT_A_PRICE,
+      price_usd_month: usd ? undefined : NOT_A_PRICE,
       day: day ? undefined : 'Elegí una fecha.',
     };
     setInvalid(errors);
-    if (errors.price || errors.day) return;
-    schedule.mutate({ price_ars_month: Number(value), effective_on: day }, { onSuccess: onDone });
+    if (!ars || !usd || !day) return;
+    schedule.mutate(
+      { price_ars_month: ars, price_usd_month: usd, effective_on: day },
+      { onSuccess: onDone },
+    );
   }
+
+  const priceField = (field: Field, label: string) => (
+    <TextField
+      label={label}
+      name={field}
+      inputMode="numeric"
+      autoComplete="off"
+      value={text[field]}
+      error={invalid[field] ?? fieldError(schedule.error, field)}
+      onChange={(e) => {
+        schedule.reset();
+        setInvalid({ ...invalid, [field]: undefined });
+        setText({ ...text, [field]: e.target.value });
+      }}
+    />
+  );
 
   return (
     <form className="form" onSubmit={submit} noValidate>
@@ -78,19 +106,8 @@ function ScheduleForm({
         paga el precio nuevo desde su primer cobro 30 días después del email, y los checkouts nuevos
         desde la fecha que elijas.
       </p>
-      <TextField
-        label="Pesos por mes, nuevo"
-        name="price_ars_month"
-        inputMode="numeric"
-        autoComplete="off"
-        value={amount}
-        error={invalid.price ?? fieldError(schedule.error, 'price_ars_month')}
-        onChange={(e) => {
-          schedule.reset();
-          setInvalid({ ...invalid, price: undefined });
-          setAmount(e.target.value);
-        }}
-      />
+      {priceField('price_ars_month', 'Pesos por mes, nuevo')}
+      {priceField('price_usd_month', 'Dólares por mes, nuevo')}
       <TextField
         label="Rige desde"
         name="effective_on"
@@ -123,8 +140,9 @@ function ScheduleForm({
 function PendingChange({ change }: { change: PendingPriceChange }) {
   return (
     <p className="fine">
-      Desde el {formatDate(change.effective_on)}: {formatMoney(change.price_ars_month)} por mes.{' '}
-      Avisado a {change.notices_sent} de {subscriptions(change.notices)}.
+      Desde el {formatDate(change.effective_on)}: {formatMoney(change.price_ars_month)} y{' '}
+      {formatMoney(change.price_usd_month, 'USD')} por mes. Avisado a {change.notices_sent} de{' '}
+      {subscriptions(change.notices)}.
     </p>
   );
 }

@@ -65,6 +65,10 @@ function describeAction({ action, payload }: ActionRow): string {
       return (
         `Cambio de precio ${action === 'price_schedule' ? 'programado' : 'cancelado'}: ` +
         `${planName(payload.plan)} a ${price(payload.price_ars_month as number, 'ARS')} ` +
+        // Rows from before avisos-cambios L8 carry only the peso price.
+        (typeof payload.price_usd_month === 'number'
+          ? `y ${price(payload.price_usd_month, 'USD')} `
+          : '') +
         `desde el ${calendarDay(payload.effective_on)}`
       );
     case 'account_update':

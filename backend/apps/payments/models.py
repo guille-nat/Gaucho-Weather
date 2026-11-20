@@ -105,10 +105,13 @@ class Payment(models.Model):
 
 
 class PriceChange(models.Model):
-    """A new monthly peso price for a plan, scheduled at least 30 days ahead (avisos-cambios S1).
+    """New monthly prices for a plan, in pesos and in dollars, scheduled at least 30 days ahead
+    (avisos-cambios S1, L8).
 
-    New checkouts use it from `effective_on`. Each running subscription changes amount through
-    its PriceNotice, 30 days after the notice went out and never before `effective_on` (S3).
+    Both plan prices are set on `effective_on`, so new checkouts use them from then on.
+    Subscriptions are charged in pesos, so only the peso price reaches them: each running
+    subscription changes amount through its PriceNotice, 30 days after the notice went out and
+    never before `effective_on` (S3).
     """
 
     plan = models.ForeignKey(
@@ -119,6 +122,7 @@ class PriceChange(models.Model):
         verbose_name="plan",
     )
     price_ars_month = models.PositiveIntegerField("precio nuevo por mes (ARS)")
+    price_usd_month = models.PositiveIntegerField("precio nuevo por mes (USD)")
     effective_on = models.DateField("rige desde")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

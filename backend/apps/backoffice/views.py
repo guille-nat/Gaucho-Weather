@@ -347,6 +347,7 @@ class PriceChangeView(BackofficeView):
             action,
             plan=change.plan_id,
             price_ars_month=change.price_ars_month,
+            price_usd_month=change.price_usd_month,
             effective_on=change.effective_on.isoformat(),
         )
 

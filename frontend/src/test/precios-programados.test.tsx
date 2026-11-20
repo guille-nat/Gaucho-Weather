@@ -1,5 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { schedulePriceChange } from '../api/backoffice';
+import { ApiError } from '../api/client';
 import type { User } from '../api/types';
 import { demoLotes, demoUser } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
@@ -25,6 +27,7 @@ async function openPrecios(user: ReturnType<typeof renderApp>['user']) {
 function pending(db: MockDb) {
   db.backoffice.priceChanges.productor = {
     price_ars_month: 16900,
+    price_usd_month: 12,
     effective_on: FAR,
     notices: 3,
     notices_sent: 2,
@@ -33,7 +36,7 @@ function pending(db: MockDb) {
 }
 
 describe('Scheduled price changes (avisos-cambios S4)', () => {
-  it('schedules a new peso price and shows it as pending', async () => {
+  it('schedules new peso and dollar prices and shows them as pending', async () => {
     const db = dbFor();
     const { user } = renderApp('/backoffice', db);
 
@@ -43,17 +46,20 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
     const dialog = screen.getByRole('dialog', { name: 'Programar un precio para Productor' });
     expect(dialog).toHaveTextContent('Les manda un email ahora');
     await user.type(within(dialog).getByLabelText('Pesos por mes, nuevo'), '16900');
+    await user.type(within(dialog).getByLabelText('Dólares por mes, nuevo'), '12');
     fireEvent.change(within(dialog).getByLabelText(/^Rige desde/), { target: { value: FAR } });
     await user.click(within(dialog).getByRole('button', { name: 'Programar y avisar' }));
 
     expect(
-      await within(productor).findByText(/Desde el 20 de diciembre de 2099: \$\s16\.900 por mes/),
+      await within(productor).findByText(
+        /Desde el 20 de diciembre de 2099: \$\s16\.900 y US\$\s12 por mes/,
+      ),
     ).toBeInTheDocument();
     expect(calls(db, 'POST')).toEqual([
       {
         method: 'POST',
         path: '/api/backoffice/precios/productor/cambio/',
-        body: { price_ars_month: 16900, effective_on: FAR },
+        body: { price_ars_month: 16900, price_usd_month: 12, effective_on: FAR },
       },
     ]);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -80,6 +86,7 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
     await user.click(within(productor).getByRole('button', { name: 'Programar un cambio' }));
     const dialog = screen.getByRole('dialog', { name: 'Programar un precio para Productor' });
     await user.type(within(dialog).getByLabelText('Pesos por mes, nuevo'), '16900');
+    await user.type(within(dialog).getByLabelText('Dólares por mes, nuevo'), '12');
     fireEvent.change(within(dialog).getByLabelText(/^Rige desde/), {
       target: { value: '2020-01-01' },
     });
@@ -100,12 +107,41 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
     await user.click(within(productor).getByRole('button', { name: 'Programar un cambio' }));
     const dialog = screen.getByRole('dialog', { name: 'Programar un precio para Productor' });
     await user.type(within(dialog).getByLabelText('Pesos por mes, nuevo'), '16.900');
+    await user.type(within(dialog).getByLabelText('Dólares por mes, nuevo'), '0');
     await user.click(within(dialog).getByRole('button', { name: 'Programar y avisar' }));
 
+    // Both prices, with the same parsing and message (avisos-cambios L8).
     expect(
-      within(dialog).getByText('Usá un número entero mayor que 0, sin puntos ni comas.'),
-    ).toBeVisible();
+      within(dialog).getAllByText('Usá un número entero mayor que 0, sin puntos ni comas.'),
+    ).toHaveLength(2);
+    expect(within(dialog).getByLabelText('Pesos por mes, nuevo')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(within(dialog).getByLabelText('Dólares por mes, nuevo')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
     expect(within(dialog).getByText('Elegí una fecha.')).toBeVisible();
+    expect(calls(db, 'POST')).toEqual([]);
+  });
+
+  it('asks for the dollar price too', async () => {
+    const db = dbFor();
+    const { user } = renderApp('/backoffice', db);
+
+    const panel = await openPrecios(user);
+    const productor = await within(panel).findByRole('group', { name: 'Productor' });
+    await user.click(within(productor).getByRole('button', { name: 'Programar un cambio' }));
+    const dialog = screen.getByRole('dialog', { name: 'Programar un precio para Productor' });
+    await user.type(within(dialog).getByLabelText('Pesos por mes, nuevo'), '16900');
+    fireEvent.change(within(dialog).getByLabelText(/^Rige desde/), { target: { value: FAR } });
+    await user.click(within(dialog).getByRole('button', { name: 'Programar y avisar' }));
+
+    expect(within(dialog).getByLabelText('Dólares por mes, nuevo')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
     expect(calls(db, 'POST')).toEqual([]);
   });
 
@@ -148,7 +184,12 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
         action: 'price_unschedule',
         actor: { id: 1, name: 'Ana Ferreyra', email: 'ana@example.com' },
         target_user: null,
-        payload: { plan: 'productor', price_ars_month: 16900, effective_on: FAR },
+        payload: {
+          plan: 'productor',
+          price_ars_month: 16900,
+          price_usd_month: 12,
+          effective_on: FAR,
+        },
         at: '2026-11-20T12:05:00Z',
       },
       {
@@ -156,7 +197,12 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
         action: 'price_schedule',
         actor: { id: 1, name: 'Ana Ferreyra', email: 'ana@example.com' },
         target_user: null,
-        payload: { plan: 'productor', price_ars_month: 16900, effective_on: FAR },
+        payload: {
+          plan: 'productor',
+          price_ars_month: 16900,
+          price_usd_month: 12,
+          effective_on: FAR,
+        },
         at: '2026-11-20T12:00:00Z',
       },
     ];
@@ -168,10 +214,27 @@ describe('Scheduled price changes (avisos-cambios S4)', () => {
     const [cancelled, scheduled] = within(table).getAllByRole('row').slice(1);
 
     expect(scheduled).toHaveTextContent(
-      /Cambio de precio programado: Productor a \$\s16\.900 desde el 20 de diciembre de 2099/,
+      /Cambio de precio programado: Productor a \$\s16\.900 y US\$\s12 desde el 20 de diciembre de 2099/,
     );
     expect(cancelled).toHaveTextContent(
-      /Cambio de precio cancelado: Productor a \$\s16\.900 desde el 20 de diciembre de 2099/,
+      /Cambio de precio cancelado: Productor a \$\s16\.900 y US\$\s12 desde el 20 de diciembre de 2099/,
     );
+  });
+
+  it('the mock refuses a change without the dollar price, as the API does', async () => {
+    const db = dbFor();
+    renderApp('/backoffice', db);
+    await screen.findByRole('tablist', { name: 'Secciones del backoffice' });
+
+    const refused = await schedulePriceChange('productor', {
+      price_ars_month: 16900,
+      effective_on: FAR,
+    } as Parameters<typeof schedulePriceChange>[1]).catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(ApiError);
+    expect((refused as ApiError).fieldErrors).toEqual({
+      price_usd_month: ['Este campo es requerido.'],
+    });
+    expect(db.backoffice.priceChanges.productor).toBeUndefined();
   });
 });

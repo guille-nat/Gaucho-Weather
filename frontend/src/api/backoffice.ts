@@ -77,9 +77,13 @@ export interface RequestRow {
   user: Person & { plan: PlanRef; status: MembershipStatus };
 }
 
-/** A scheduled peso price (avisos-cambios S4): who it reaches and how many were emailed. */
+/**
+ * Scheduled prices in pesos and dollars (avisos-cambios S4, L8): who it reaches and how many
+ * were emailed. Subscriptions are charged in pesos; both plan prices change on the date.
+ */
 export interface PendingPriceChange {
   price_ars_month: number;
+  price_usd_month: number;
   /** `YYYY-MM-DD`: new checkouts pay it from then; each subscription 30 days after its email. */
   effective_on: string;
   notices: number;
@@ -220,7 +224,7 @@ export const updatePrice = (code: PlanCode, input: PriceInput) =>
 /** `POST precios/{code}/cambio/`: at least 30 days ahead; emails the subscribers it reaches. */
 export const schedulePriceChange = (
   code: PlanCode,
-  input: { price_ars_month: number; effective_on: string },
+  input: { price_ars_month: number; price_usd_month: number; effective_on: string },
 ) => backoffice<PlanPrice>(`precios/${code}/cambio/`, { method: 'POST', body: input });
 
 /** `DELETE precios/{code}/cambio/`: drops the pending change; sends no email. */

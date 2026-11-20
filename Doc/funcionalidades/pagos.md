@@ -1,5 +1,5 @@
 # Pagos con Mercado Pago
-> Última actualización: 2026-11-19
+> Última actualización: 2026-11-20
 
 ## Qué hace
 Un productor se suscribe a un plan pago (Agrónomo o Productor) y Mercado Pago le cobra
@@ -83,7 +83,9 @@ siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambi
 Los términos dicen: "Un cambio de precio se avisa por email con al menos 30 días de
 anticipación y rige desde el cobro siguiente a ese plazo". Por eso se hace así
 (`apps/payments/price_changes.py`, feature `avisos-cambios`):
-- Desde el backoffice se programa un `PriceChange`, al menos 30 días antes de su fecha.
+- Desde el backoffice se programa un `PriceChange` con el precio nuevo en pesos y en dólares,
+  al menos 30 días antes de su fecha. Los avisos y los montos de Mercado Pago solo usan el de
+  pesos: todas las suscripciones se cobran en pesos.
 - Al programarlo se crea un `PriceNotice` por cada suscripción `authorized` o `paused` cuyo
   monto cambia, y los emails salen en una tarea apenas se confirma la transacción.
 - El monto nuevo sale del cambio programado, nunca del precio de hoy: el `PUT precios/` inmediato
@@ -98,8 +100,8 @@ anticipación y rige desde el cobro siguiente a ese plazo". Por eso se hace así
   `select_for_update`). Mientras su email no salió, la suscripción sigue con el monto viejo.
 - Un cambio cancelado no manda nada más y nunca se aplica.
 - La tarea diaria `payments.apply_price_changes` (07:00) aplica lo que venció:
-  - Desde la fecha del cambio, el precio del plan pasa a ser el nuevo, así que los checkouts
-    nuevos ya lo pagan.
+  - Desde la fecha del cambio, los dos precios del plan (pesos y dólares) pasan a ser los
+    nuevos, así que los checkouts nuevos ya los pagan.
   - Cada suscripción avisada cambia de monto en su fecha: primero en Mercado Pago
     (`PUT /preapproval/{id}` con `auto_recurring.transaction_amount`) y después en `amount`.
     Solo cuenta una respuesta que trae el monto nuevo, porque Mercado Pago a veces responde 200
@@ -288,3 +290,5 @@ cobro hecho (próximo cobro el 19/12):
 - 2026-11-20: borrar la cuenta cancela antes la suscripción en Mercado Pago.
 - 2026-11-20: cambios de precio programados y su email de aviso (feature `avisos-cambios`, T1).
 - 2026-11-20: el cambio de precio se aplica en Mercado Pago en su fecha (`avisos-cambios`, T2).
+- 2026-11-20: el cambio programado lleva también el precio en dólares, que el plan toma en su
+  fecha (`avisos-cambios`, T5).

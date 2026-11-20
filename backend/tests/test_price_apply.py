@@ -37,6 +37,7 @@ def scheduled(price=16900, days=30):
             None,
             Plan.objects.get(code=Plan.PRODUCTOR),
             price_ars_month=price,
+            price_usd_month=12,
             effective_on=(NOW + timedelta(days=days)).date(),
         )
         price_changes.send_pending_notices()
@@ -93,6 +94,23 @@ def test_new_checkouts_pay_the_new_price_from_its_date():
 
 
 @respx.mock
+def test_on_its_date_both_plan_prices_are_set():
+    """avisos-cambios L8: the dollar price changes on the date too; subscriptions stay in pesos."""
+    scheduled()
+    productor = Plan.objects.get(code=Plan.PRODUCTOR)
+
+    run_on(DAY_30 - timedelta(days=1))
+    productor.refresh_from_db()
+    assert (productor.price_ars_month, productor.price_usd_month) == (14900, 10)
+
+    run_on(DAY_30)
+    productor.refresh_from_db()
+    assert (productor.price_ars_month, productor.price_usd_month) == (16900, 12)
+    empresa = Plan.objects.get(code=Plan.EMPRESA)
+    assert (empresa.price_ars_month, empresa.price_usd_month) == (49900, 35)
+
+
+@respx.mock
 def test_nothing_changes_the_day_before():
     _, ana = subscribed("ana@example.com")
     change = scheduled()
@@ -134,6 +152,7 @@ def test_an_unsent_notice_is_never_applied(monkeypatch):
             None,
             Plan.objects.get(code=Plan.PRODUCTOR),
             price_ars_month=16900,
+            price_usd_month=12,
             effective_on=DAY_30.date(),
         )  # the email never went out
     route = amount_route(ana)
@@ -246,10 +265,17 @@ def test_founders_on_empresa_get_their_new_difference():
 def test_an_older_change_never_overwrites_a_newer_one_already_applied():
     _, ana = subscribed("ana@example.com")
     older = PriceChange.objects.create(
-        plan_id=Plan.PRODUCTOR, price_ars_month=15900, effective_on=DAY_30.date(), applied_at=NOW
+        plan_id=Plan.PRODUCTOR,
+        price_ars_month=15900,
+        price_usd_month=11,
+        effective_on=DAY_30.date(),
+        applied_at=NOW,
     )
     newer = PriceChange.objects.create(
-        plan_id=Plan.PRODUCTOR, price_ars_month=16900, effective_on=DAY_30.date()
+        plan_id=Plan.PRODUCTOR,
+        price_ars_month=16900,
+        price_usd_month=12,
+        effective_on=DAY_30.date(),
     )
     PriceNotice.objects.create(
         change=older, subscription=ana, old_amount=14900, new_amount=15900, sent_at=NOW
@@ -275,7 +301,11 @@ def test_an_older_change_never_overwrites_a_newer_one_already_applied():
 def schedule_on_now(plan, price):
     with time_machine.travel(NOW, tick=False):
         price_changes.schedule(
-            None, Plan.objects.get(code=plan), price_ars_month=price, effective_on=DAY_30.date()
+            None,
+            Plan.objects.get(code=plan),
+            price_ars_month=price,
+            price_usd_month=12,
+            effective_on=DAY_30.date(),
         )
         price_changes.send_pending_notices()
 
