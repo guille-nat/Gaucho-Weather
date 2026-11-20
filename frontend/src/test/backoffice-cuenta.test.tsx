@@ -394,6 +394,8 @@ describe('Plan and founder by hand (S3)', () => {
 
   it('still changes the plan from the record', async () => {
     const db = dbFor();
+    // Without his subscription: a paying account has no plan change (cortesias L8).
+    db.backoffice.subscriptions = db.backoffice.subscriptions.filter((s) => s.user.id !== 21);
     const { user, record } = await openRecord(JUAN, db);
 
     await user.click(within(record).getByRole('button', { name: 'Cambiar plan' }));

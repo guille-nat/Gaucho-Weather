@@ -5,6 +5,10 @@ import { FormAlert, SelectField, TextField } from '../../../components/Field';
 import { PLAN_NAMES } from '../format';
 import { useBackofficeMutation } from '../queries';
 
+/** Why a paying account has no "Cambiar plan" (cortesias L8): the words of the API's refusal. */
+export const PAYING_PLAN =
+  'La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha (sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al otro plan.';
+
 /**
  * `POST cuentas/{id}/plan/`: the same change_plan as the Django admin, logged with the note. It
  * only moves down to the free plan, Básico, or Productor for a founder (cortesias S4, S5): a

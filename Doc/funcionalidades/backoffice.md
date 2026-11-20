@@ -91,8 +91,12 @@ octubre para el negocio. Los montos son números, como en el resto de la API
 - `estado` filtra por `founder`, `trial` o `active`. Otro valor da 400
   `{"detail": "Estado inválido: usá founder, trial o active."}`.
 - Cada fila: `id`, `name`, `email`, `plan` (`{code, name}`), `status`, `founder_number`,
-  `lotes` (cantidad), `date_joined`, `last_login`, `is_superuser`. Orden: altas más nuevas
-  primero.
+  `lotes` (cantidad), `date_joined`, `last_login`, `is_superuser`, `paying`. Orden: altas más
+  nuevas primero.
+- `paying` es `true` si la cuenta tiene una suscripción andando (`authorized` o `paused`) o una
+  cancelada todavía en su mes pago: lo mismo que `refuse_if_paying(..., trial=True)`
+  (`views.is_paying`, una anotación con `Exists`). La pantalla no ofrece "Cambiar plan" en esas
+  filas.
 
 ### Ficha de una cuenta (backoffice-superadmin S1)
 `GET cuentas/{id}/` devuelve en una sola respuesta:
@@ -110,6 +114,7 @@ octubre para el negocio. Los montos son números, como en el resto de la API
   `lote` el nombre del lote).
 - `courtesy`: la cortesía activa, `{plan: {code, name}, starts_at, ends_at, reason,
   granted_by: {id, name, email} | null}`, o `null` si no tiene.
+- `paying`: igual que en la lista de cuentas.
 
 Nunca devuelve contraseñas, `checkout_url` ni el `payload` de Mercado Pago. Cuenta
 inexistente: 404. **Por qué una sola respuesta:** el super admin abre la ficha para decidir
@@ -288,6 +293,12 @@ su plan gratis: Básico, o Productor para un founder (cortesias S4). Pasa por
 admin de Django, así que queda en el historial de planes (`PlanChange`) y termina una prueba o
 una cortesía activa. Devuelve la fila de la cuenta.
 
+- Una cuenta que paga (suscripción `authorized` o `paused`, o cancelada todavía en su mes
+  pago): 400 `{"detail": "La cuenta paga una suscripción: para bajarla, cancelá la suscripción
+  desde su ficha (sigue con el plan hasta el fin del mes pagado); para subirla, la persona se
+  suscribe al otro plan."}`, para cualquier plan, y no cambia nada. **Por qué:** pasaba a Básico
+  una cuenta a la que Mercado Pago le seguía cobrando Productor (cortesias L8). La ficha y la
+  lista muestran esa frase en lugar de "Cambiar plan".
 - Otro plan: 400 `{"detail": "Para dar un plan pago sin cobrar, usá una cortesía."}`. Para un
   founder que pide Empresa sigue respondiendo "Como founder, Empresa se paga con Mercado Pago:
   pagás solo la diferencia.".
@@ -470,3 +481,4 @@ ficha, y el botón Atrás del navegador vuelve a la lista.
 - 2026-11-20: cortesías (`cortesia/`, dar, cambiar y revocar) y el cambio de plan solo baja al plan gratis (cortesias S1-S4, S6).
 - 2026-11-20: la ficha muestra, da, cambia y revoca cortesías; "Cambiar plan" solo ofrece el plan gratis; el registro describe `courtesy_grant` y `courtesy_revoke`, y el historial de planes del usuario dice "Empezó tu cortesía" y "Terminó tu cortesía" (cortesias S5).
 - 2026-11-20: correcciones del verificador (cortesias T3): el tope de 20 aguanta altas simultáneas, "1 año en 2 años" por cuenta, ni cortesía ni prueba ni founder a un super admin o a una cuenta bloqueada, prueba de como máximo un año, y plan y vencimiento de solo lectura en el admin de Django.
+- 2026-11-20: el cambio de plan rechaza una cuenta que paga; la lista y la ficha suman `paying` y no ofrecen "Cambiar plan" para ella (cortesias T4, L8).

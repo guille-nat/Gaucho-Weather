@@ -57,6 +57,8 @@ export interface AccountRow extends Person {
   date_joined: string;
   last_login: string | null;
   is_superuser: boolean;
+  /** A running subscription, or a cancelled one still in its paid month (cortesias L8). */
+  paying: boolean;
 }
 
 export interface AccountFilters {
@@ -285,6 +287,8 @@ export interface AccountRecord extends Person {
   alert_rules: RecordAlertRule[];
   /** The active cortesía, or null (cortesias S5). */
   courtesy: RecordCourtesy | null;
+  /** A running subscription, or a cancelled one still in its paid month (cortesias L8). */
+  paying: boolean;
 }
 
 /** A paid plan for free until `ends_at`, the end of a day in Buenos Aires (cortesias S1). */

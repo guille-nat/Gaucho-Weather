@@ -9,7 +9,7 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -77,10 +77,25 @@ class BackofficeListView(generics.ListAPIView):
     pagination_class = BackofficePagination
 
 
+# The subscriptions that keep an account paying, as refuse_if_paying(trial=True) reads them:
+# one running (authorized or paused), or a cancelled one still inside its paid month.
+RUNNING_SUBSCRIPTION = Q(status__in=payment_services.RUNNING)
+PAID_MONTH_LEFT = Q(status=ProviderSubscription.Status.CANCELLED, next_payment_at__isnull=False)
+
+
+def is_paying():
+    """`paying` for a User queryset: true while refuse_if_paying(trial=True) would refuse."""
+    return Exists(
+        ProviderSubscription.objects.filter(user=OuterRef("pk"), ended_at=None).filter(
+            RUNNING_SUBSCRIPTION | PAID_MONTH_LEFT
+        )
+    )
+
+
 def account_rows():
     return (
         User.objects.select_related("plan")
-        .annotate(lotes_count=Count("lotes"))
+        .annotate(lotes_count=Count("lotes"), paying=is_paying())
         .order_by("-date_joined", "-id")
     )
 
@@ -157,12 +172,20 @@ class AccountListView(BackofficeListView):
 
 
 USE_COURTESY = "Para dar un plan pago sin cobrar, usá una cortesía."
+PAYING_PLAN = (
+    "La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha "
+    "(sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al "
+    "otro plan."
+)
 
 
 class AccountPlanView(BackofficeView):
     """Only down to the free plan (cortesias S4): Básico, or Productor for a founder, whose
     free plan it is. A paid plan for free is a cortesía, with an end date. Moving down ends an
-    active cortesía (plans._switch does it)."""
+    active cortesía (plans._switch does it).
+
+    Never for a paying account (cortesias L8): Mercado Pago would keep charging the old plan.
+    It goes down by cancelling the subscription, and up by subscribing to the other plan."""
 
     def post(self, request, pk):
         target = get_object_or_404(User, pk=pk)
@@ -174,6 +197,10 @@ class AccountPlanView(BackofficeView):
         note = serializer.validated_data["note"]
         with transaction.atomic():
             locked = locked_account(target.pk)
+            try:
+                refuse_if_paying(locked, trial=True)
+            except Refused as exc:
+                raise Refused(PAYING_PLAN) from exc
             try:
                 plans.refuse_free_empresa(locked, plan.code)
             except plans.PlanRequestError as exc:
@@ -386,11 +413,11 @@ def refuse_if_paying(target: User, *, trial: bool) -> None:
     founder is safe there (that end only takes a founder back to Productor).
     """
     open_subs = target.provider_subscriptions.filter(ended_at=None)
-    if open_subs.filter(status__in=payment_services.RUNNING).exists():
+    if open_subs.filter(RUNNING_SUBSCRIPTION).exists():
         raise Refused(PAYING)
     if trial:
-        ending = open_subs.filter(status=ProviderSubscription.Status.CANCELLED).first()
-        if ending is not None and ending.next_payment_at is not None:
+        ending = open_subs.filter(PAID_MONTH_LEFT).first()
+        if ending is not None:
             date = timezone.localtime(ending.next_payment_at).strftime("%d/%m/%Y")
             raise Refused(PAID_DAYS.format(date=date))
 
@@ -407,7 +434,9 @@ class Refused(APIException):
 
 def account_record(pk: int) -> dict:
     user = get_object_or_404(
-        User.objects.select_related("plan").prefetch_related(
+        User.objects.select_related("plan")
+        .annotate(paying=is_paying())
+        .prefetch_related(
             Prefetch(
                 "plan_changes",
                 queryset=PlanChange.objects.select_related("from_plan", "to_plan", "by"),

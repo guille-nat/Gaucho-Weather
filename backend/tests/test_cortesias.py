@@ -864,3 +864,68 @@ class TestDjangoAdmin:
         assert "plan" not in form.fields
         assert "plan_expires_at" not in form.fields
         assert {"plan", "plan_expires_at"} <= set(response.context["adminform"].readonly_fields)
+
+
+# --- S4 addition (L8): the plan change refuses a paying account ---------------------------
+
+PAYING_PLAN = (
+    "La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha "
+    "(sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al "
+    "otro plan."
+)
+
+
+class TestPlanChangeRefusesPayingAccounts:
+    @pytest.mark.parametrize(
+        ("status", "next_payment_at"),
+        [
+            ("authorized", NOW + timedelta(days=20)),
+            ("paused", NOW + timedelta(days=20)),
+            ("cancelled", NOW + timedelta(days=20)),  # still inside its paid month
+        ],
+    )
+    @pytest.mark.parametrize("plan", ["basico", "empresa"])
+    def test_is_refused_and_changes_nothing(self, admin_client, status, next_payment_at, plan):
+        buyer = account("comprador@example.com", plan_id="productor")
+        subscription(buyer, status=status, next_payment_at=next_payment_at)
+
+        response = admin_client.post(f"{ACCOUNTS}{buyer.pk}/plan/", {"plan": plan}, format="json")
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": PAYING_PLAN}
+        buyer.refresh_from_db()
+        assert (buyer.plan_id, buyer.plan_expires_at) == ("productor", None)
+        assert not PlanChange.objects.filter(user=buyer).exists()
+        assert not BackofficeAction.objects.exists()
+
+    def test_an_ended_subscription_still_moves_down_to_basico(self, admin_client, admin_user):
+        ana = account("ana@example.com", plan_id="productor")
+        subscription(ana, status="cancelled", next_payment_at=NOW - timedelta(days=1), ended_at=NOW)
+
+        response = admin_client.post(f"{ACCOUNTS}{ana.pk}/plan/", {"plan": "basico"}, format="json")
+
+        assert response.status_code == 200
+        assert response.json()["paying"] is False
+        ana.refresh_from_db()
+        assert ana.plan_id == "basico"
+        change = PlanChange.objects.get(user=ana)
+        assert (change.from_plan_id, change.to_plan_id, change.reason, change.by) == (
+            "productor",
+            "basico",
+            "staff",
+            admin_user,
+        )
+        assert BackofficeAction.objects.get().action == "plan_change"
+
+    def test_the_row_and_the_record_say_whether_the_account_pays(self, admin_client):
+        buyer = account("comprador@example.com", plan_id="productor")
+        subscription(buyer)
+        free = account("ana@example.com")
+        subscription(free, status="pending", external_id="pre-2")
+
+        rows = {row["email"]: row for row in admin_client.get(ACCOUNTS).json()["results"]}
+
+        assert rows["comprador@example.com"]["paying"] is True
+        assert rows["ana@example.com"]["paying"] is False
+        assert admin_client.get(f"{ACCOUNTS}{buyer.pk}/").json()["paying"] is True
+        assert admin_client.get(f"{ACCOUNTS}{free.pk}/").json()["paying"] is False

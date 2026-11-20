@@ -40,10 +40,13 @@ export function freeEmpresaRefusal(
  * In-memory backoffice API (pagos-backoffice S4, S7), mirroring backend/apps/backoffice. Every
  * route answers 403 to anyone but a super admin, like IsSuperuser.
  */
+/** An account row as the mock keeps it; the API adds `paying` (cortesias L8). */
+export type StoredAccount = Omit<AccountRow, 'paying'>;
+
 export interface BackofficeDb {
   summary: BackofficeSummary;
-  /** Newest sign-ups first, like the API. */
-  accounts: AccountRow[];
+  /** Newest sign-ups first, like the API. `paying` is worked out from the subscriptions. */
+  accounts: StoredAccount[];
   /** Every request; the list shows the pending ones, oldest first. */
   requests: RequestRow[];
   /** Newest first. */
@@ -120,6 +123,9 @@ const SUPERADMIN_NO_GRANTS = 'La cuenta es super admin: no recibe cortesías, pr
 const ACCOUNT_BLOCKED = 'La cuenta está bloqueada.';
 const REQUIRED = 'Este campo es requerido.';
 const PAGE_SIZE = 50;
+// cortesias L8: the words of AccountPlanView for a paying account.
+const PAYING_PLAN =
+  'La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha (sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al otro plan.';
 
 const ana: Person = { id: 1, name: 'Ana Ferreyra', email: 'ana@lacampana.com.ar' };
 const juan: Person = { id: 21, name: 'Juan Gómez', email: 'juan@elombu.com.ar' };
@@ -383,8 +389,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     return plan ? { code: plan.code, name: plan.name } : null;
   };
 
-  const person = (row: AccountRow): Person => ({ id: row.id, name: row.name, email: row.email });
-  const extrasOf = (row: AccountRow): RecordExtras =>
+  const person = (row: StoredAccount): Person => ({ id: row.id, name: row.name, email: row.email });
+  const extrasOf = (row: StoredAccount): RecordExtras =>
     (db.backoffice.records[row.id] ??= {
       plan_expires_at: null,
       is_active: true,
@@ -392,7 +398,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       lotes: [],
       alert_rules: [],
     });
-  const recordOf = (row: AccountRow): AccountRecord => {
+  const recordOf = (row: StoredAccount): AccountRecord => {
     const extras = extrasOf(row);
     return {
       id: row.id,
@@ -416,13 +422,17 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       lotes: extras.lotes,
       alert_rules: extras.alert_rules,
       courtesy: extras.courtesy ?? null,
+      paying: pays(row),
     };
   };
+  /** Like backoffice.views.is_paying: what refuse_if_paying(trial=True) refuses. */
+  const pays = (row: StoredAccount) => payingRefusal(row, true) !== null;
+  const rowOf = (row: StoredAccount): AccountRow => ({ ...row, paying: pays(row) });
   const findAccount = (id: unknown) => db.backoffice.accounts.find((a) => a.id === Number(id));
   const notFound = () => HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
   const refuse = (detail: string, status = 400) => HttpResponse.json({ detail }, { status });
   /** Like plans._switch with reason "staff": a move (or a trial ending) is recorded. */
-  const switchToProductor = (row: AccountRow) => {
+  const switchToProductor = (row: StoredAccount) => {
     const extras = extrasOf(row);
     if (row.plan.code === 'productor' && extras.plan_expires_at === null) return;
     extras.plan_changes.unshift({
@@ -439,7 +449,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     extras.courtesy = null; // plans._switch ends an active cortesía on any other move
   };
   /** Like plans._switch: a recorded move, by the super admin. */
-  const moveTo = (row: AccountRow, code: PlanCode, reason: PlanChangeReason, note = '') => {
+  const moveTo = (row: StoredAccount, code: PlanCode, reason: PlanChangeReason, note = '') => {
     const to = planRef(code)!;
     extrasOf(row).plan_changes.unshift({
       id: db.nextId++,
@@ -452,7 +462,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     });
     row.plan = to;
   };
-  const restatus = (row: AccountRow) => {
+  const restatus = (row: StoredAccount) => {
     row.status = membershipOf(row.founder_number, extrasOf(row).plan_expires_at);
   };
 
@@ -462,13 +472,13 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
    * founder grant; a cancelled one still inside its paid month blocks a trial only.
    */
   /** Like refuse_if_not_grantable (cortesias S6): never a super admin or a blocked account. */
-  function grantableRefusal(row: AccountRow): Response | null {
+  function grantableRefusal(row: StoredAccount): Response | null {
     if (row.is_superuser) return refuse(SUPERADMIN_NO_GRANTS);
     if (!extrasOf(row).is_active) return refuse(ACCOUNT_BLOCKED);
     return null;
   }
 
-  function payingRefusal(row: AccountRow, trial: boolean): Response | null {
+  function payingRefusal(row: StoredAccount, trial: boolean): Response | null {
     const open = db.backoffice.subscriptions.filter((s) => s.user.id === row.id && !s.ended_at);
     if (open.some((s) => s.status === 'authorized' || s.status === 'paused')) {
       return refuse('La cuenta tiene una suscripción paga: cancelala primero.');
@@ -488,7 +498,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     return null;
   }
 
-  const actions: Record<string, (row: AccountRow) => Response | null> = {
+  const actions: Record<string, (row: StoredAccount) => Response | null> = {
     bloquear: (row) => {
       if (row.id === db.user!.id) return refuse(SELF_REFUSED);
       const extras = extrasOf(row);
@@ -619,7 +629,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           (!plan || row.plan.code === plan) &&
           (!estado || row.status === estado),
       );
-      return pageOr404(rows, url);
+      return pageOr404(rows.map(rowOf), url);
     }),
 
     http.post('*/api/backoffice/cuentas/:id/plan/', async ({ request, params }) => {
@@ -630,6 +640,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const { plan, note = '' } = (await request.json()) as { plan: PlanCode; note?: string };
       const to = planRef(plan);
       if (!to) return HttpResponse.json({ detail: 'Ese plan no existe.' }, { status: 400 });
+      if (pays(row)) return refuse(PAYING_PLAN);
       const free = freeEmpresaRefusal(row.founder_number !== null, row.plan.code, plan);
       if (free) return refuse(free);
       if (plan !== 'basico' && !(plan === 'productor' && row.founder_number !== null)) {
@@ -654,7 +665,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           note,
         },
       );
-      return HttpResponse.json(row);
+      return HttpResponse.json(rowOf(row));
     }),
 
     http.get('*/api/backoffice/pedidos/', async ({ request }) => {

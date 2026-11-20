@@ -1,6 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { changeAccountPlan } from '../api/backoffice';
+import { ApiError } from '../api/client';
 import type { User } from '../api/types';
+import { PAYING_PLAN } from '../pages/backoffice/cuenta/ChangePlanForm';
 import { account, demoLotes, demoUser } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
 import { renderApp } from './renderApp';
@@ -142,6 +145,8 @@ describe('Backoffice tabs', () => {
 
   it('changes an account’s plan with a note', async () => {
     const db = dbFor(admin);
+    // Juan without his subscription: an account that does not pay still moves down as before.
+    db.backoffice.subscriptions = db.backoffice.subscriptions.filter((s) => s.user.id !== 21);
     const { user } = renderApp('/backoffice', db);
 
     const panel = await openTab(user, 'Cuentas');
@@ -168,6 +173,35 @@ describe('Backoffice tabs', () => {
     await waitFor(() =>
       expect(within(table).getByRole('row', { name: /Juan Gómez/ })).toHaveTextContent('Básico'),
     );
+  });
+
+  it('offers no plan change on the row of a paying account, and says why', async () => {
+    const db = dbFor(admin);
+    expect(db.backoffice.subscriptions.find((s) => s.user.id === 21)?.status).toBe('authorized');
+    const { user } = renderApp('/backoffice', db);
+
+    const panel = await openTab(user, 'Cuentas');
+    const table = await within(panel).findByRole('table', { name: 'Cuentas' });
+    const juan = within(table).getByRole('row', { name: /Juan Gómez/ });
+
+    expect(within(juan).queryByRole('button', { name: 'Cambiar plan' })).toBeNull();
+    expect(juan).toHaveTextContent(PAYING_PLAN);
+    const marta = within(table).getByRole('row', { name: /Marta Ríos/ });
+    expect(within(marta).getByRole('button', { name: 'Cambiar plan' })).toBeVisible();
+  });
+
+  it('refuses the plan change of a paying account in the mock, as the API does', async () => {
+    const db = dbFor(admin);
+    renderApp('/backoffice', db);
+    await screen.findByRole('heading', { name: 'Backoffice', level: 1 });
+
+    const refused = await changeAccountPlan(21, 'basico', '').catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(ApiError);
+    expect((refused as ApiError).status).toBe(400);
+    expect((refused as ApiError).message).toBe(PAYING_PLAN);
+    expect(db.backoffice.accounts.find((a) => a.id === 21)?.plan.code).toBe('productor');
+    expect(db.backoffice.actions.some((a) => a.action === 'plan_change')).toBe(false);
   });
 
   it('shows a refused plan change as the API words it', async () => {

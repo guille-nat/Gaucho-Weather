@@ -189,6 +189,7 @@ class TestAccounts:
             "date_joined": "2026-11-16T09:00:00-03:00",
             "last_login": None,
             "is_superuser": False,
+            "paying": False,
         }
         assert body["results"][1]["id"] == admin_user.pk
         assert body["results"][1]["is_superuser"] is True

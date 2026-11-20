@@ -21,7 +21,7 @@ import { Saved } from '../../Perfil';
 import { PaymentStatusChip, SubscriptionStatusChip } from '../../Suscripcion';
 import { formatDay, REASON_WORDS } from '../format';
 import { useBackofficeQuery } from '../queries';
-import { ChangePlanForm } from './ChangePlanForm';
+import { ChangePlanForm, PAYING_PLAN } from './ChangePlanForm';
 import { ConfirmAction, CourtesyForm, EditForm, FounderQuota, TrialForm } from './dialogs';
 import { LIST_LINK } from './link';
 
@@ -525,8 +525,11 @@ export function Ficha({ id }: { id: number }) {
             />
           </>
         ) : null}
+        {account.paying ? <p className="fine">{PAYING_PLAN}</p> : null}
         <Actions>
-          <ActionButton label="Cambiar plan" onClick={() => open('plan')} />
+          {account.paying ? null : (
+            <ActionButton label="Cambiar plan" onClick={() => open('plan')} />
+          )}
           {account.courtesy ? (
             <>
               <ActionButton label="Cambiar cortesía" onClick={() => open('courtesy')} />

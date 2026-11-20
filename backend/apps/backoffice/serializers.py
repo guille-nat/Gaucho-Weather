@@ -21,6 +21,8 @@ class AccountRowSerializer(serializers.ModelSerializer):
     plan = PlanNameSerializer(read_only=True)
     status = serializers.SerializerMethodField()
     lotes = serializers.IntegerField(source="lotes_count", read_only=True)
+    # From the queryset's annotation (backoffice.views.is_paying): the plan change refuses it.
+    paying = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -35,6 +37,7 @@ class AccountRowSerializer(serializers.ModelSerializer):
             "date_joined",
             "last_login",
             "is_superuser",
+            "paying",
         ]
         read_only_fields = fields
 
@@ -270,6 +273,8 @@ class AccountRecordSerializer(serializers.ModelSerializer):
     lotes = RecordLoteSerializer(many=True, read_only=True)
     alert_rules = RecordAlertRuleSerializer(many=True, read_only=True)
     courtesy = serializers.SerializerMethodField()
+    # From the queryset's annotation (backoffice.views.is_paying): the plan change refuses it.
+    paying = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -291,6 +296,7 @@ class AccountRecordSerializer(serializers.ModelSerializer):
             "lotes",
             "alert_rules",
             "courtesy",
+            "paying",
         ]
         read_only_fields = fields
 

@@ -4,6 +4,7 @@ import type { ActionRow, BackofficeActionKind, RecordCourtesy } from '../api/bac
 import type { PlanChange, User } from '../api/types';
 import { demoLotes, demoUser } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
+import { PAYING_PLAN } from '../pages/backoffice/cuenta/ChangePlanForm';
 import { tomorrowInBuenosAires } from '../pages/backoffice/format';
 import { renderApp } from './renderApp';
 
@@ -314,6 +315,7 @@ describe('Revoke a cortesía (S5)', () => {
 describe('The plan change only goes down (S5)', () => {
   it('offers only Básico to an account that is not a founder', async () => {
     const db = dbFor();
+    db.backoffice.subscriptions = db.backoffice.subscriptions.filter((s) => s.user.id !== 21);
     const { user, record } = await openRecord(JUAN, db);
 
     await user.click(within(record).getByRole('button', { name: 'Cambiar plan' }));
@@ -325,6 +327,16 @@ describe('The plan change only goes down (S5)', () => {
         .map((o) => o.textContent),
     ).toEqual(['Básico']);
     expect(dialog).toHaveTextContent('Para dar un plan pago sin cobrar, usá una cortesía.');
+  });
+
+  it('offers no plan change to a paying account and says why (L8)', async () => {
+    const db = dbFor();
+    expect(db.backoffice.subscriptions.find((s) => s.user.id === 21)?.status).toBe('authorized');
+    const { record } = await openRecord(JUAN, db);
+
+    const section = planSection(record);
+    expect(within(section).queryByRole('button', { name: 'Cambiar plan' })).toBeNull();
+    expect(section).toHaveTextContent(PAYING_PLAN);
   });
 
   it('offers Básico and Productor to a founder', async () => {
