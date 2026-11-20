@@ -16,11 +16,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.providers import payments_enabled
-from apps.payments.services import founder_empresa_price
+from apps.payments.services import PaymentRefusal, cancel_before_deleting, founder_empresa_price
 
-from . import password_reset, plans
+from . import password_reset, plans, terms
 from .authentication import enforce_csrf
-from .models import FounderProgram, Plan
+from .models import FounderProgram, Plan, TermsAcceptance, User
 from .serializers import (
     AccountUpdateSerializer,
     DeleteAccountSerializer,
@@ -128,13 +128,35 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
     def delete(self, request):
-        """Deletes the account and everything it owns. A founder slot is not handed out again."""
+        """Deletes the account and everything it owns. A founder slot is not handed out again.
+
+        Its Mercado Pago subscriptions are cancelled first; if Mercado Pago cannot, 502 and the
+        account stays, so nothing keeps charging a deleted account.
+        """
         serializer = DeleteAccountSerializer(data=request.data, context={"user": request.user})
         serializer.is_valid(raise_exception=True)
+        try:
+            cancel_before_deleting(request.user)
+        except PaymentRefusal as exc:
+            return Response({"detail": exc.detail}, status=exc.status)
         with transaction.atomic():
             request.user.delete()
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AcceptTermsView(APIView):
+    """POST /api/auth/terminos/aceptar/: accept the current terms version (promociones S0c).
+
+    Answers the account like `GET /api/auth/me/`. Accepting twice records it once.
+    """
+
+    def post(self, request):
+        with transaction.atomic():
+            locked = User.objects.select_for_update().get(pk=request.user.pk)
+            if not terms.has_accepted(locked):
+                terms.record_acceptance(locked, TermsAcceptance.Context.UPDATE)
+        return Response(UserSerializer(request.user).data)
 
 
 class PasswordChangeView(APIView):

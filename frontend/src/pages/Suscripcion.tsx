@@ -27,9 +27,12 @@ import type {
 import { FormAlert } from '../components/Field';
 import { FounderBadge, FounderStory } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
+import { LegalLinks, TermsCheckbox } from '../components/Legal';
+import { Modal } from '../components/Modal';
 import { CurrencyChoice, PricingCard } from '../components/PricingCard';
 import { StatusChip, type ChipTone } from '../components/StatusChip';
 import { useCurrency } from '../lib/currency';
+import { fieldError } from '../lib/formErrors';
 import { TIME_ZONE } from '../lib/format';
 import { trialLine } from '../lib/membership';
 import { featuredFirst, planFeatures } from '../lib/planFeatures';
@@ -65,9 +68,79 @@ const isRunning = (sub: ProviderSubscription | null | undefined): sub is Provide
 /** Starts the checkout and leaves for Mercado Pago, which comes back with `?pago=`. */
 function useSubscribe() {
   return useMutation({
-    mutationFn: (plan: PlanCode) => subscribe(plan),
+    mutationFn: ({ plan, acceptsTerms }: { plan: PlanCode; acceptsTerms: boolean }) =>
+      subscribe(plan, acceptsTerms),
     onSuccess: ({ checkout_url }) => goToCheckout(checkout_url),
   });
+}
+
+/**
+ * Said in plain words before leaving for Mercado Pago (promociones S0d, Ley 24.240's duty to
+ * inform): the amount, that it renews, that the first charge is now, how to leave and what is
+ * kept, and the terms. Only "Ir a Mercado Pago" creates the subscription.
+ */
+function CheckoutSummary({
+  plan,
+  amount,
+  founder,
+  pending,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  plan: Plan;
+  /** What the account pays a month for it (the founder difference); null = no price yet. */
+  amount: number | null;
+  founder: boolean;
+  pending: boolean;
+  error: Error | null;
+  onConfirm: (acceptsTerms: boolean) => void;
+  onClose: () => void;
+}) {
+  const [accepted, setAccepted] = useState(false);
+  return (
+    <>
+      <p className="checkout-plan">Plan {plan.name}</p>
+      <ul className="checkout-facts">
+        <li>
+          {amount !== null
+            ? `Pagás ${formatMoney(amount)} por mes, en pesos, con Mercado Pago.`
+            : 'Este plan todavía no tiene un precio confirmado.'}
+          {founder && amount !== null
+            ? ' Es la diferencia con Productor, que seguís teniendo gratis.'
+            : null}
+        </li>
+        <li>Se renueva automáticamente todos los meses, hasta que te des de baja.</li>
+        <li>El primer cobro es ahora, cuando confirmás el pago en Mercado Pago.</li>
+        <li>Te podés dar de baja cuando quieras con «Darme de baja», en esta misma página.</li>
+        <li>Si te das de baja, conservás el mes que ya pagaste y no te cobramos más.</li>
+      </ul>
+      <TermsCheckbox
+        checked={accepted}
+        onChange={setAccepted}
+        error={fieldError(error, 'acepta_terminos')}
+      />
+      <FormAlert message={fieldError(error, 'acepta_terminos') ? null : error?.message} />
+      <div className="app-dialog-actions">
+        <button
+          type="button"
+          className="btn btn--primary btn--block"
+          disabled={pending}
+          onClick={() => onConfirm(accepted)}
+        >
+          {pending ? 'Abriendo Mercado Pago…' : 'Ir a Mercado Pago'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--secondary btn--block"
+          data-autofocus
+          onClick={onClose}
+        >
+          Ahora no
+        </button>
+      </div>
+    </>
+  );
 }
 
 /** Cancels at Mercado Pago; the answer is the new state of the payments, shown at once. */
@@ -383,6 +456,8 @@ function ChangePlan({
 }) {
   const request = useRequestPlan();
   const pay = useSubscribe();
+  // The plan whose summary is open before Mercado Pago (S0d).
+  const [confirming, setConfirming] = useState<Plan | null>(null);
   const cancel = useCancelSubscription();
   const currency = useCurrency();
   const blocked = request.isPending || sub.pending_request !== null;
@@ -406,11 +481,18 @@ function ChangePlan({
       },
     });
   };
-  const startPayment = (plan: PlanCode) => {
+  const startPayment = (plan: Plan) => {
     onSaved(null);
     cancel.reset();
-    pay.mutate(plan);
+    pay.reset();
+    setConfirming(plan);
   };
+  const closeSummary = () => {
+    setConfirming(null);
+    if (!pay.isSuccess) pay.reset();
+  };
+  // Like services.price_for: a founder pays only the Empresa difference.
+  const amountFor = (plan: Plan) => (founder ? founderPrice : plan.price_ars_month || null);
   const cancelPayment = () => {
     onSaved(null);
     pay.reset();
@@ -435,9 +517,9 @@ function ChangePlan({
         type="button"
         className={`btn btn--block ${plan.highlighted ? 'btn--primary' : 'btn--secondary'}`}
         disabled={paying}
-        onClick={() => startPayment(plan.code)}
+        onClick={() => startPayment(plan)}
       >
-        {pay.isPending && pay.variables === plan.code ? 'Abriendo Mercado Pago…' : 'Suscribirme'}
+        Suscribirme
       </button>
     );
 
@@ -481,7 +563,8 @@ function ChangePlan({
     );
   };
 
-  const error = request.error ?? pay.error ?? cancel.error;
+  // A checkout's refusal shows in its summary, next to the button that asked (S0d).
+  const error = request.error ?? cancel.error;
   return (
     <Section title="Cambiar de plan">
       <p className="fine">
@@ -537,6 +620,19 @@ function ChangePlan({
       ) : null}
       <FormAlert message={error?.message} />
       <Saved message={saved} />
+      {confirming ? (
+        <Modal open title="Antes de ir a Mercado Pago" onClose={closeSummary}>
+          <CheckoutSummary
+            plan={confirming}
+            amount={amountFor(confirming)}
+            founder={founder}
+            pending={paying}
+            error={pay.error}
+            onConfirm={(acceptsTerms) => pay.mutate({ plan: confirming.code, acceptsTerms })}
+            onClose={closeSummary}
+          />
+        </Modal>
+      ) : null}
       {basico && sub.plan.code !== 'basico' && !ending ? (
         <CancelPlan
           basico={(founder && running && productor) || basico}
@@ -714,6 +810,9 @@ export function Suscripcion() {
               </Section>
             </div>
           </div>
+          <footer className="page-legal">
+            <LegalLinks />
+          </footer>
         </>
       ) : sub.isError ? (
         <div className="notice">

@@ -56,5 +56,13 @@ export async function fetchMe(): Promise<User | null> {
 export const login = (input: { email: string; password: string }) =>
   apiFetch<User>('/api/auth/login/', { method: 'POST', body: input });
 
-export const register = (input: { email: string; password: string; name: string }) =>
-  apiFetch<User>('/api/auth/register/', { method: 'POST', body: input });
+/** `acepta_terminos` false answers `{acepta_terminos: [...]}` (promociones S0b). */
+export const register = (input: {
+  email: string;
+  password: string;
+  name: string;
+  acepta_terminos: boolean;
+}) => apiFetch<User>('/api/auth/register/', { method: 'POST', body: input });
+
+/** Accepts the current terms version (promociones S0c); answers the account like `me`. */
+export const acceptTerms = () => apiFetch<User>('/api/auth/terminos/aceptar/', { method: 'POST' });

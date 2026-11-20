@@ -42,3 +42,5 @@
   informes del backoffice (ingresos, usuarios y uso por mes) y exportación a CSV.
 - [funcionalidades/pagos.md](funcionalidades/pagos.md): suscripciones mensuales en
   pesos con Mercado Pago, el webhook, la baja y cómo probarlo en el sandbox.
+- [funcionalidades/terminos.md](funcionalidades/terminos.md): términos, privacidad y reglas
+  versionados, su aceptación, el resumen antes de pagar y el email de confirmación.

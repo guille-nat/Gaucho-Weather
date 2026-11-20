@@ -3,8 +3,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from . import plans
-from .models import Plan, PlanChange, PlanRequest, User
+from . import plans, terms
+from .models import Plan, PlanChange, PlanRequest, TermsAcceptance, User
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -27,6 +27,10 @@ class PlanSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     plan = PlanSerializer(read_only=True)
     usage = serializers.SerializerMethodField()
+    # The current terms version and whether this account accepted it (promociones S0b):
+    # false shows the SPA's blocking "Actualizamos los términos" dialog (S0c).
+    terms_version = serializers.SerializerMethodField()
+    terms_accepted = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -41,11 +45,19 @@ class UserSerializer(serializers.ModelSerializer):
             "notify_push",
             "notify_email",
             "is_superuser",
+            "terms_version",
+            "terms_accepted",
         ]
         read_only_fields = fields
 
     def get_usage(self, user: User) -> dict[str, int]:
         return vars(plans.usage(user))
+
+    def get_terms_version(self, user: User) -> str:
+        return terms.TERMS_VERSION
+
+    def get_terms_accepted(self, user: User) -> bool:
+        return terms.has_accepted(user)
 
 
 class PlanNameSerializer(serializers.ModelSerializer):
@@ -126,6 +138,7 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     password = serializers.CharField(write_only=True, max_length=128, trim_whitespace=False)
     name = serializers.CharField(max_length=150)
+    acepta_terminos = terms.AcceptTermsField()
 
     def validate_email(self, value: str) -> str:
         value = value.strip().lower()
@@ -142,8 +155,10 @@ class RegisterSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
+        validated_data.pop("acepta_terminos")
         with transaction.atomic():
             user = User.objects.create_user(**validated_data)
+            terms.record_acceptance(user, TermsAcceptance.Context.SIGNUP)
             return plans.start_membership(user)
 
 

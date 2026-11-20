@@ -229,3 +229,32 @@ class PlanRequest(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user}: {self.get_kind_display()} ({self.get_status_display()})"
+
+
+class TermsAcceptance(models.Model):
+    """One acceptance of the terms bundle (términos, privacidad and reglas) at one version.
+
+    Kept as evidence of what each account agreed to and when (promociones S0b): at sign-up, at
+    every subscription, and again after a new version (the blocking dialog, S0c).
+    """
+
+    class Context(models.TextChoices):
+        SIGNUP = "signup", "alta de la cuenta"
+        SUBSCRIBE = "subscribe", "suscripción paga"
+        UPDATE = "update", "términos actualizados"
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="terms_acceptances", verbose_name="usuario"
+    )
+    version = models.CharField("versión", max_length=20)
+    accepted_at = models.DateTimeField("aceptado el", default=timezone.now)
+    context = models.CharField("dónde", max_length=10, choices=Context.choices)
+
+    class Meta:
+        verbose_name = "aceptación de términos"
+        verbose_name_plural = "aceptaciones de términos"
+        ordering = ["-accepted_at", "-id"]
+        indexes = [models.Index(fields=["user", "version"], name="terms_user_version")]
+
+    def __str__(self) -> str:
+        return f"{self.user} aceptó {self.version} ({self.get_context_display()})"

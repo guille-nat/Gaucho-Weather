@@ -1,5 +1,5 @@
 # Autenticación
-> Última actualización: 2026-11-16
+> Última actualización: 2026-11-19
 
 ## Qué hace
 Alta, ingreso y salida con email y contraseña. La sesión vive en una cookie del
@@ -13,14 +13,16 @@ servidor (httpOnly) y dura 60 días, renovándose con cada uso.
   | Método y ruta | Respuesta |
   |---|---|
   | `GET csrf/` | 204 y setea la cookie `csrftoken` |
-  | `POST register/` `{email, password, name}` | 201 `User` y deja la sesión iniciada |
+  | `POST register/` `{email, password, name, acepta_terminos}` | 201 `User` y deja la sesión iniciada; sin `acepta_terminos: true` → 400 (ver [terminos.md](terminos.md)) |
   | `POST login/` `{email, password}` | 200 `User`; credenciales malas → 400 `{"detail": "Email o contraseña incorrectos."}` |
   | `POST logout/` | 204 (también sin sesión) |
   | `GET me/` | 200 `User`, o 403 sin sesión |
+  | `POST terminos/aceptar/` | 200 `User`; acepta la versión vigente de los términos |
 
   `User` = `{id, email, name}`. Desde el 2026-11-16 suma `plan`,
   `plan_expires_at`, `founder_number`, `usage`, `notify_push` y `notify_email`
-  (campos agregados, ver [planes.md](planes.md)).
+  (campos agregados, ver [planes.md](planes.md)). Desde el 2026-11-19 suma
+  `terms_version` y `terms_accepted` (ver [terminos.md](terminos.md)).
 - La gestión de la cuenta (`PATCH` y `DELETE me/`, `password/change/`,
   `password/reset/` y `password/reset/confirm/`) está en [cuenta.md](cuenta.md).
 - Todo método que modifica (POST, PATCH, DELETE) exige el header `X-CSRFToken`
@@ -57,3 +59,5 @@ servidor (httpOnly) y dura 60 días, renovándose con cada uso.
   recuperación de contraseña, documentados en [cuenta.md](cuenta.md). Los pedidos
   que comprueban una contraseña comparten el límite de login (feature
   `cuenta-planes-alertas`).
+- 2026-11-19: el alta exige aceptar los términos; `me/` dice si la cuenta aceptó la versión
+  vigente y `terminos/aceptar/` la acepta (feature `promociones`, S0b–S0c).

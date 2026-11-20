@@ -33,6 +33,7 @@ import {
   type BackofficeDb,
 } from './backoffice';
 import { createReportHandlers } from './backofficeReports';
+import { TERMS_REQUIRED, TERMS_VERSION } from '../lib/terms';
 import { account, demoPlans } from './fixtures';
 import { demoForecast, demoPlaces, demoPublicForecast } from './forecast';
 import { checkHistoryRange, demoLoteHistory, localToday } from './history';
@@ -91,6 +92,8 @@ export interface MockDb {
   backoffice: BackofficeDb;
   /** Every request to /api/backoffice/ and /api/pagos/, with its query string and body. */
   sent: { method: string; path: string; body: unknown }[];
+  /** Each TermsAcceptance the backend would record, oldest first (promociones S0b, S0c). */
+  termsAcceptances: { userId: number; context: 'signup' | 'subscribe' | 'update' }[];
 }
 
 export const OUTSIDE_ARGENTINA = 'Por ahora solo cubrimos Argentina.';
@@ -168,6 +171,7 @@ export function createMockDb(partial: Partial<MockDb> = {}): MockDb {
       'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=2c938084-mock',
     backoffice: demoBackoffice(),
     sent: [],
+    termsAcceptances: [],
     ...partial,
   };
 }
@@ -215,6 +219,10 @@ function subscribeRefusal(
   }
   return null;
 }
+
+/** Like AcceptTermsField: `acepta_terminos` must be true (promociones S0b). */
+const termsRefused = (body: { acepta_terminos?: unknown }) =>
+  body.acepta_terminos === true ? null : { acepta_terminos: [TERMS_REQUIRED] };
 
 const myPayments = (db: MockDb): MyPayments => ({
   payments_enabled: db.paymentsEnabled,
@@ -603,9 +611,17 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       if (!db.user) return forbidden();
       const failed = csrfFailure(request, db);
       if (failed) return failed;
-      const input = (await request.json()) as { plan?: string; currency?: string };
+      const input = (await request.json()) as {
+        plan?: string;
+        currency?: string;
+        acepta_terminos?: unknown;
+      };
+      // The serializer runs first: without the terms nothing else is checked.
+      const unaccepted = termsRefused(input);
+      if (unaccepted) return HttpResponse.json(unaccepted, { status: 400 });
       const refusal = subscribeRefusal(input, db.user, db);
       if (refusal) return HttpResponse.json({ detail: refusal[1] }, { status: refusal[0] });
+      db.termsAcceptances.push({ userId: db.user.id, context: 'subscribe' });
       return HttpResponse.json({ checkout_url: db.checkoutUrl }, { status: 201 });
     }),
 
@@ -675,17 +691,22 @@ export function createHandlers(db: MockDb): HttpHandler[] {
     http.post('*/api/auth/register/', async ({ request }) => {
       const failed = csrfFailure(request, db);
       if (failed) return failed;
-      const body = (await request.json()) as { email?: string; password?: string; name?: string };
+      const body = (await request.json()) as {
+        email?: string;
+        password?: string;
+        name?: string;
+        acepta_terminos?: unknown;
+      };
       const email = body.email?.trim().toLowerCase() ?? '';
-      if (!body.name?.trim()) {
-        return HttpResponse.json({ name: ['Este campo es requerido.'] }, { status: 400 });
-      }
-      if (db.accounts.some((a) => a.email === email)) {
-        return HttpResponse.json(
-          { email: ['Ya existe una cuenta con este email.'] },
-          { status: 400 },
-        );
-      }
+      // Field errors come together, like the serializer; the password is checked after them.
+      const errors: Record<string, string[]> = {
+        ...(!body.name?.trim() && { name: ['Este campo es requerido.'] }),
+        ...(db.accounts.some((a) => a.email === email) && {
+          email: ['Ya existe una cuenta con este email.'],
+        }),
+        ...termsRefused(body),
+      };
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
       if (!body.password || body.password.length < 8) {
         return HttpResponse.json(
           { password: ['La contraseña debe tener al menos 8 caracteres.'] },
@@ -694,9 +715,24 @@ export function createHandlers(db: MockDb): HttpHandler[] {
       }
       const user = signUp(db, { id: db.nextId++, email, name: body.name?.trim() ?? '' });
       db.accounts.push({ email, password: body.password, user });
+      db.termsAcceptances.push({ userId: user.id, context: 'signup' });
       db.user = user;
       rotateCsrf(db);
       return HttpResponse.json(user, { status: 201 });
+    }),
+
+    http.post('*/api/auth/terminos/aceptar/', ({ request }) => {
+      if (!db.user) return forbidden();
+      const failed = csrfFailure(request, db);
+      if (failed) return failed;
+      if (db.user.terms_accepted !== true) {
+        db.termsAcceptances.push({ userId: db.user.id, context: 'update' });
+      }
+      const user: User = { ...db.user, terms_version: TERMS_VERSION, terms_accepted: true };
+      db.user = user;
+      const entry = db.accounts.find((a) => a.user.id === user.id);
+      if (entry) entry.user = user;
+      return HttpResponse.json(withUsage(user, db));
     }),
 
     http.post('*/api/auth/logout/', ({ request }) => {

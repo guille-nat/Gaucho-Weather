@@ -6,12 +6,12 @@ export const getMyPayments = () => apiFetch<MyPayments>('/api/pagos/');
 
 /**
  * 201 with the Mercado Pago checkout. Refusals answer `{detail}` in Spanish (400, 409, 502, 503)
- * and are shown as they are.
+ * and are shown as they are; without the terms accepted, `{acepta_terminos: [...]}` (S0b).
  */
-export const subscribe = (plan: PlanCode) =>
+export const subscribe = (plan: PlanCode, acceptsTerms: boolean) =>
   apiFetch<{ checkout_url: string }>('/api/pagos/suscribirme/', {
     method: 'POST',
-    body: { plan, currency: 'ARS' },
+    body: { plan, currency: 'ARS', acepta_terminos: acceptsTerms },
   });
 
 /** Cancels at Mercado Pago; the paid month is kept. Answers like `GET /api/pagos/`. */

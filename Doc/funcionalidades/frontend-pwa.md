@@ -18,13 +18,15 @@ señal se siguen viendo los últimos datos.
   - `/buscar` (`Buscar.tsx`), pública: búsqueda con debounce de 300 ms en
     `/api/lugares/?q=`, lugares guardados y recientes, y "Usar mi ubicación".
   - `/ingresar` y `/crear-cuenta`. Sin destino previo, al entrar se va a `/lotes`.
+  - `/terminos`, `/privacidad` y `/reglas` (`pages/legal/`), públicas y fuera del shell: los
+    textos legales con su versión (ver [terminos.md](terminos.md)).
   - Con cuenta (`RequireAuth`): `/lotes` Mis lotes, `/lotes/nuevo`, `/lotes/:id`,
     `/lotes/:id/editar`, `/alertas` y `/perfil`. Anónimo, estas pestañas llevan a
     `/ingresar` y vuelven después.
   - `/perfil/suscripcion` (`Suscripcion.tsx`): con `payments_enabled` (de `/api/planes/`)
-    y pesos elegidos, un plan pago muestra "Suscribirme", que hace
-    `POST /api/pagos/suscribirme/` y lleva al `checkout_url` de Mercado Pago. En dólares
-    dice "Pagar en dólares: próximamente". Al volver, `?pago=ok|pendiente|error` muestra un
+    y pesos elegidos, un plan pago muestra "Suscribirme", que abre el resumen "Antes de ir a
+    Mercado Pago" y, con los términos aceptados, hace `POST /api/pagos/suscribirme/` y
+    lleva al `checkout_url` de Mercado Pago. En dólares dice "Pagar en dólares: próximamente". Al volver, `?pago=ok|pendiente|error` muestra un
     aviso. "Tus pagos" lista la suscripción y los pagos de `GET /api/pagos/`. Detalle en
     [pagos.md](pagos.md).
   - `/backoffice` (`Backoffice.tsx` y `pages/backoffice/`), solo super admins: pestañas

@@ -31,7 +31,12 @@ def test_csrf_endpoint_returns_204_and_sets_readable_cookie(csrf_client):
 def test_register_creates_user_and_logs_in(api_client):
     response = api_client.post(
         REGISTER,
-        {"email": "Pedro@Example.com", "password": PASSWORD, "name": "Pedro"},
+        {
+            "email": "Pedro@Example.com",
+            "password": PASSWORD,
+            "name": "Pedro",
+            "acepta_terminos": True,
+        },
         format="json",
     )
 
@@ -50,7 +55,9 @@ def test_register_creates_user_and_logs_in(api_client):
 
 def test_register_rejects_duplicate_email_case_insensitive(api_client, user):
     response = api_client.post(
-        REGISTER, {"email": "ANA@example.com", "password": PASSWORD, "name": "Otra"}, format="json"
+        REGISTER,
+        {"email": "ANA@example.com", "password": PASSWORD, "name": "Otra", "acepta_terminos": True},
+        format="json",
     )
 
     assert response.status_code == 400
@@ -59,7 +66,11 @@ def test_register_rejects_duplicate_email_case_insensitive(api_client, user):
 
 
 def test_register_validates_fields_in_spanish(api_client):
-    response = api_client.post(REGISTER, {"email": "no-es-email", "password": "123"}, format="json")
+    response = api_client.post(
+        REGISTER,
+        {"email": "no-es-email", "password": "123", "acepta_terminos": True},
+        format="json",
+    )
 
     assert response.status_code == 400
     body = response.json()
@@ -70,7 +81,9 @@ def test_register_validates_fields_in_spanish(api_client):
 
 def test_register_rejects_weak_password(api_client):
     response = api_client.post(
-        REGISTER, {"email": "a@b.com", "password": "12345678", "name": "Ana"}, format="json"
+        REGISTER,
+        {"email": "a@b.com", "password": "12345678", "name": "Ana", "acepta_terminos": True},
+        format="json",
     )
 
     assert response.status_code == 400
@@ -157,7 +170,9 @@ class TestCsrf:
 
     def test_register_without_token_is_rejected(self, csrf_client, db):
         response = csrf_client.post(
-            REGISTER, {"email": "a@b.com", "password": PASSWORD, "name": "A"}, format="json"
+            REGISTER,
+            {"email": "a@b.com", "password": PASSWORD, "name": "A", "acepta_terminos": True},
+            format="json",
         )
 
         assert response.status_code == 403
@@ -206,13 +221,23 @@ class TestThrottling:
         for i in range(10):
             api_client.post(
                 REGISTER,
-                {"email": f"u{i}@example.com", "password": PASSWORD, "name": "U"},
+                {
+                    "email": f"u{i}@example.com",
+                    "password": PASSWORD,
+                    "name": "U",
+                    "acepta_terminos": True,
+                },
                 format="json",
             )
 
         response = api_client.post(
             REGISTER,
-            {"email": "late@example.com", "password": PASSWORD, "name": "U"},
+            {
+                "email": "late@example.com",
+                "password": PASSWORD,
+                "name": "U",
+                "acepta_terminos": True,
+            },
             format="json",
         )
 

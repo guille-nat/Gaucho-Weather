@@ -19,6 +19,8 @@ from apps.accounts.models import Plan, PlanChange, PlanRequest, User
 from apps.payments import tasks
 from apps.payments.models import Payment, ProviderSubscription
 
+from .conftest import PASSWORD
+
 pytestmark = pytest.mark.django_db
 
 API = "https://api.mercadopago.test"
@@ -123,7 +125,7 @@ def test_subscribing_creates_a_pending_preapproval_and_returns_the_checkout_url(
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -161,8 +163,12 @@ def test_subscribing_twice_to_the_same_plan_reuses_the_pending_checkout(user):
     )
     client = client_for(user)
 
-    first = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
-    second = client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+    first = client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
+    second = client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
 
     assert first.status_code == second.status_code == 201
     assert second.json() == first.json()
@@ -181,7 +187,7 @@ def test_subscribing_to_another_plan_cancels_the_pending_checkout(user):
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -202,7 +208,7 @@ def test_subscribing_when_the_old_checkout_cannot_be_cancelled_is_502(user):
     create = respx.post(f"{API}/preapproval")
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -222,7 +228,7 @@ def test_a_cancelled_old_checkout_stays_cancelled_when_the_new_one_fails(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(500))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -233,7 +239,9 @@ def test_a_cancelled_old_checkout_stays_cancelled_when_the_new_one_fails(user):
 
 
 def test_subscribing_needs_a_session(api_client):
-    response = api_client.post(SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json")
+    response = api_client.post(
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
+    )
 
     assert response.status_code == 403
 
@@ -243,38 +251,43 @@ def test_subscribing_needs_a_session(api_client):
     [
         (
             None,
-            {"plan": "basico", "currency": "ARS"},
+            {"plan": "basico", "currency": "ARS", "acepta_terminos": True},
             400,
             "El plan Básico es gratis: no hace falta suscribirse.",
         ),
         (
             "productor",
-            {"plan": "productor", "currency": "ARS"},
+            {"plan": "productor", "currency": "ARS", "acepta_terminos": True},
             400,
             "Ya estás en el plan Productor.",
         ),
         (
             "founder",
-            {"plan": "productor", "currency": "ARS"},
+            {"plan": "productor", "currency": "ARS", "acepta_terminos": True},
             400,
             "Como founder ya tenés Productor gratis para siempre.",
         ),
-        (None, {"plan": "oro", "currency": "ARS"}, 400, "Ese plan no existe."),
         (
             None,
-            {"plan": "productor", "currency": "USD"},
+            {"plan": "oro", "currency": "ARS", "acepta_terminos": True},
+            400,
+            "Ese plan no existe.",
+        ),
+        (
+            None,
+            {"plan": "productor", "currency": "USD", "acepta_terminos": True},
             409,
             "Pagar en dólares todavía no está disponible.",
         ),
         (
             "no_price",
-            {"plan": "empresa", "currency": "ARS"},
+            {"plan": "empresa", "currency": "ARS", "acepta_terminos": True},
             409,
             "Ese plan todavía no tiene precio en pesos.",
         ),
         (
             "authorized",
-            {"plan": "empresa", "currency": "ARS"},
+            {"plan": "empresa", "currency": "ARS", "acepta_terminos": True},
             400,
             "Ya tenés una suscripción activa. Date de baja antes de cambiar de plan.",
         ),
@@ -310,7 +323,7 @@ def test_a_trial_user_may_subscribe_to_keep_productor(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(201, json=preapproval()))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -322,7 +335,7 @@ def test_subscribing_when_payments_are_not_configured_is_503(user, settings):
     route = respx.post(f"{API}/preapproval")
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 503
@@ -335,7 +348,7 @@ def test_subscribing_when_mercadopago_fails_is_502_and_records_nothing(user):
     respx.post(f"{API}/preapproval").mock(return_value=httpx.Response(500, json={}))
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 502
@@ -610,7 +623,7 @@ def test_subscribing_again_cancels_an_ended_paused_subscription_first(user):
     )
 
     response = client_for(user).post(
-        SUBSCRIBE, {"plan": "productor", "currency": "ARS"}, format="json"
+        SUBSCRIBE, {"plan": "productor", "currency": "ARS", "acepta_terminos": True}, format="json"
     )
 
     assert response.status_code == 201
@@ -809,6 +822,127 @@ def test_cancelling_when_mercadopago_fails_is_502(user):
     response = client_for(user).post(CANCEL)
 
     assert response.status_code == 502
+    assert ProviderSubscription.objects.get().status == "authorized"
+
+
+# --- deleting the account cancels at Mercado Pago first -------------------------------------
+
+ME = "/api/auth/me/"
+
+
+@respx.mock
+@pytest.mark.parametrize("status", ["pending", "authorized", "paused"])
+def test_deleting_the_account_cancels_its_subscription_at_mercadopago(user, status):
+    subscription(user, status=status, next_payment_at=NEXT)
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert json.loads(route.calls.last.request.content) == {"status": "cancelled"}
+    assert not User.objects.filter(pk=user.pk).exists()
+    assert ProviderSubscription.objects.count() == 0
+
+
+@respx.mock
+def test_deleting_the_account_skips_a_subscription_already_cancelled(user):
+    subscription(user, status="cancelled")
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert not route.called
+    assert not User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_when_mercadopago_fails_is_502_and_keeps_everything(user):
+    on_plan(user, Plan.PRODUCTOR)
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
+    client = client_for(user)
+
+    response = client.delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "No pudimos conectar con Mercado Pago. Probá de nuevo en un rato."
+    }
+    assert User.objects.filter(pk=user.pk).exists()
+    assert ProviderSubscription.objects.get().status == "authorized"
+    assert client.get(ME).status_code == 200
+
+
+@respx.mock
+def test_deleting_the_account_when_mercadopago_already_cancelled_it(user):
+    """A missed webhook left the row authorized; Mercado Pago refuses the cancel but says it is
+    cancelled, so the account is deleted instead of being blocked for good."""
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(400))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert not User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_when_the_cancel_fails_and_it_is_still_running_is_502(user):
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(400))
+    respx.get(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="authorized"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 502
+    assert User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_after_a_partial_failure_retries_only_what_is_left(user):
+    older = subscription(user, status="authorized", next_payment_at=NEXT)
+    older.external_id = "older"
+    older.save()
+    newer = subscription(user, status="pending")  # newest first: cancelled before the older one
+    cancel_newer = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+    cancel_older = respx.put(f"{API}/preapproval/older").mock(return_value=httpx.Response(500))
+    respx.get(f"{API}/preapproval/older").mock(return_value=httpx.Response(500))
+    client = client_for(user)
+
+    assert client.delete(ME, {"password": PASSWORD}, format="json").status_code == 502
+    newer.refresh_from_db()
+    older.refresh_from_db()
+    assert (newer.status, older.status) == ("cancelled", "authorized")
+    assert client.get(ME).status_code == 200
+
+    cancel_older.mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled", external_id="older"))
+    )
+    assert client.delete(ME, {"password": PASSWORD}, format="json").status_code == 204
+    assert (cancel_newer.call_count, cancel_older.call_count) == (1, 2)
+    assert ProviderSubscription.objects.count() == 0
+
+
+@respx.mock
+def test_deleting_the_account_with_a_wrong_password_does_not_touch_mercadopago(user):
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = client_for(user).delete(ME, {"password": "nope"}, format="json")
+
+    assert response.status_code == 400
+    assert not route.called
     assert ProviderSubscription.objects.get().status == "authorized"
 
 

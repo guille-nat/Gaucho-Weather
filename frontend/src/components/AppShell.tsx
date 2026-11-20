@@ -4,6 +4,7 @@ import { founderLabel } from '../lib/membership';
 import { useMe } from '../query/hooks';
 import { BrandMark } from './BrandMark';
 import { Icon, type IconName } from './Icon';
+import { TermsDialog } from './TermsDialog';
 
 const NAV: { to: string; label: string; icon: IconName; match: (path: string) => boolean }[] = [
   { to: '/', label: 'Clima', icon: 'cloudSun', match: (p) => p === '/' },
@@ -74,6 +75,8 @@ export function AppShell() {
       <main id="contenido" className="shell-main" tabIndex={-1}>
         <Outlet />
       </main>
+      {/* Signed in without the current terms: nothing else until they are accepted (S0c). */}
+      <TermsDialog />
     </div>
   );
 }

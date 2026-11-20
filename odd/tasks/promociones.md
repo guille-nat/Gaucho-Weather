@@ -175,7 +175,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
-| T0 | S0a–S0e clear terms | delegated writer (context backstop) | in progress; go-live after lawyer review | |
+| T0 | S0a–S0e clear terms | delegated writer (context backstop) | done and verified (no blockers); go-live after lawyer review | 4ac9cce, 8d61a71 |
 | TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) + parent (Django admin) | done | f46128e |
 | T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
 | T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
@@ -212,3 +212,36 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - The new tests' extra load exposed an existing race: the guard's redirect dropped "Borramos tu cuenta…". Fixed in 7e75bf1 by remembering the reason in `lib/signedOut.ts`. RED: a test failed without it; GREEN afterwards.
   - Native review is still pending: 530dcef..HEAD exceeds the lens budget (see backoffice-superadmin L6).
 - **L13** (2026-11-19): user "si" (taken as: continue with S0). S0 split into S0a–S0e and delegated.
+- **L14** (2026-11-19): T0 done (4ac9cce).
+  - Delivered:
+    - the pages `/terminos`, `/privacidad` and `/reglas`;
+    - `TermsAcceptance` (accounts 0010);
+    - `acepta_terminos` required on register and subscribe;
+    - `POST /api/auth/terminos/aceptar/` and the blocking update dialog;
+    - the pre-pay summary;
+    - the confirmation email, idempotent through `confirmation_sent_at` (payments 0002).
+  - Checks: backend 803 passed; frontend 346 passed (2 of 2 writer runs, plus a parent spot check); migrations applied to the dev DB.
+  - Placeholders to fill: [RAZÓN SOCIAL], [CUIT], [DOMICILIO], [EMAIL DE CONTACTO], [JURISDICCIÓN], [PLAZO] (×3), [PROVEEDOR DE EMAIL], [PROVEEDOR DE HOSTING].
+  - For the lawyer: the writer added the 10-day right of withdrawal (art. 34, Ley 24.240) and the AAIP notice.
+  - Pre-existing gap: deleting an account does not cancel its Mercado Pago subscription. The terms tell users to cancel first.
+- **L15** (2026-11-19): the T0 verifier found no blockers; S0a–S0e pass. Its 25 guards were committed (8d61a71); backend 828 passed.
+  - Advisories, to address next session:
+    1. `acepta_terminos` accepts DRF's loose truthy values ("true", 1, "on"), and `null` or garbage get DRF's messages instead of the spec's.
+    2. The API does not enforce acceptance; only the UI dialog does.
+    3. The texts promise emails that don't exist yet: a new terms version, and price changes.
+    4. The 10-day withdrawal needs a manual refund process.
+    5. The version-drift test fails inside the frontend container, which mounts only `./frontend`.
+    6. A failed confirmation email is not retried (at most once).
+    7. Pre-existing: deleting an account does not cancel its Mercado Pago subscription.
+  - The user closed the day ("cuando termine el verificador cerramos por hoy").
+  - Next session:
+    - the user fills the placeholders;
+    - fix advisories 1, 3 and 7;
+    - the lab's daily subscription is still waiting for authorization;
+    - then plan M1 (`odd/tasks/mejoras-productor.md`).
+- **L16** (2026-11-20): user: "seguimos donde lo dejamos". Advisories from L15:
+  - 1 fixed (811373e): `acepta_terminos` accepts only a JSON true; any other value answers TERMS_REQUIRED.
+  - 7 fixed (eb03b9a, 9324fd3): deleting an account cancels its pending, authorized and paused Mercado Pago subscriptions first; if Mercado Pago fails, 502 and the account stays; a remote "already cancelled" counts as done. Clause 9 of the terms updated (no version bump: draft until the lawyer review).
+    - Independent verifier (Risk item 1): pass, no blockers. Its advisories: the stale-row case (fixed in 9324fd3), the partial-failure probe (kept as a test). Not fixed: with the Mercado Pago token removed while subscription rows exist, deletion answers 502 (safer than leaving a charge running); the Django admin can still delete a user without cancelling at Mercado Pago (pre-existing, out of scope).
+  - 3: user chose "Hacerlo en la app (Recomendado)": scheduled price changes and terms versions with an email notice. Tracked in `odd/tasks/avisos-cambios.md`.
+  - Checks: backend 838 passed, ruff clean. Frontend terminos.test.tsx: 19 passed, 1 failed (advisory 5, the version-drift test inside the frontend container).

@@ -1,4 +1,5 @@
 import type { AlertEvent, Lote, Plan, PlanCode, User } from '../api/types';
+import { TERMS_VERSION } from '../lib/terms';
 
 /** The three plans as migration 0003 seeds them (prices still unset). */
 export const demoPlans: Plan[] = [
@@ -43,7 +44,10 @@ export const planOf = (code: PlanCode): Plan => {
   return plan;
 };
 
-/** An account as /api/auth/me/ serialises it; defaults to Productor with no expiry. */
+/**
+ * An account as /api/auth/me/ serialises it; defaults to Productor with no expiry and the current
+ * terms accepted (pass `terms_accepted: false` for the updated-terms dialog, promociones S0c).
+ */
 export function account(fields: Pick<User, 'id' | 'email' | 'name'> & Partial<User>): User {
   return {
     plan: planOf('productor'),
@@ -52,6 +56,8 @@ export function account(fields: Pick<User, 'id' | 'email' | 'name'> & Partial<Us
     usage: { lotes: 0 },
     notify_push: true,
     notify_email: true,
+    terms_version: TERMS_VERSION,
+    terms_accepted: true,
     ...fields,
   };
 }

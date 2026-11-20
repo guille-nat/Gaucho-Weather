@@ -5,18 +5,26 @@ import { register } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useStartSession } from '../query/hooks';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
+import { TermsCheckbox } from '../components/Legal';
 import { AuthLayout } from './AuthLayout';
 
 export function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const startSession = useStartSession();
   const mutation = useMutation({ mutationFn: register, onSuccess: startSession });
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    mutation.mutate({ name: name.trim(), email: email.trim(), password });
+    // Sent as it is: the server answers why it is needed when it is not ticked (S0b).
+    mutation.mutate({
+      name: name.trim(),
+      email: email.trim(),
+      password,
+      acepta_terminos: accepted,
+    });
   }
 
   const error = mutation.error instanceof ApiError ? mutation.error : null;
@@ -54,6 +62,11 @@ export function Register() {
           value={password}
           error={fields.password?.[0]}
           onChange={(e) => setPassword(e.target.value)}
+        />
+        <TermsCheckbox
+          checked={accepted}
+          onChange={setAccepted}
+          error={fields.acepta_terminos?.[0]}
         />
         <button type="submit" className="btn btn--primary btn--block" disabled={mutation.isPending}>
           {mutation.isPending ? 'Creando cuenta…' : 'Crear cuenta'}

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Plan, ProviderSubscription, User } from '../api/types';
 import { account, demoLotes, demoPlans, demoUser, planOf } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
+import { confirmCheckout } from './checkout';
 import { renderApp } from './renderApp';
 
 /** A founder moving up to Empresa pays only the difference (odd/tasks/promociones.md SF4, SF5). */
@@ -104,10 +105,11 @@ describe('Suscripción for a founder (SF5)', () => {
       expect(within(other).queryByRole('button', { name: 'Suscribirme' })).toBeNull();
     }
     await user.click(within(empresa).getByRole('button', { name: 'Suscribirme' }));
+    await confirmCheckout(user);
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith(db.checkoutUrl));
     expect(sentTo(db, '/api/pagos/suscribirme/').map((r) => r.body)).toEqual([
-      { plan: 'empresa', currency: 'ARS' },
+      { plan: 'empresa', currency: 'ARS', acepta_terminos: true },
     ]);
     expect(db.planRequest).toBeNull();
   });
@@ -120,6 +122,7 @@ describe('Suscripción for a founder (SF5)', () => {
     const empresa = within(change).getByRole('article', { name: 'Plan Empresa' });
     expect(within(empresa).queryByText(/Como founder pagás/)).toBeNull();
     await user.click(within(empresa).getByRole('button', { name: 'Suscribirme' }));
+    await confirmCheckout(user);
 
     expect(await within(change).findByRole('alert')).toHaveTextContent(
       'Ese plan todavía no tiene precio en pesos.',

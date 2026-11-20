@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { founderDifferenceNote } from '../api/payments';
 import type { Plan, User } from '../api/types';
 import { Icon } from '../components/Icon';
+import { LegalLinks } from '../components/Legal';
 import { CurrencyChoice, PricingCard } from '../components/PricingCard';
 import { useCurrency, type Currency } from '../lib/currency';
 import { membership } from '../lib/membership';
@@ -141,6 +142,7 @@ export function Planes() {
             Quien no es founder prueba Productor {plans.data.trial_days} días y después pasa a
             Básico.
           </p>
+          <LegalLinks />
         </>
       ) : (
         <p className="notice">{plans.isError ? plans.error.message : 'Cargando planes…'}</p>
