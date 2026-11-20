@@ -147,6 +147,8 @@ justificar una aplicación. Los datos se guardan en una tabla propia.
   fuente.
 - **Uso comercial:** la Historical Forecast API requiere el plan Professional
   de Open-Meteo (prefijo `customer-` en la URL y la clave).
+- **Histórico largo (10 años):** investigación de costos y opciones en
+  [historico-largo.md](../historico-largo.md).
 - Correr a mano: `docker compose exec backend python manage.py shell -c
   "from apps.archiver.tasks import fetch_history; fetch_history()"`.
 - Tests: `backend/tests/test_history.py`.

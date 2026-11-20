@@ -20,6 +20,8 @@
   por lote, su evaluación y el envío por push, email y bandeja.
 - [funcionalidades/historico.md](funcionalidades/historico.md): histórico de
   clima y viento por lote, guardado en una tabla propia.
+- [historico-largo.md](historico-largo.md): investigación de costos para un
+  histórico largo (10 años) por lote: Open-Meteo, Visual Crossing y ERA5.
 - [funcionalidades/lotes.md](funcionalidades/lotes.md): API de lotes, sus
   cultivos (varios por lote), cómo se validan y el resumen de la mínima de la
   noche.
