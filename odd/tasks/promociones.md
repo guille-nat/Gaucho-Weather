@@ -51,6 +51,42 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - A founder never sees "Suscribirme" for Productor or Básico.
 - **SF6 Docs.** Update `Doc/funcionalidades/pagos.md` and `planes.md` with the rule and its "Por qué".
 
+**S0 split into parts** (L13: user "si" to continue with S0). The texts are drafts, and a lawyer reviews them before going live (S0 above).
+- **S0a Pages.**
+  - Public routes in the SPA: `/terminos` (Términos y condiciones), `/privacidad` (Política de privacidad) and `/reglas` (program rules: founders and paid subscriptions; coupons, referrals and free months are added when they ship). Each page shows its version and date.
+  - The links appear in the auth screens' footer, in Perfil, on Planes and on Suscripción.
+  - The texts:
+    - are Spanish, neutral and professional;
+    - mark every business datum they don't know with a visible placeholder in brackets: `[RAZÓN SOCIAL]`, `[CUIT]`, `[DOMICILIO]`, `[EMAIL DE CONTACTO]`, `[JURISDICCIÓN]`;
+    - describe only what the app really does and collects, derived from the code and `Doc/` (account data, lotes and their locations, alerts, push subscriptions, payments through Mercado Pago, email, the weather data sources);
+    - cite Ley 24.240 (consumer, duty to inform, "botón de baja") and Ley 25.326 (personal data) where relevant.
+  - The founder rules say exactly what S0 lists: Productor while the service exists; Empresa pays the difference; cancelling returns to Productor; personal and not transferable.
+  - The subscription rules cover:
+    - monthly, renews automatically, charged in pesos through Mercado Pago;
+    - the paid month is kept on cancel;
+    - a paused or cancelled subscription keeps the plan until the end of the paid month;
+    - one paid subscription per account;
+    - prices can change, with notice.
+- **S0b Version and acceptance.**
+  - One current version string for the bundle (backend constant, e.g. `TERMS_VERSION = "2026-11-19"`). A new model, `TermsAcceptance` (user, version, accepted_at, context `signup` / `subscribe` / `update`), with its migration.
+  - Registration requires `acepta_terminos: true`. Otherwise it answers 400 `{"acepta_terminos": ["Tenés que aceptar los términos y la política de privacidad."]}`, and the form shows a checkbox linking both pages.
+  - `POST /api/pagos/suscribirme/` requires `acepta_terminos: true` with the same message, and records `subscribe`.
+  - `/api/auth/me/` adds `terms_version` (current) and `terms_accepted` (bool for the current version).
+- **S0c Updated terms.**
+  - A signed-in user whose `terms_accepted` is false sees a blocking dialog, "Actualizamos los términos", with links and an "Acepto" button: `POST /api/auth/terminos/aceptar/` records `update`. "Salir" signs out.
+  - Existing accounts (founders included) go through this dialog once after the deploy.
+- **S0d Summary before paying.** On Suscripción, before redirecting to Mercado Pago, a confirmation step shows in plain words:
+  - the exact amount per month (the founder difference when it applies);
+  - that it renews automatically;
+  - that the first charge is now;
+  - that "Darme de baja" is on this same page;
+  - that the paid month is kept on cancel;
+  - the terms checkbox.
+
+  Only then is the subscription created.
+- **S0e Confirmation email.** When a subscription becomes `authorized` (the webhook), the user gets one email with the plan, amount, frequency, how to cancel and the links to the terms. It is idempotent: never twice for the same subscription.
+- (A) No email about price changes or the end of a discount yet: those ship with coupons (S1).
+
 **S1 — Coupons.** A super admin creates codes in the backoffice.
 - Each code has:
   - `code`: unique and case-insensitive;
@@ -139,7 +175,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
-| T0 | S0 clear terms (pages, acceptance, pre-checkout summary, emails) | tbd | blocked on the texts and the lawyer review | |
+| T0 | S0a–S0e clear terms | delegated writer (context backstop) | in progress; go-live after lawyer review | |
 | TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) + parent (Django admin) | done | f46128e |
 | T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
 | T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
@@ -175,3 +211,4 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - Checks: backend 777 passed, ruff clean; frontend 326 passed (4 of 4 runs), eslint, prettier and tsc clean.
   - The new tests' extra load exposed an existing race: the guard's redirect dropped "Borramos tu cuenta…". Fixed in 7e75bf1 by remembering the reason in `lib/signedOut.ts`. RED: a test failed without it; GREEN afterwards.
   - Native review is still pending: 530dcef..HEAD exceeds the lens budget (see backoffice-superadmin L6).
+- **L13** (2026-11-19): user "si" (taken as: continue with S0). S0 split into S0a–S0e and delegated.
