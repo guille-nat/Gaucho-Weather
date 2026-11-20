@@ -86,6 +86,9 @@ function DailyTable({ days }: { days: HistoryDay[] }) {
               <th scope="col">Lluvia</th>
               <th scope="col">Viento máx</th>
               <th scope="col">Ráfaga máx</th>
+              <th scope="col">Humedad mín</th>
+              <th scope="col">Delta T máx</th>
+              <th scope="col">Horas con inversión</th>
             </tr>
           </thead>
           <tbody>
@@ -97,6 +100,9 @@ function DailyTable({ days }: { days: HistoryDay[] }) {
                 <td>{formatMm(day.rain_mm)}</td>
                 <td>{formatKmh(day.wind_max_kmh)}</td>
                 <td>{formatKmh(day.gust_max_kmh)}</td>
+                <td>{formatPct(day.humidity_min_pct)}</td>
+                <td>{temp(day.delta_t_max_c)}</td>
+                <td>{day.inversion_hours === null ? DASH : `${day.inversion_hours} h`}</td>
               </tr>
             ))}
           </tbody>
@@ -124,14 +130,32 @@ function WindDirection({ degrees }: { degrees: number | null }) {
   );
 }
 
+/** Warmer at 80 m than at 2 m: icon and word, never colour alone. */
+function InversionMark({ inversion }: { inversion: boolean | null }) {
+  if (inversion === null) return DASH;
+  return inversion ? (
+    <span className="level level--caution">
+      <Icon name="alert" size={16} strokeWidth={2.6} />
+      Hay inversión
+    </span>
+  ) : (
+    <span className="level level--ok">
+      <Icon name="check" size={16} strokeWidth={2.6} />
+      Sin inversión
+    </span>
+  );
+}
+
 function HourItem({ hour }: { hour: HistoryHour }) {
   const causes = hour.spray_wind_causes.join(', ');
   const facts: [string, ReactNode][] = [
     ['Viento', formatKmh(hour.wind_kmh)],
     ['Ráfaga', formatKmh(hour.gust_kmh)],
     ['Dirección', <WindDirection degrees={hour.wind_dir_deg} />],
-    ['Temperatura', temp(hour.temperature_c)],
     ['Humedad', formatPct(hour.humidity_pct)],
+    ['Delta T', temp(hour.delta_t_c)],
+    ['Inversión térmica', <InversionMark inversion={hour.inversion} />],
+    ['Temperatura', temp(hour.temperature_c)],
     ['Lluvia', formatMm(hour.rain_mm)],
   ];
   return (
@@ -170,6 +194,10 @@ function WindHours({ history }: { history: LoteHistory }) {
       </h2>
       <p className="fine hist-lead">
         Para el registro de cada aplicación: viento a 10 m y si estaba en el rango para pulverizar.
+      </p>
+      <p className="fine hist-lead">
+        Delta T: temperatura menos bulbo húmedo; entre 2 y 8 °C la gota no se evapora de más.
+        Inversión térmica: más calor a 80 m que a 2 m; el aire queda quieto y la deriva llega lejos.
       </p>
       <SelectField label="Día" value={day} onChange={(e) => setChosen(e.target.value)}>
         {history.days.map((d) => (

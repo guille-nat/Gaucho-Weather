@@ -210,5 +210,6 @@ def test_beat_schedule():
     assert forecasts["schedule"].minute == {0}
     smn = schedule["archive-smn-observations"]
     assert smn["task"] == "archiver.fetch_smn_observations"
-    assert smn["schedule"].hour == {3}
+    assert smn["schedule"].minute == {10}
+    assert smn["schedule"].hour == set(range(24))  # hourly (auditoria-historico S5)
     assert settings.CELERY_TIMEZONE == "America/Argentina/Buenos_Aires"

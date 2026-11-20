@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from django.conf import settings
+from django.db.models import Max
 from django.utils import timezone
 
 from engine import rate_wind
@@ -24,9 +25,11 @@ SOURCE = "open-meteo/historical-forecast"
 ATTRIBUTION = "Datos de modelo de Open-Meteo (CC BY 4.0), no medidos en el lote."
 LOCAL = ZoneInfo("America/Argentina/Buenos_Aires")
 FIRST_DAY = date(2021, 1, 1)
-MAX_DAYS = 31
+MAX_DAYS = 31  # per API request and per provider request
 BACKFILL_DAYS = 90
 REFRESH_DAYS = 3
+OVERLAP_DAYS = 1  # the hourly run re-reads the day before the last stored hour
+REVISION_HOUR = 4  # local: the 04:20 run also revises the last REFRESH_DAYS
 
 # Open-Meteo variable → WeatherHour field
 VARIABLES = {
@@ -37,6 +40,12 @@ VARIABLES = {
     "wind_speed_10m": "wind_kmh",
     "wind_direction_10m": "wind_dir_deg",
     "wind_gusts_10m": "gust_kmh",
+    # Spray audit (odd/tasks/auditoria-historico.md S3)
+    "temperature_80m": "temperature_80m_c",  # above temperature_2m: thermal inversion
+    "wet_bulb_temperature_2m": "wet_bulb_c",  # for Delta T
+    "cloud_cover": "cloud_cover_pct",
+    "surface_pressure": "pressure_hpa",
+    "shortwave_radiation": "radiation_wm2",
 }
 VALUE_FIELDS = tuple(VARIABLES.values())
 
@@ -49,6 +58,7 @@ def build_request(cell: Cell, start: date, end: date) -> tuple[str, dict[str, st
         "end_date": end.isoformat(),
         "hourly": ",".join(VARIABLES),
         "timeformat": "unixtime",  # UTC seconds: no daylight-saving or offset guessing
+        "timezone": LOCAL.key,  # start/end are local days, so today's 21–23 h come the same day
         "wind_speed_unit": "kmh",
     }
     if settings.OPEN_METEO_API_KEY:
@@ -104,6 +114,35 @@ def refresh_range(today: date) -> tuple[date, date]:
     return today - timedelta(days=REFRESH_DAYS), today
 
 
+def last_stored_hour(cell: Cell) -> datetime | None:
+    return WeatherHour.objects.filter(cell_lat=cell[0], cell_lon=cell[1], source=SOURCE).aggregate(
+        last=Max("time")
+    )["last"]
+
+
+def catch_up_range(last: datetime | None, today: date, revise: bool) -> tuple[date, date]:
+    """S2: from the local day of the last stored hour (minus the overlap) through today.
+
+    A cell with nothing stored gets the full backfill; `revise` reaches back REFRESH_DAYS too.
+    """
+    if last is None:
+        return backfill_range(today)
+    start = last.astimezone(LOCAL).date() - timedelta(days=OVERLAP_DAYS)
+    if revise:
+        start = min(start, refresh_range(today)[0])
+    return max(start, FIRST_DAY), today
+
+
+def chunks(start: date, end: date) -> list[tuple[date, date]]:
+    """The range split into pieces of at most MAX_DAYS, oldest first."""
+    pieces = []
+    while start <= end:
+        stop = min(start + timedelta(days=MAX_DAYS - 1), end)
+        pieces.append((start, stop))
+        start = stop + timedelta(days=1)
+    return pieces
+
+
 # --- Reading, for the lote screens ---
 
 
@@ -137,6 +176,9 @@ class DaySummary:
     rain_mm: float | None
     wind_max_kmh: float | None
     gust_max_kmh: float | None
+    humidity_min_pct: float | None
+    delta_t_max_c: float | None
+    inversion_hours: int | None  # None when no hour has both temperatures
     hours: int
 
 
@@ -153,6 +195,25 @@ def _min(values):
 def _sum(values):
     values = [v for v in values if v is not None]
     return round(sum(values), 1) if values else None
+
+
+def delta_t(row: WeatherHour) -> float | None:
+    """Dry minus wet bulb: the evaporation of a spray droplet (2–8 °C is the usual window)."""
+    if row.temperature_c is None or row.wet_bulb_c is None:
+        return None
+    return round(row.temperature_c - row.wet_bulb_c, 1)
+
+
+def inversion(row: WeatherHour) -> bool | None:
+    """Warmer at 80 m than at 2 m: the air near the ground is stable and drift travels far."""
+    if row.temperature_c is None or row.temperature_80m_c is None:
+        return None
+    return row.temperature_80m_c > row.temperature_c
+
+
+def _inversion_hours(rows) -> int | None:
+    known = [value for value in map(inversion, rows) if value is not None]
+    return sum(known) if known else None
 
 
 def lote_history(cell: Cell, start: date, end: date, today: date) -> dict:
@@ -187,6 +248,13 @@ def lote_history(cell: Cell, start: date, end: date, today: date) -> dict:
                 "gust_kmh": row.gust_kmh,
                 "spray_wind": level,
                 "spray_wind_causes": list(causes),
+                "temperature_80m_c": row.temperature_80m_c,
+                "wet_bulb_c": row.wet_bulb_c,
+                "cloud_cover_pct": row.cloud_cover_pct,
+                "pressure_hpa": row.pressure_hpa,
+                "radiation_wm2": row.radiation_wm2,
+                "delta_t_c": delta_t(row),
+                "inversion": inversion(row),
             }
         )
     days = []
@@ -202,6 +270,9 @@ def lote_history(cell: Cell, start: date, end: date, today: date) -> dict:
                     rain_mm=_sum(r.rain_mm for r in rows_of_day),
                     wind_max_kmh=_max(r.wind_kmh for r in rows_of_day),
                     gust_max_kmh=_max(r.gust_kmh for r in rows_of_day),
+                    humidity_min_pct=_min(r.humidity_pct for r in rows_of_day),
+                    delta_t_max_c=_max(delta_t(r) for r in rows_of_day),
+                    inversion_hours=_inversion_hours(rows_of_day),
                     hours=len(rows_of_day),
                 )
             )

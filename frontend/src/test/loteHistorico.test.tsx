@@ -10,9 +10,22 @@ const day = (
   date: string,
   values: [number | null, number | null, number | null, number | null, number | null],
   hours = 24,
+  audit: [number | null, number | null, number | null] = [null, null, null],
 ): HistoryDay => {
   const [temp_max_c, temp_min_c, rain_mm, wind_max_kmh, gust_max_kmh] = values;
-  return { date, temp_max_c, temp_min_c, rain_mm, wind_max_kmh, gust_max_kmh, hours };
+  const [humidity_min_pct, delta_t_max_c, inversion_hours] = audit;
+  return {
+    date,
+    temp_max_c,
+    temp_min_c,
+    rain_mm,
+    wind_max_kmh,
+    gust_max_kmh,
+    humidity_min_pct,
+    delta_t_max_c,
+    inversion_hours,
+    hours,
+  };
 };
 
 const hour = (time: string, fields: Partial<HistoryHour>): HistoryHour => ({
@@ -25,6 +38,13 @@ const hour = (time: string, fields: Partial<HistoryHour>): HistoryHour => ({
   gust_kmh: 18,
   spray_wind: 'ok',
   spray_wind_causes: [],
+  temperature_80m_c: 22,
+  wet_bulb_c: 18,
+  cloud_cover_pct: 20,
+  pressure_hpa: 1012,
+  radiation_wm2: 500,
+  delta_t_c: 6,
+  inversion: false,
   ...fields,
 });
 
@@ -41,7 +61,7 @@ const lastWeek: LoteHistory = {
     day('2026-11-12', [null, null, null, null, null], 0),
     day('2026-11-13', [27, 13, 0, 10, 18]),
     day('2026-11-14', [29, 14, 0, 11, 19]),
-    day('2026-11-15', [31.2, 16.8, 4.5, 22.6, 41]),
+    day('2026-11-15', [31.2, 16.8, 4.5, 22.6, 41], 24, [38, 9.4, 3]),
     day('2026-11-16', [25, 15, 0, 9, 15], 1),
   ],
   hours: [
@@ -51,6 +71,8 @@ const lastWeek: LoteHistory = {
       wind_dir_deg: 45,
       temperature_c: 22.5,
       humidity_pct: 71,
+      delta_t_c: 3.2,
+      inversion: true,
     }),
     hour('2026-11-15T15:00:00-03:00', {
       wind_kmh: 22.6,
@@ -72,6 +94,8 @@ const lastWeek: LoteHistory = {
       gust_kmh: null,
       wind_dir_deg: null,
       spray_wind: null,
+      delta_t_c: null,
+      inversion: null,
     }),
     hour('2026-11-16T08:00:00-03:00', { wind_kmh: 9 }),
   ],
@@ -114,7 +138,17 @@ describe('Lote history (S9, S10)', () => {
     const headers = within(table)
       .getAllByRole('columnheader')
       .map((th) => th.textContent);
-    expect(headers).toEqual(['Día', 'Máx', 'Mín', 'Lluvia', 'Viento máx', 'Ráfaga máx']);
+    expect(headers).toEqual([
+      'Día',
+      'Máx',
+      'Mín',
+      'Lluvia',
+      'Viento máx',
+      'Ráfaga máx',
+      'Humedad mín',
+      'Delta T máx',
+      'Horas con inversión',
+    ]);
     // One row per day, plus the header.
     expect(within(table).getAllByRole('row')).toHaveLength(8);
 
@@ -122,14 +156,23 @@ describe('Lote history (S9, S10)', () => {
     const cells = within(rainy)
       .getAllByRole('cell')
       .map((td) => td.textContent?.replace(/\u00a0/g, ' '));
-    expect(cells).toEqual(['31,2 °C', '16,8 °C', '4,5 mm', '23 km/h', '41 km/h']);
+    expect(cells).toEqual([
+      '31,2 °C',
+      '16,8 °C',
+      '4,5 mm',
+      '23 km/h',
+      '41 km/h',
+      '38 %',
+      '9,4 °C',
+      '3 h',
+    ]);
 
     const empty = within(table).getByRole('row', { name: /12\/11/ });
     expect(
       within(empty)
         .getAllByRole('cell')
         .map((td) => td.textContent),
-    ).toEqual(['—', '—', '—', '—', '—']);
+    ).toEqual(['—', '—', '—', '—', '—', '—', '—', '—']);
   });
 
   it('asks for the last 30 days when chosen', async () => {
@@ -183,6 +226,59 @@ describe('Lote history (S9, S10)', () => {
     expect(within(evening).getByText('Poco viento')).toBeInTheDocument();
 
     expect(within(gap).getByText('Sin dato')).toBeInTheDocument();
+  });
+
+  it('adds humidity, Delta T and an inversion mark to each hour (S4)', async () => {
+    const { user } = renderApp('/lotes/4/historico', signedIn({ loteHistory: () => lastWeek }));
+    await screen.findByRole('table', { name: 'Resumen diario' });
+
+    await user.selectOptions(screen.getByLabelText('Día'), '2026-11-15');
+
+    const items = within(screen.getByRole('list', { name: /Viento hora por hora/ })).getAllByRole(
+      'listitem',
+    );
+    const [morning, afternoon, , gap] = items as HTMLElement[] as [
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+    ];
+    const fact = (item: HTMLElement, term: string) =>
+      within(item).getByText(term, { selector: 'dt' }).nextElementSibling?.textContent;
+
+    expect(fact(morning, 'Humedad')).toBe('71\u00a0%');
+    expect(fact(morning, 'Delta T')).toBe('3,2\u00a0°C');
+    expect(fact(morning, 'Inversión térmica')).toBe('Hay inversión');
+    // An icon plus a word, never colour alone.
+    expect(within(morning).getByText('Hay inversión').querySelector('svg')).not.toBeNull();
+    expect(fact(afternoon, 'Delta T')).toBe('6\u00a0°C');
+    expect(fact(afternoon, 'Inversión térmica')).toBe('Sin inversión');
+    expect(within(afternoon).getByText('Sin inversión').querySelector('svg')).not.toBeNull();
+    expect(fact(gap, 'Delta T')).toBe('—');
+    expect(fact(gap, 'Inversión térmica')).toBe('—');
+    // The existing facts stay.
+    expect(
+      within(morning)
+        .getAllByRole('term')
+        .map((dt) => dt.textContent),
+    ).toEqual([
+      'Viento',
+      'Ráfaga',
+      'Dirección',
+      'Humedad',
+      'Delta T',
+      'Inversión térmica',
+      'Temperatura',
+      'Lluvia',
+    ]);
+  });
+
+  it('explains Delta T and the inversion in the help text', async () => {
+    renderApp('/lotes/4/historico', signedIn({ loteHistory: () => lastWeek }));
+    await screen.findByRole('table', { name: 'Resumen diario' });
+
+    expect(screen.getByText(/Delta T: temperatura menos bulbo húmedo/)).toBeInTheDocument();
+    expect(screen.getByText(/más calor a 80 m que a 2 m/)).toBeInTheDocument();
   });
 
   it('opens on the latest day with hours', async () => {

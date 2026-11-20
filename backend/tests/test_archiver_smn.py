@@ -7,6 +7,7 @@ import httpx
 import pytest
 import respx
 import time_machine
+from celery.schedules import crontab
 
 from apps.archiver.models import Observation
 from apps.archiver.smn import parse_datohorario
@@ -66,6 +67,13 @@ class TestParser:
 
     def test_missing_file_message_has_no_rows(self):
         assert parse_datohorario("observaciones/datohorario20261102.txtEl archivo no existe.") == []
+
+
+def test_runs_every_hour_so_a_missed_run_is_caught_by_the_next(settings):
+    schedule = settings.CELERY_BEAT_SCHEDULE["archive-smn-observations"]
+
+    assert schedule["task"] == "archiver.fetch_smn_observations"
+    assert schedule["schedule"] == crontab(minute=10)
 
 
 @pytest.mark.django_db

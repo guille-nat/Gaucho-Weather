@@ -131,9 +131,9 @@ def _queue_alert_evaluation() -> None:
 
 @shared_task(name="archiver.fetch_smn_observations")
 def fetch_smn_observations() -> dict[str, int]:
-    """Download the last SMN_LOOKBACK_DAYS daily files (yesterday first).
+    """Download the last SMN_LOOKBACK_DAYS daily files (yesterday first), every hour.
 
-    Re-reading a few past days lets a failed day recover on the next run;
+    Re-reading a few past days lets a failed run or day recover on the next one;
     the unique constraint keeps rows from duplicating.
     """
     today = timezone.localdate()
@@ -191,16 +191,32 @@ def lote_cells() -> list[Cell]:
 
 @shared_task(name="archiver.fetch_history")
 def fetch_history() -> dict[str, int]:
-    """Daily: the last few days of every lote cell, revising hours the provider filled in."""
-    start, end = history.refresh_range(timezone.localdate())
-    stats = {"stored": 0, "failed": 0}
+    """Hourly (S2): every lote cell from its last stored hour through now, so it heals itself.
+
+    An empty cell gets the full backfill; the 04:20 run also revises the last few days. A cell
+    stops at its first failed chunk, so no hole is left behind its last stored hour.
+    """
+    now = timezone.localtime()
+    today = now.date()
+    revise = now.hour == history.REVISION_HOUR
+    cells = lote_cells()
+    stats = {"stored": 0, "failed": 0, "cells": len(cells)}
     with httpx.Client(timeout=HTTP_TIMEOUT) as client:
-        for cell in lote_cells():
-            try:
-                stats["stored"] += history.store_history(client, cell, start, end)
-            except (httpx.HTTPError, ValueError) as exc:
-                stats["failed"] += 1
-                logger.warning("History %s failed: %s", cell, openmeteo.describe_error(exc))
+        for cell in cells:
+            start, end = history.catch_up_range(history.last_stored_hour(cell), today, revise)
+            for first, last in history.chunks(start, end):
+                try:
+                    stats["stored"] += history.store_history(client, cell, first, last)
+                except (httpx.HTTPError, ValueError) as exc:
+                    stats["failed"] += 1
+                    logger.warning(
+                        "History %s from %s to %s failed: %s",
+                        cell,
+                        first,
+                        last,
+                        openmeteo.describe_error(exc),
+                    )
+                    break
     logger.info("History run: %s", stats)
     return stats
 

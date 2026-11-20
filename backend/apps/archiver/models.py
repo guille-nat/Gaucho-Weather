@@ -87,6 +87,12 @@ class WeatherHour(models.Model):
     wind_kmh = models.FloatField("viento a 10 m (km/h)", null=True, blank=True)
     wind_dir_deg = models.FloatField("dirección del viento (°)", null=True, blank=True)
     gust_kmh = models.FloatField("ráfaga a 10 m (km/h)", null=True, blank=True)
+    # Spray audit (odd/tasks/auditoria-historico.md S3): inversion, Delta T, sky and pressure.
+    temperature_80m_c = models.FloatField("temperatura a 80 m (°C)", null=True, blank=True)
+    wet_bulb_c = models.FloatField("bulbo húmedo (°C)", null=True, blank=True)
+    cloud_cover_pct = models.FloatField("nubosidad (%)", null=True, blank=True)
+    pressure_hpa = models.FloatField("presión en superficie (hPa)", null=True, blank=True)
+    radiation_wm2 = models.FloatField("radiación solar (W/m²)", null=True, blank=True)
     fetched_at = models.DateTimeField("descargado")
 
     class Meta:

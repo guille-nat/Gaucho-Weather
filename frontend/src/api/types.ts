@@ -233,6 +233,10 @@ export interface HistoryDay {
   rain_mm: number | null;
   wind_max_kmh: number | null;
   gust_max_kmh: number | null;
+  humidity_min_pct: number | null;
+  delta_t_max_c: number | null;
+  /** Hours with a thermal inversion; null when no hour has both temperatures. */
+  inversion_hours: number | null;
   /** Hours stored for the day: fewer than 24 on a past day means it is still loading. */
   hours: number;
 }
@@ -250,6 +254,16 @@ export interface HistoryHour {
   /** `null` when the hour has no wind to rate. */
   spray_wind: Level | null;
   spray_wind_causes: string[];
+  /** Spray audit (auditoria-historico S3), modelled by Open-Meteo for the cell. */
+  temperature_80m_c: number | null;
+  wet_bulb_c: number | null;
+  cloud_cover_pct: number | null;
+  pressure_hpa: number | null;
+  radiation_wm2: number | null;
+  /** Temperature minus wet bulb; null if either is missing. */
+  delta_t_c: number | null;
+  /** Warmer at 80 m than at 2 m; null if either is missing. */
+  inversion: boolean | null;
 }
 
 /** `GET /api/lotes/{id}/historico/?desde&hasta` (S9, S10): modelled, not measured on the lote. */

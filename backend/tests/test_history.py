@@ -5,6 +5,7 @@ import httpx
 import pytest
 import respx
 import time_machine
+from celery.schedules import crontab
 from rest_framework.test import APIClient
 
 from apps.archiver import history, tasks
@@ -17,6 +18,15 @@ URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 # 2026-11-16 12:00 in Buenos Aires (UTC−3)
 NOW = datetime(2026, 11, 16, 15, tzinfo=UTC)
 CELL = (Decimal("-33.0"), Decimal("-61.1"))  # grid_cell of make_lote's default point
+AUDIT_KEYS = (
+    "temperature_80m_c",
+    "wet_bulb_c",
+    "cloud_cover_pct",
+    "pressure_hpa",
+    "radiation_wm2",
+    "delta_t_c",
+    "inversion",
+)
 
 
 def client_for(user):
@@ -39,9 +49,31 @@ def hourly_payload(start: datetime, hours: int, **overrides):
         "wind_speed_10m": [12.0] * hours,
         "wind_direction_10m": [180.0] * hours,
         "wind_gusts_10m": [20.0] * hours,
+        "temperature_80m": [21.0] * hours,
+        "wet_bulb_temperature_2m": [15.5] * hours,
+        "cloud_cover": [40.0] * hours,
+        "surface_pressure": [1012.4] * hours,
+        "shortwave_radiation": [520.0] * hours,
     }
     series.update(overrides)
     return {"hourly": {"time": times, **series}}
+
+
+def two_hours_of_the_first_day(request: httpx.Request) -> httpx.Response:
+    """A provider stand-in: 00:00 and 01:00 local of the requested start date."""
+    first = datetime.combine(
+        date.fromisoformat(request.url.params["start_date"]),
+        datetime.min.time(),
+        tzinfo=history.LOCAL,
+    )
+    return httpx.Response(200, json=hourly_payload(first.astimezone(UTC), 2))
+
+
+def requested_ranges(route) -> list[tuple[str, str]]:
+    return [
+        (call.request.url.params["start_date"], call.request.url.params["end_date"])
+        for call in route.calls
+    ]
 
 
 def store_hours(start: datetime, hours: int, **values):
@@ -59,6 +91,11 @@ def store_hours(start: datetime, hours: int, **values):
             wind_kmh=values.get("wind_kmh", 12.0),
             wind_dir_deg=90.0,
             gust_kmh=values.get("gust_kmh", 20.0),
+            temperature_80m_c=values.get("temperature_80m_c"),
+            wet_bulb_c=values.get("wet_bulb_c"),
+            cloud_cover_pct=values.get("cloud_cover_pct"),
+            pressure_hpa=values.get("pressure_hpa"),
+            radiation_wm2=values.get("radiation_wm2"),
         )
 
 
@@ -86,8 +123,30 @@ class TestFetch:
         assert params["start_date"] == "2026-11-01"
         assert params["end_date"] == "2026-11-03"
         assert params["timeformat"] == "unixtime"
+        # Local days for start/end, so today's last hours come the same day; stamps stay UTC.
+        assert params["timezone"] == "America/Argentina/Buenos_Aires"
         assert params["hourly"].split(",") == list(history.VARIABLES)
         assert "apikey" not in params
+
+    def test_asks_for_the_spray_audit_variables_too(self, settings):
+        settings.OPEN_METEO_API_KEY = ""
+
+        _, params = history.build_request(CELL, date(2026, 11, 1), date(2026, 11, 1))
+
+        assert params["hourly"].split(",") == [
+            "temperature_2m",
+            "relative_humidity_2m",
+            "dew_point_2m",
+            "precipitation",
+            "wind_speed_10m",
+            "wind_direction_10m",
+            "wind_gusts_10m",
+            "temperature_80m",
+            "wet_bulb_temperature_2m",
+            "cloud_cover",
+            "surface_pressure",
+            "shortwave_radiation",
+        ]
 
     def test_the_commercial_key_goes_along_when_set(self, settings):
         settings.OPEN_METEO_API_KEY = "clave"
@@ -120,6 +179,35 @@ class TestFetch:
 
         assert WeatherHour.objects.count() == 5
         assert set(WeatherHour.objects.values_list("wind_kmh", flat=True)) == {30.0}
+
+    @pytest.mark.django_db
+    @time_machine.travel(NOW, tick=False)
+    @respx.mock
+    def test_stores_the_audit_parameters_of_each_hour(self):
+        respx.get(URL).mock(
+            return_value=httpx.Response(200, json=hourly_payload(NOW - timedelta(hours=1), 1))
+        )
+        with httpx.Client() as client:
+            history.store_history(client, CELL, date(2026, 11, 16), date(2026, 11, 16))
+
+        row = WeatherHour.objects.get()
+        assert (
+            row.temperature_80m_c,
+            row.wet_bulb_c,
+            row.cloud_cover_pct,
+            row.pressure_hpa,
+            row.radiation_wm2,
+        ) == (21.0, 15.5, 40.0, 1012.4, 520.0)
+
+    def test_parses_unix_stamps_as_utc_hours(self):
+        payload = hourly_payload(datetime(2026, 11, 16, 0, tzinfo=history.LOCAL), 1)
+        payload["timezone"] = "America/Argentina/Buenos_Aires"
+        payload["utc_offset_seconds"] = -10800
+
+        (row,) = history.parse_hours(payload, until=NOW)
+
+        assert row["time"] == datetime(2026, 11, 16, 3, tzinfo=UTC)
+        assert row["time"].utcoffset() == timedelta(0)
 
     def test_skips_hours_with_no_data(self):
         payload = hourly_payload(NOW - timedelta(hours=2), 2)
@@ -166,6 +254,9 @@ class TestLoteHistoryApi:
                 "rain_mm": 4.5,
                 "wind_max_kmh": 35.0,
                 "gust_max_kmh": 52.0,
+                "humidity_min_pct": 60.0,
+                "delta_t_max_c": None,
+                "inversion_hours": None,
                 "hours": 24,
             }
         ]
@@ -175,6 +266,67 @@ class TestLoteHistoryApi:
         windy = body["hours"][10]
         assert windy["spray_wind"] == "critical"
         assert windy["spray_wind_causes"] == ["mucho viento", "ráfagas fuertes"]
+
+    def test_the_existing_hour_fields_keep_their_shape(self, user):
+        lote = make_lote(user)
+        store_hours(datetime(2026, 11, 14, 3, tzinfo=UTC), 1)
+
+        body = client_for(user).get(self.url(lote, desde="2026-11-14", hasta="2026-11-14")).json()
+
+        (hour,) = body["hours"]
+
+        assert {k: hour[k] for k in list(hour)[:9]} == {
+            "time": "2026-11-14T00:00:00-03:00",
+            "temperature_c": 20.0,
+            "humidity_pct": 60.0,
+            "rain_mm": 0.0,
+            "wind_kmh": 12.0,
+            "wind_dir_deg": 90.0,
+            "gust_kmh": 20.0,
+            "spray_wind": "ok",
+            "spray_wind_causes": [],
+        }
+
+    def test_hours_carry_the_audit_parameters_delta_t_and_inversion(self, user):
+        lote = make_lote(user)
+        day = datetime(2026, 11, 14, 3, tzinfo=UTC)  # 00:00 local
+        store_hours(
+            day,
+            3,
+            temperature_c=20.0,
+            temperature_80m_c=22.0,
+            wet_bulb_c=14.0,
+            cloud_cover_pct=10.0,
+            pressure_hpa=1010.2,
+            radiation_wm2=0.0,
+        )
+        WeatherHour.objects.filter(time=day + timedelta(hours=1)).update(
+            temperature_80m_c=18.0, wet_bulb_c=12.6, humidity_pct=45.0
+        )
+        WeatherHour.objects.filter(time=day + timedelta(hours=2)).update(
+            temperature_80m_c=None, wet_bulb_c=None
+        )
+
+        body = client_for(user).get(self.url(lote, desde="2026-11-14", hasta="2026-11-14")).json()
+
+        inverted, mixed, missing = body["hours"]
+        assert {k: inverted[k] for k in AUDIT_KEYS} == {
+            "temperature_80m_c": 22.0,
+            "wet_bulb_c": 14.0,
+            "cloud_cover_pct": 10.0,
+            "pressure_hpa": 1010.2,
+            "radiation_wm2": 0.0,
+            "delta_t_c": 6.0,
+            "inversion": True,
+        }
+        assert (mixed["delta_t_c"], mixed["inversion"]) == (7.4, False)
+        assert (missing["delta_t_c"], missing["inversion"]) == (None, None)
+        (summary,) = body["days"]
+        assert (
+            summary["humidity_min_pct"],
+            summary["delta_t_max_c"],
+            summary["inversion_hours"],
+        ) == (45.0, 7.4, 1)
 
     def test_defaults_to_the_last_seven_days(self, user):
         lote = make_lote(user)
@@ -198,6 +350,9 @@ class TestLoteHistoryApi:
             "rain_mm": None,
             "wind_max_kmh": None,
             "gust_max_kmh": None,
+            "humidity_min_pct": None,
+            "delta_t_max_c": None,
+            "inversion_hours": None,
             "hours": 0,
         }
 
@@ -236,37 +391,103 @@ class TestLoteHistoryApi:
 
 
 @pytest.mark.django_db
-@respx.mock
 class TestHistoryTasks:
     @pytest.fixture(autouse=True)
     def _frozen(self):
-        with time_machine.travel(NOW, tick=False):
+        # Not @respx.mock on the class: it turns the class into a function pytest never collects.
+        with time_machine.travel(NOW, tick=False), respx.mock:
             yield
 
-    def test_the_daily_run_refreshes_the_last_days_of_every_lote_cell(self, user):
+    def test_runs_every_hour_at_minute_twenty(self, settings):
+        schedule = settings.CELERY_BEAT_SCHEDULE["archive-history"]
+
+        assert schedule["task"] == "archiver.fetch_history"
+        assert schedule["schedule"] == crontab(minute=20)
+
+    def test_an_empty_cell_gets_ninety_days_in_chunks_of_at_most_max_days(self, user):
         make_lote(user)
-        make_lote(user, name="Vecino")  # same cell: one request
+        make_lote(user, name="Vecino")  # same cell: one set of requests
+        route = respx.get(URL).mock(side_effect=two_hours_of_the_first_day)
+
+        stats = tasks.fetch_history()
+
+        assert requested_ranges(route) == [
+            ("2026-08-18", "2026-09-17"),
+            ("2026-09-18", "2026-10-18"),
+            ("2026-10-19", "2026-11-16"),
+        ]
+        assert stats == {"stored": 6, "failed": 0, "cells": 1}
+        assert WeatherHour.objects.filter(cell_lat=CELL[0], cell_lon=CELL[1]).count() == 6
+
+    def test_a_cell_with_a_gap_catches_up_from_its_last_hour(self, user):
+        make_lote(user)
+        store_hours(datetime(2026, 11, 10, 3, tzinfo=UTC), 24)  # last: 23:00 local of the 10th
+        route = respx.get(URL).mock(side_effect=two_hours_of_the_first_day)
+
+        stats = tasks.fetch_history()
+
+        assert requested_ranges(route) == [("2026-11-09", "2026-11-16")]
+        assert stats == {"stored": 2, "failed": 0, "cells": 1}
+        assert WeatherHour.objects.count() == 24 + 2  # plus 00:00 and 01:00 of the 9th
+
+    def test_an_up_to_date_cell_asks_only_for_yesterday_and_today(self, user):
+        make_lote(user)
+        store_hours(datetime(2026, 11, 15, 3, tzinfo=UTC), 33)  # through 08:00 local today
         route = respx.get(URL).mock(
-            return_value=httpx.Response(200, json=hourly_payload(NOW - timedelta(hours=2), 2))
+            return_value=httpx.Response(200, json=hourly_payload(NOW - timedelta(hours=3), 4))
         )
 
         stats = tasks.fetch_history()
 
-        assert route.call_count == 1
-        params = route.calls[0].request.url.params
-        assert (params["start_date"], params["end_date"]) == ("2026-11-13", "2026-11-16")
-        assert stats == {"stored": 2, "failed": 0}
+        assert requested_ranges(route) == [("2026-11-15", "2026-11-16")]
+        assert stats == {"stored": 4, "failed": 0, "cells": 1}
+        latest = WeatherHour.objects.latest("time")
+        assert latest.time == NOW  # today's hours appear the same day
+
+    def test_the_run_at_four_twenty_also_revises_the_last_three_days(self, user):
+        make_lote(user)
+        revision = datetime(2026, 11, 16, 7, 20, tzinfo=UTC)  # 04:20 local
+        store_hours(datetime(2026, 11, 15, 3, tzinfo=UTC), 28)  # through 03:00 local today
+        route = respx.get(URL).mock(side_effect=two_hours_of_the_first_day)
+
+        with time_machine.travel(revision, tick=False):
+            stats = tasks.fetch_history()
+        with time_machine.travel(revision + timedelta(hours=1), tick=False):
+            tasks.fetch_history()
+
+        assert requested_ranges(route) == [
+            ("2026-11-13", "2026-11-16"),
+            ("2026-11-15", "2026-11-16"),
+        ]
+        assert stats == {"stored": 2, "failed": 0, "cells": 1}
+
+    def test_a_failing_cell_does_not_stop_the_others(self, user):
+        make_lote(user)  # empty cell: three chunks, the first fails
+        make_lote(user, name="Lejos", latitude=Decimal("-34.5"), longitude=Decimal("-60.0"))
+
+        def by_cell(request):
+            if request.url.params["latitude"] == "-33.0":
+                return httpx.Response(503)
+            return two_hours_of_the_first_day(request)
+
+        route = respx.get(URL).mock(side_effect=by_cell)
+
+        stats = tasks.fetch_history()
+
+        failing = [r for r in route.calls if r.request.url.params["latitude"] == "-33.0"]
+        assert len(failing) == 1  # its later chunks wait: no hole behind the last stored hour
+        assert stats == {"stored": 6, "failed": 1, "cells": 2}
+        assert not WeatherHour.objects.filter(cell_lat=CELL[0]).exists()
+        assert WeatherHour.objects.filter(cell_lat=Decimal("-34.5")).count() == 6
 
     def test_a_provider_error_is_counted_and_the_run_goes_on(self, user):
         make_lote(user)
         respx.get(URL).mock(return_value=httpx.Response(503))
 
-        assert tasks.fetch_history() == {"stored": 0, "failed": 1}
+        assert tasks.fetch_history() == {"stored": 0, "failed": 1, "cells": 1}
 
     def test_backfill_loads_ninety_days_once_per_cell(self):
-        route = respx.get(URL).mock(
-            return_value=httpx.Response(200, json=hourly_payload(NOW - timedelta(days=89), 3))
-        )
+        route = respx.get(URL).mock(side_effect=two_hours_of_the_first_day)
 
         tasks.backfill_history("-33.04", "-61.06")
         again = tasks.backfill_history("-33.04", "-61.06")
