@@ -175,7 +175,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
-| T0 | S0a–S0e clear terms | delegated writer (context backstop) | done, verifier running; go-live after lawyer review | 4ac9cce |
+| T0 | S0a–S0e clear terms | delegated writer (context backstop) | done and verified (no blockers); go-live after lawyer review | 4ac9cce, 8d61a71 |
 | TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) + parent (Django admin) | done | f46128e |
 | T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
 | T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
@@ -224,3 +224,18 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
   - Placeholders to fill: [RAZÓN SOCIAL], [CUIT], [DOMICILIO], [EMAIL DE CONTACTO], [JURISDICCIÓN], [PLAZO] (×3), [PROVEEDOR DE EMAIL], [PROVEEDOR DE HOSTING].
   - For the lawyer: the writer added the 10-day right of withdrawal (art. 34, Ley 24.240) and the AAIP notice.
   - Pre-existing gap: deleting an account does not cancel its Mercado Pago subscription. The terms tell users to cancel first.
+- **L15** (2026-11-19): the T0 verifier found no blockers; S0a–S0e pass. Its 25 guards were committed (8d61a71); backend 828 passed.
+  - Advisories, to address next session:
+    1. `acepta_terminos` accepts DRF's loose truthy values ("true", 1, "on"), and `null` or garbage get DRF's messages instead of the spec's.
+    2. The API does not enforce acceptance; only the UI dialog does.
+    3. The texts promise emails that don't exist yet: a new terms version, and price changes.
+    4. The 10-day withdrawal needs a manual refund process.
+    5. The version-drift test fails inside the frontend container, which mounts only `./frontend`.
+    6. A failed confirmation email is not retried (at most once).
+    7. Pre-existing: deleting an account does not cancel its Mercado Pago subscription.
+  - The user closed the day ("cuando termine el verificador cerramos por hoy").
+  - Next session:
+    - the user fills the placeholders;
+    - fix advisories 1, 3 and 7;
+    - the lab's daily subscription is still waiting for authorization;
+    - then plan M1 (`odd/tasks/mejoras-productor.md`).
