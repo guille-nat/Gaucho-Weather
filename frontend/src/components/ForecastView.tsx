@@ -6,13 +6,17 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import type { Forecast, ForecastDay, Level, Sky } from '../api/types';
+import type { Forecast, ForecastDay, ForecastHour, Level, Sky } from '../api/types';
 import {
+  byUrgency,
   DECISION_TITLE,
   fieldVerdict,
   HONEST_LINE,
+  inWindow,
   keepUnits,
   LEVEL_LABEL,
+  rangeText,
+  windowHours,
   type DecisionKey,
 } from '../lib/decisions';
 import {
@@ -53,6 +57,8 @@ interface ForecastViewProps {
   notice?: ReactNode;
   /** True while the next place loads behind the current one. */
   updating?: boolean;
+  /** What comes after the forecast and before the credits, loaded or not (a lote's links, data). */
+  after?: ReactNode;
 }
 
 /** The shortest wait that earns the rain bars growing: below it, nobody saw a wait. */
@@ -66,6 +72,7 @@ export function ForecastView({
   frostModels,
   notice,
   updating,
+  after,
 }: ForecastViewProps) {
   const root = useRef<HTMLDivElement>(null);
   const waitingSince = useRef<number | null>(null);
@@ -85,7 +92,11 @@ export function ForecastView({
   }, [forecast]);
   // The header keeps its place in the tree whatever loads below it, so focus and taps survive.
   return (
-    <div ref={root} className="forecast" aria-busy={updating || undefined}>
+    <div
+      ref={root}
+      className={decisions === 'block' ? 'forecast forecast--board' : 'forecast'}
+      aria-busy={updating || undefined}
+    >
       <div className="forecast-head">
         {header}
         {notice}
@@ -95,6 +106,8 @@ export function ForecastView({
       ) : (
         fallback
       )}
+      {after}
+      {forecast ? <Credits forecast={forecast} /> : null}
     </div>
   );
 }
@@ -104,16 +117,29 @@ function ForecastBody({
   decisions,
   frostModels,
 }: Pick<ForecastViewProps, 'decisions' | 'frostModels'> & { forecast: Forecast }) {
+  if (decisions === 'block') {
+    // A lote is a decision board (lote-tablero S2-S6): today's decisions first, then the hours
+    // an agronomist reads to back them, then the week.
+    return (
+      <>
+        <SkyMotion forecast={forecast} />
+        <div className="board-main">
+          <DecisionsBlock forecast={forecast} frostModels={frostModels} />
+          <NowStrip forecast={forecast} />
+        </div>
+        <div className="board-data">
+          <SprayHours forecast={forecast} />
+          <Week forecast={forecast} />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <SkyMotion forecast={forecast} />
       <div className="forecast-main">
         <Hero forecast={forecast} />
-        {decisions === 'pill' ? (
-          <FieldPill forecast={forecast} />
-        ) : (
-          <DecisionsBlock forecast={forecast} frostModels={frostModels} />
-        )}
+        <FieldPill forecast={forecast} />
       </div>
       <div className="forecast-data">
         <Hours forecast={forecast} />
@@ -124,7 +150,6 @@ function ForecastBody({
         <Rain forecast={forecast} />
         <Sun forecast={forecast} />
       </div>
-      <Credits forecast={forecast} />
     </>
   );
 }
@@ -226,6 +251,47 @@ function FieldPill({ forecast }: { forecast: Forecast }) {
   );
 }
 
+const DECISION_ICON: Record<DecisionKey, IconName> = {
+  frost_tonight: 'snowflake',
+  spray_today: 'drop',
+  field_work: 'parcel',
+};
+
+/** The coldest model's 2 m minimum, or null without models. */
+function coldest(models: [string, number][] | undefined): number | null {
+  return models?.length ? Math.min(...models.map(([, value]) => value)) : null;
+}
+
+/** The figures behind a verdict, one plain line each (lote-tablero S3). */
+function evidence(
+  key: DecisionKey,
+  forecast: Forecast,
+  frostModels: [string, number][] | undefined,
+): string[] {
+  const { frost_tonight: frost } = forecast.decisions;
+  if (key === 'frost_tonight') {
+    // The 2 m figure is the median of the models (engine/frost.py), so the coldest model, which
+    // "Ver modelos" lists, sits beside it instead of looking like a contradiction.
+    const cold = coldest(frostModels);
+    const line = [
+      frost.ground_estimate_c === null ? null : `suelo ${formatTemp(frost.ground_estimate_c)}`,
+      frost.min_2m_c === null ? null : `2\u00a0m: mediana ${formatTemp(frost.min_2m_c)}`,
+      cold === null ? null : `mín. modelo ${formatTemp(cold)}`,
+    ].filter(Boolean);
+    return line.length ? [line.join(' · ')] : [];
+  }
+  if (key === 'spray_today') {
+    const hours = windowHours(forecast);
+    const wind = rangeText(hours.map((h) => h.wind_kmh));
+    const gust = rangeText(hours.map((h) => h.gust_kmh));
+    const parts = [wind && `viento ${wind}`, gust && `ráfagas ${gust}`].filter(Boolean);
+    return parts.length ? [`${parts.join(' · ')}\u00a0km/h`] : [];
+  }
+  return forecast.rain_past_7d_mm === null
+    ? []
+    : [`cayeron ${formatMm(forecast.rain_past_7d_mm)} en 7 días`];
+}
+
 function DecisionsBlock({
   forecast,
   frostModels,
@@ -233,104 +299,241 @@ function DecisionsBlock({
   forecast: Forecast;
   frostModels?: [string, number][];
 }) {
-  const { frost_tonight: frost, spray_today: spray, field_work: field } = forecast.decisions;
-  const today = forecast.daily[0]?.date ?? forecast.now.time.slice(0, 10);
+  const agreeing = forecast.decisions.frost_tonight.models_agreeing;
   return (
     <section className="decisions" aria-labelledby="sec-decisions">
       <h2 id="sec-decisions" className="panel-title">
-        Decisiones para este lote
+        Hoy en este lote
       </h2>
       <ul className="decision-list">
-        <li className={`decision decision--${frost.level}`}>
-          <span className="decision-head">
-            <span className="decision-icon" aria-hidden="true">
-              <Icon name="snowflake" size={22} strokeWidth={2.2} />
-            </span>
-            <span className="decision-title">{DECISION_TITLE.frost_tonight}</span>
-            <LevelChip level={frost.level} />
-          </span>
-          <p className="decision-reason">{keepUnits(frost.reason)}</p>
-          <dl className="decision-facts">
-            <div>
-              <dt>En el suelo</dt>
-              <dd>
-                {frost.ground_estimate_c === null ? DASH : formatTemp(frost.ground_estimate_c)}
-              </dd>
-            </div>
-            <div>
-              <dt>A 2 m</dt>
-              <dd>{frost.min_2m_c === null ? DASH : formatTemp(frost.min_2m_c)}</dd>
-            </div>
-            <div>
-              <dt>Modelos que dan helada</dt>
-              <dd>{frost.models_agreeing ?? DASH}</dd>
-            </div>
-          </dl>
-          {frostModels?.length ? (
-            <details className="models-more">
-              <summary>
-                <Icon name="chevronRight" size={20} strokeWidth={2.6} />
-                Ver modelos
-              </summary>
-              <ul className="models" aria-label="Mínima por modelo">
-                {frostModels.map(([model, value]) => (
-                  <li key={model}>
-                    <span className="models-name">{MODEL_LABELS[model] ?? model}</span>
-                    <span className="models-value">{formatTemp(value)}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-        </li>
-        <li className={`decision decision--${spray.level}`}>
-          <span className="decision-head">
-            <span className="decision-icon" aria-hidden="true">
-              <Icon name="drop" size={22} strokeWidth={2.2} />
-            </span>
-            <span className="decision-title">{DECISION_TITLE.spray_today}</span>
-            <LevelChip level={spray.level} />
-          </span>
-          <p className="decision-reason">{keepUnits(spray.reason)}</p>
-          {spray.best_window ? (
-            <dl className="decision-facts">
-              <div>
-                <dt>Mejor ventana</dt>
-                <dd>
-                  {formatTime(spray.best_window.start)} a {formatTime(spray.best_window.end)}
-                </dd>
+        {byUrgency(forecast.decisions).map((key) => {
+          const decision = forecast.decisions[key];
+          const models = key === 'frost_tonight' && frostModels?.length ? frostModels : null;
+          const lines = evidence(key, forecast, frostModels);
+          if (key === 'frost_tonight' && agreeing && !models) lines.push(`Dan helada: ${agreeing}`);
+          return (
+            <li key={key} className={`decision decision--${decision.level}`}>
+              <div className="decision-head">
+                <span className="decision-icon" aria-hidden="true">
+                  <Icon name={DECISION_ICON[key]} size={22} strokeWidth={2.2} />
+                </span>
+                <h3 className="decision-title">{DECISION_TITLE[key]}</h3>
+                <LevelChip level={decision.level} />
               </div>
-            </dl>
-          ) : null}
-        </li>
-        <li className={`decision decision--${field.level}`}>
-          <span className="decision-head">
-            <span className="decision-icon" aria-hidden="true">
-              <Icon name="parcel" size={22} strokeWidth={2.2} />
-            </span>
-            <span className="decision-title">{DECISION_TITLE.field_work}</span>
-            <LevelChip level={field.level} />
-          </span>
-          <p className="decision-reason">{keepUnits(field.reason)}</p>
-          {field.next_rain ? (
-            <dl className="decision-facts">
-              <div>
-                <dt>Próxima lluvia fuerte</dt>
-                <dd>
-                  {formatDayLong(field.next_rain.date, today)} · {formatMm(field.next_rain.mm)}
-                  {field.next_rain.probability_pct === null
-                    ? null
-                    : ` · ${formatPct(field.next_rain.probability_pct)}`}
-                </dd>
-              </div>
-            </dl>
-          ) : null}
-        </li>
+              <p className="decision-reason">{keepUnits(decision.reason)}</p>
+              {lines.map((line) => (
+                <p key={line} className="decision-evidence">
+                  {line}
+                </p>
+              ))}
+              {models ? (
+                <details className="models-more">
+                  <summary>
+                    <Icon name="chevronRight" size={20} strokeWidth={2.6} />
+                    Ver modelos
+                  </summary>
+                  <ul className="models" aria-label="Mínima por modelo">
+                    {models.map(([model, value]) => (
+                      <li key={model}>
+                        <span className="models-name">{MODEL_LABELS[model] ?? model}</span>
+                        <span className="models-value">{formatTemp(value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {agreeing ? <p className="models-agree">Dan helada: {agreeing}</p> : null}
+                </details>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
       <p className="honest">
         <Icon name="info" size={18} />
         <span>{HONEST_LINE}</span>
       </p>
+    </section>
+  );
+}
+
+/** "Ahora" on a lote (S4): one line for this hour, one for the sun. */
+function NowStrip({ forecast }: { forecast: Forecast }) {
+  const { now, today } = forecast;
+  const night = dayPhase(forecast) === 'night';
+  const from = windFrom(now.wind_dir_deg);
+  const rise = today.sunrise ? Date.parse(today.sunrise) : null;
+  const set = today.sunset ? Date.parse(today.sunset) : null;
+  return (
+    <section className="panel now-strip" aria-label="Ahora">
+      <SkyPause forecast={forecast} />
+      <p className="now-line">
+        <span className="now-temp">
+          <span className="sr-only">Temperatura ahora: </span>
+          {formatDegrees(now.temperature_c)}
+        </span>
+        <span className="now-cond">
+          <Icon name={skyIcon(currentSky(forecast), night)} size={24} strokeWidth={1.8} />
+          {conditionLabel(forecast)}
+        </span>
+        <span className="now-range">
+          Máx {formatDegrees(today.max_c)} · Mín {formatDegrees(today.min_c)}
+        </span>
+        {now.wind_kmh === null ? null : (
+          <span className="now-wind">
+            <Icon name="wind" size={20} />
+            <span className="sr-only">Viento: </span>
+            {from ? `${from} ` : null}
+            {formatKmh(now.wind_kmh)}
+          </span>
+        )}
+      </p>
+      <p className="now-sun">
+        <span>
+          <Icon name="sunrise" size={20} /> Sale {formatTimeOrDash(today.sunrise)}
+        </span>
+        <span>
+          <Icon name="sunset" size={20} /> Se pone {formatTimeOrDash(today.sunset)}
+        </span>
+        {rise !== null && set !== null ? (
+          <span className="now-light">{daylightText(Date.parse(now.time), rise, set)}</span>
+        ) : null}
+      </p>
+    </section>
+  );
+}
+
+/** A lote's first rows: today's working hours and the night; the rest on request. */
+const FIRST_HOURS = 24;
+
+/** One local day of hours, under its own row header. */
+function byDay(hours: ForecastHour[]): { date: string; hours: ForecastHour[] }[] {
+  const days: { date: string; hours: ForecastHour[] }[] = [];
+  for (const hour of hours) {
+    const date = hour.time.slice(0, 10);
+    const last = days.at(-1);
+    if (last?.date === date) last.hours.push(hour);
+    else days.push({ date, hours: [hour] });
+  }
+  return days;
+}
+
+/** What makes an hour bad for spraying, inversion included even when no cause names it. */
+function sprayCauses(hour: ForecastHour): string {
+  const spray = hour.spray;
+  if (!spray) return '';
+  const causes = [...spray.causes];
+  if (spray.inversion && !causes.some((c) => c.includes('inversión'))) {
+    causes.push('inversión térmica');
+  }
+  return causes.join(', ');
+}
+
+/**
+ * The hours for the agronomist (lote-tablero S4): one row per hour, the spraying state first,
+ * then the weather behind it. The spray window's rows say "Ventana" and carry a gold band.
+ */
+function SprayHours({ forecast }: { forecast: Forecast }) {
+  const titleId = useId();
+  const tableId = useId();
+  const [all, setAll] = useState(false);
+  const every = forecast.hourly;
+  const hours = all ? every : every.slice(0, FIRST_HOURS);
+  const withSpray = every.some((h) => h.spray);
+  const withProbability = every.some((h) => h.rain_probability_pct !== null);
+  const today = forecast.daily[0]?.date ?? forecast.now.time.slice(0, 10);
+  const window = forecast.decisions.spray_today.best_window;
+  const columns = 6 + (withSpray ? 3 : 0) + (withProbability ? 1 : 0);
+  return (
+    <section className="panel lote-hours" aria-labelledby={titleId}>
+      <h2 id={titleId} className="panel-title">
+        Próximas horas
+      </h2>
+      {window && withSpray ? (
+        <p className="lote-hours-legend">
+          <span className="level level--ok">
+            <Icon name="check" size={16} strokeWidth={2.6} />
+            Ventana
+          </span>
+          la mejor ventana para pulverizar hoy
+        </p>
+      ) : null}
+      <div
+        className="lote-hours-scroll"
+        tabIndex={0}
+        role="group"
+        aria-label="Desplazá para ver todas las columnas"
+      >
+        <table id={tableId} className="lote-hours-table" aria-labelledby={titleId}>
+          <thead>
+            <tr>
+              <th scope="col">Hora</th>
+              {withSpray ? <th scope="col">Pulverizar</th> : null}
+              <th scope="col">Viento (km/h)</th>
+              <th scope="col">Ráfagas</th>
+              {withSpray ? <th scope="col">Delta T</th> : null}
+              <th scope="col">°C</th>
+              <th scope="col">Humedad</th>
+              <th scope="col">Lluvia (mm)</th>
+              {withProbability ? <th scope="col">Prob.</th> : null}
+              {withSpray ? <th scope="col">Causas</th> : null}
+            </tr>
+          </thead>
+          {byDay(hours).map((day) => (
+            <tbody key={day.date}>
+              <tr className="lote-hours-day">
+                <th scope="rowgroup" colSpan={columns}>
+                  <span>{formatDayLong(day.date, today)}</span>
+                </th>
+              </tr>
+              {day.hours.map((h) => {
+                const open = inWindow(forecast, h.time);
+                const from = windFrom(h.wind_direction_deg);
+                const wind =
+                  h.wind_kmh === null ? DASH : `${from ? `${from} ` : ''}${Math.round(h.wind_kmh)}`;
+                return (
+                  <tr key={h.time} className={open ? 'is-window' : undefined}>
+                    <th scope="row">{h.time === every[0]?.time ? 'Ahora' : formatHour(h.time)}</th>
+                    {withSpray ? (
+                      <td>
+                        {!h.spray ? (
+                          DASH
+                        ) : open ? (
+                          <span className="level level--ok">
+                            <Icon name="check" size={16} strokeWidth={2.6} />
+                            Ventana
+                          </span>
+                        ) : (
+                          <LevelChip level={h.spray.level} />
+                        )}
+                      </td>
+                    ) : null}
+                    <td>{wind}</td>
+                    <td>{h.gust_kmh === null ? DASH : Math.round(h.gust_kmh)}</td>
+                    {withSpray ? <td>{formatOneDecimal(h.spray?.delta_t_c)}</td> : null}
+                    <td className="lote-hours-temp">{formatDegrees(h.temperature_c)}</td>
+                    <td>{formatPct(h.humidity_pct)}</td>
+                    <td className={h.rain_mm ? 'is-wet' : undefined}>
+                      {formatOneDecimal(h.rain_mm)}
+                    </td>
+                    {withProbability ? <td>{formatPct(h.rain_probability_pct)}</td> : null}
+                    {withSpray ? <td className="lote-hours-causes">{sprayCauses(h)}</td> : null}
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
+        </table>
+      </div>
+      {every.length > FIRST_HOURS ? (
+        <button
+          type="button"
+          className="btn btn--light lote-hours-more"
+          aria-expanded={all}
+          aria-controls={tableId}
+          onClick={() => setAll((v) => !v)}
+        >
+          {all ? `Ver solo ${FIRST_HOURS} horas` : `Ver las ${every.length} horas`}
+        </button>
+      ) : null}
     </section>
   );
 }

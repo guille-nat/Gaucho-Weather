@@ -1,5 +1,5 @@
 # Lotes
-> Última actualización: 2026-11-17
+> Última actualización: 2026-11-20
 
 ## Qué hace
 Cada usuario carga sus lotes con su ubicación exacta. Superficie, contorno y
@@ -95,6 +95,37 @@ pronóstico está en [pronostico.md](pronostico.md).
 - Un error del servidor sobre una fila llega como `"[índice] mensaje"`
   (`api/client.ts`) y se muestra como "Cultivo N: mensaje".
 
+### La página del lote como tablero de decisiones
+La página `/lotes/:id` (`frontend/src/pages/LoteDetail.tsx`, con la vista
+`ForecastView` en modo `block`) responde primero qué hacer hoy en ese lote:
+
+- Arriba, un encabezado compacto: nombre, cada cultivo con su fecha de
+  siembra ("Maíz (siembra 18/9)"), hectáreas, establecimiento y localidad, y
+  un solo lápiz para editar. Debajo, cuándo se hizo el pronóstico, con su día:
+  "Pronóstico jue 19 · 18:00 · 3 modelos" (de `fetched_at`).
+- "Hoy en este lote" lista las tres decisiones con la más urgente primero
+  (alerta, después ojo, después bien). Si empatan, el orden es helada,
+  pulverización, labores. Cada una muestra su frase y, debajo, la evidencia:
+  - Pulverizar: viento y ráfagas en las horas de la ventana ("viento 12–17 ·
+    ráfagas 17–24 km/h"). La ventana aparece una sola vez, en la frase.
+  - Labores: "cayeron N mm en 7 días" (`rain_past_7d_mm`).
+  - Helada: el suelo, la mínima a 2 m como mediana de los modelos y el modelo
+    más frío al lado, con "Ver modelos" para el detalle.
+- "Ahora" es una franja de una línea (temperatura, cielo, máxima y mínima,
+  viento) con la salida y la puesta del sol.
+- "Próximas horas" es una tabla con una fila por hora: estado de
+  pulverización, viento con dirección, ráfagas, Delta T, temperatura,
+  humedad, lluvia, probabilidad y causas. Las horas de la ventana dicen
+  "Ventana" y llevan una franja con borde dorado. Muestra 24 horas y
+  "Ver las 48 horas" agrega el resto. El estado y la dirección vienen de
+  `hourly[].spray` y `hourly[].wind_direction_deg` (ver
+  [pronostico.md](pronostico.md)).
+- Después de los 7 días: el enlace al Histórico, "Datos del lote" plegado
+  (con "Cambiar cultivos") y los créditos.
+- En escritorio, las decisiones y "Ahora" van a la izquierda; las horas y los
+  7 días, a la derecha; el Histórico, los datos y los créditos, abajo.
+- "Borrar lote" está en la pantalla de edición, con la misma confirmación.
+
 ## Decisiones y por qué
 - **Decisión:** `boundary` en un `JSONField` común, sin PostGIS.
   **Por qué:** en la Fase 1 el contorno solo se guarda y se dibuja. PostGIS
@@ -170,3 +201,21 @@ pronóstico está en [pronostico.md](pronostico.md).
   esperar la corrida de cada 6 h.
 - 2026-11-17: varios cultivos por lote (`plantings`); `crop` y `sowing_date`
   salen del lote y los datos existentes se migran.
+- **Decisión:** la página del lote es un tablero: decisiones primero, por
+  urgencia, cada una con su evidencia; los datos fijos plegados y "Borrar
+  lote" en la edición.
+  **Por qué:** pedido del usuario: "no es tan util la dispocicion con lo que se
+  enseñan los detalles del lote, pensa en un productor o en un ingeniero". Las
+  decisiones quedaban debajo del pliegue en un teléfono, en un orden fijo, y la
+  evidencia estaba lejos de cada decisión. La hora del pronóstico estaba abajo
+  y sin día.
+  **Alternativas descartadas:** dejar la vista de Inicio con las decisiones
+  agregadas (la que había).
+- **Decisión:** la mínima a 2 m se nombra como mediana y se muestra el modelo
+  más frío al lado.
+  **Por qué:** el motor usa la mediana de los modelos; "Ver modelos" mostraba
+  un modelo más frío y las dos cifras parecían contradecirse.
+- **Decisión:** la tabla de horas muestra 24 filas y el resto a pedido.
+  **Por qué:** 48 filas empujan los 7 días varias pantallas hacia abajo en un
+  teléfono; las primeras 24 cubren el día de trabajo y la noche.
+

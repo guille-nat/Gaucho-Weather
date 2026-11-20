@@ -827,6 +827,7 @@
 
 .decision-title {
   flex: 1;
+  min-width: 0;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 1.125rem;
@@ -838,26 +839,28 @@
   text-wrap: pretty;
 }
 
-.decision-facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-  gap: 10px 16px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, #fff 6%, var(--panel-deep));
-}
-
-.decision-facts dt,
 .facts-inline dt {
   color: var(--ink-2);
   font-size: var(--text-small);
 }
 
-.decision-facts dd {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.125rem;
+/* The figures behind a verdict (lote-tablero S3): one plain line each, under the verdict. */
+.decision-evidence {
+  margin-top: -4px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
   font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+
+.decision-evidence::first-letter {
+  text-transform: uppercase;
+}
+
+.models-agree {
+  margin-top: 8px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
 }
 
 .models-more summary {
@@ -1341,6 +1344,304 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
+  }
+}
+
+/* ───────── Lote board (lote-tablero) ─────────
+ * A lote reads as a decision board: today's decisions and this hour on one side, the hours and
+ * the week that back them on the other, the history and the folded lote data at the bottom.
+ */
+
+.forecast-stamp {
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-main,
+.board-data,
+.board-after {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.board-main > *,
+.board-data > *,
+.board-after > * {
+  min-width: 0;
+}
+
+/* "Ahora" in one line, the sun in the next. */
+.now-strip {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.now-strip .sky-pause {
+  top: 6px;
+  right: 6px;
+}
+
+.now-strip:has(.sky-pause) .now-line {
+  padding-right: 48px;
+}
+
+.now-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.now-temp {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+.now-cond,
+.now-wind,
+.now-sun > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.now-cond {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.125rem;
+}
+
+.now-range {
+  color: var(--ink-2);
+}
+
+.now-sun {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.now-sun svg {
+  color: var(--gold);
+}
+
+/* The hours for the agronomist: a row per hour, the spraying state first. */
+.lote-hours {
+  padding-inline: 0;
+  padding-bottom: 12px;
+}
+
+.lote-hours .panel-title,
+.lote-hours-legend {
+  padding-inline: 16px;
+}
+
+.lote-hours-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 10px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+.lote-hours-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.lote-hours-scroll:focus-visible {
+  outline-offset: -3px;
+}
+
+.lote-hours-table {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lote-hours-table th,
+.lote-hours-table td {
+  padding: 6px 8px;
+  text-align: right;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+.lote-hours-table thead th {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  vertical-align: bottom;
+}
+
+.lote-hours-table thead th:first-child,
+.lote-hours-table thead th:nth-child(2),
+.lote-hours-table td:nth-child(2),
+.lote-hours-table .lote-hours-causes {
+  text-align: left;
+}
+
+.lote-hours-table thead th:first-child,
+.lote-hours-table th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 16px;
+  background: var(--panel);
+}
+
+.lote-hours-table th[scope='row'] {
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-align: left;
+}
+
+.lote-hours-table tbody tr:not(.lote-hours-day) > * {
+  border-top: 1px solid var(--line);
+}
+
+.lote-hours-table td {
+  color: var(--ink-2);
+}
+
+.lote-hours-table td:last-child,
+.lote-hours-table thead th:last-child {
+  padding-right: 16px;
+}
+
+/* The day over its hours; the name stays in view while the columns scroll. */
+.lote-hours-day th {
+  padding: 16px 16px 6px;
+  text-align: left;
+}
+
+.lote-hours-day th > span {
+  position: sticky;
+  left: 16px;
+  font-weight: 700;
+}
+
+.lote-hours-table td.lote-hours-temp,
+.lote-hours-table td.is-wet {
+  color: #fff;
+  font-weight: 700;
+}
+
+.lote-hours-table .lote-hours-causes {
+  min-width: 10rem;
+}
+
+/* The spray window: a lighter band with a gold edge, and "Ventana" in words in its own cell. */
+.lote-hours-table .is-window > * {
+  background: color-mix(in srgb, #fff 10%, var(--panel));
+  color: #fff;
+}
+
+.lote-hours-table .is-window > th[scope='row'] {
+  box-shadow: inset 4px 0 0 var(--gold);
+}
+
+.lote-hours-more {
+  margin: 12px 16px 0;
+}
+
+/* Static lote data, folded away under the tools (lote-tablero S5). */
+.board-after .lote-history,
+.board-after .lote-facts {
+  margin-top: 0;
+  max-width: none;
+}
+
+.lote-facts-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+  list-style: none;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.lote-facts-summary::-webkit-details-marker {
+  display: none;
+}
+
+.lote-facts-summary:hover {
+  background: var(--panel-hover);
+}
+
+.lote-facts-summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.lote-facts-chevron {
+  flex-shrink: 0;
+  transition: rotate var(--dur-base) var(--ease-out);
+}
+
+.lote-facts[open] .lote-facts-chevron {
+  rotate: 90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lote-facts-chevron {
+    transition: none;
+  }
+}
+
+.lote-facts[open] .lote-facts-summary {
+  margin-bottom: 12px;
+}
+
+.form-danger {
+  margin-top: 32px;
+}
+
+@media (min-width: 960px) {
+  .forecast--board {
+    grid-template-areas:
+      'head head'
+      'main data'
+      'after after'
+      'credits credits';
+  }
+
+  .board-main {
+    grid-area: main;
+  }
+
+  .board-data {
+    grid-area: data;
+  }
+
+  .board-after {
+    grid-area: after;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+    gap: 24px 40px;
   }
 }
 
@@ -4416,39 +4717,6 @@ button.alert-event-tap:focus-visible {
   }
 }
 
-/* Cultivos por lote S2: the crops under the lote name are the quickest way to change them. */
-.crops-quick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-top: 6px;
-  padding: 6px 14px 6px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--track);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 700;
-  text-align: start;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.crops-quick:hover {
-  background: var(--panel-hover);
-}
-
-.crops-quick:focus-visible {
-  outline: var(--focus);
-  outline-offset: 3px;
-}
-
-.crops-quick > svg:first-child {
-  flex-shrink: 0;
-  color: var(--gold);
-}
-
 /* ───────── Motion (motion-pass) ─────────
  * Every effect explains a change of state and degrades to the plain change: without support,
  * or with reduced motion, things simply appear. Durations come from the shared tokens.
@@ -4656,18 +4924,18 @@ button.alert-event-tap:focus-visible {
 }
 
 /* Disclosures open and close by height where the browser can size to auto. */
-:is(.account-row, .account-danger, .models-more)::details-content {
+:is(.account-row, .account-danger, .models-more, .lote-facts)::details-content {
   interpolate-size: allow-keywords;
   overflow: clip;
   contain: layout;
 }
 
-:is(.account-row, .account-danger, .models-more):not([open])::details-content {
+:is(.account-row, .account-danger, .models-more, .lote-facts):not([open])::details-content {
   block-size: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :is(.account-row, .account-danger, .models-more)::details-content {
+  :is(.account-row, .account-danger, .models-more, .lote-facts)::details-content {
     transition:
       block-size var(--dur-base) var(--ease-glide),
       content-visibility var(--dur-base);

@@ -6,6 +6,7 @@ import type {
   Place,
   PublicForecast,
   Sky,
+  SprayHour,
 } from '../api/types';
 
 /**
@@ -154,10 +155,12 @@ function hourly(plan: Plan): ForecastHour[] {
     const raining = plan.rain[day]! > 5 && hour >= 12 && hour <= 20;
     const daySky = plan.sky[day] ?? 'parcial';
     const sky: Sky = raining ? 'lluvia' : daySky === 'lluvia' ? 'nublado' : daySky;
+    const temperature = Math.round(((max + min) / 2 + ((max - min) / 2) * warm) * 10) / 10;
+    const humidity = raining ? 96 : Math.round(60 - warm * 18);
     return {
       time: isoAR(at),
-      temperature_c: Math.round(((max + min) / 2 + ((max - min) / 2) * warm) * 10) / 10,
-      humidity_pct: raining ? 96 : Math.round(60 - warm * 18),
+      temperature_c: temperature,
+      humidity_pct: humidity,
       wind_kmh: Math.round((12 + 8 * Math.sin(i / 3)) * 10) / 10,
       gust_kmh: Math.round((24 + 14 * Math.sin(i / 3)) * 10) / 10,
       rain_mm: raining ? Math.round((1 + (hour % 4) * 1.4) * 10) / 10 : 0,
@@ -168,8 +171,38 @@ function hourly(plan: Plan): ForecastHour[] {
           : 2,
       sky,
       cloud_cover_pct: CLOUD[sky],
+      wind_direction_deg: plan.nulls ? null : (124 + i * 5) % 360,
+      spray: plan.nulls ? null : sprayHour(hour, raining, temperature, humidity),
     };
   });
+}
+
+/**
+ * A stand-in for the engine's hourly spray rating (S1 of lote-tablero): rain is critical, the
+ * night hours carry a possible inversion, the hot afternoon a high Delta T, the rest is fine.
+ */
+function sprayHour(
+  hour: number,
+  raining: boolean,
+  temperature: number,
+  humidity: number,
+): SprayHour {
+  const delta_t_c = Math.round(((100 - humidity) / 100) * (temperature / 3) * 10) / 10;
+  if (raining) {
+    return {
+      level: 'critical',
+      causes: ['lluvia en las próximas 6 h'],
+      delta_t_c,
+      inversion: false,
+    };
+  }
+  if (hour < 7 || hour >= 20) {
+    return { level: 'caution', causes: ['posible inversión térmica'], delta_t_c, inversion: true };
+  }
+  if (hour >= 13 && hour <= 17) {
+    return { level: 'caution', causes: ['Delta T alto'], delta_t_c, inversion: false };
+  }
+  return { level: 'ok', causes: [], delta_t_c, inversion: false };
 }
 
 function daily(plan: Plan): ForecastDay[] {

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError, isPlanLimit } from '../api/client';
 import type { Lote, LoteInput } from '../api/types';
@@ -26,7 +26,7 @@ import {
   type Outline,
   type OutlineAction,
 } from '../lib/outline';
-import { useCreateLote, useLote, useUpdateLote } from '../query/hooks';
+import { useCreateLote, useDeleteLote, useLote, useUpdateLote } from '../query/hooks';
 
 interface FormState {
   name: string;
@@ -165,9 +165,19 @@ interface LoteFormProps {
   submitError: unknown;
   onSubmit: (input: LoteInput) => void;
   cancelTo: string;
+  /** Below the form: the edit screen's "Borrar lote". */
+  after?: ReactNode;
 }
 
-function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo }: LoteFormProps) {
+function LoteFormView({
+  title,
+  initial,
+  pending,
+  submitError,
+  onSubmit,
+  cancelTo,
+  after,
+}: LoteFormProps) {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Errors>({});
   const [plantingErrors, setPlantingErrors] = useState<PlantingsErrors>({});
@@ -276,6 +286,49 @@ function LoteFormView({ title, initial, pending, submitError, onSubmit, cancelTo
           {pending ? 'Guardando…' : 'Guardar lote'}
         </button>
       </form>
+      {after}
+    </div>
+  );
+}
+
+/**
+ * Deleting a lote, behind a confirmation. It lives on the edit screen, not on the lote's daily
+ * page (lote-tablero S5): a rare, irreversible action does not sit next to today's decisions.
+ */
+function DeleteLote({ lote }: { lote: Lote }) {
+  const [asking, setAsking] = useState(false);
+  const remove = useDeleteLote(lote.id);
+  const navigate = useNavigate();
+
+  if (!asking) {
+    return (
+      <button type="button" className="btn btn--danger btn--block" onClick={() => setAsking(true)}>
+        <Icon name="trash" />
+        Borrar lote
+      </button>
+    );
+  }
+  return (
+    <div className="confirm" role="group" aria-labelledby="confirm-delete">
+      <p id="confirm-delete" className="confirm-text">
+        ¿Borrar {lote.name}? Se pierden sus datos y no se puede deshacer.
+      </p>
+      <FormAlert message={remove.error?.message} />
+      <div className="confirm-actions">
+        <button
+          type="button"
+          className="btn btn--danger-solid"
+          disabled={remove.isPending}
+          onClick={() =>
+            remove.mutate(undefined, { onSuccess: () => navigate('/lotes', { replace: true }) })
+          }
+        >
+          {remove.isPending ? 'Borrando…' : 'Sí, borrar'}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={() => setAsking(false)}>
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
@@ -322,6 +375,11 @@ export function EditarLote() {
       cancelTo={`/lotes/${id}`}
       onSubmit={(input) =>
         update.mutate(input, { onSuccess: () => navigate(`/lotes/${id}`, { replace: true }) })
+      }
+      after={
+        <div className="form-danger">
+          <DeleteLote lote={lote.data} />
+        </div>
       }
     />
   );

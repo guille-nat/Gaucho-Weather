@@ -128,6 +128,27 @@ export function formatDayLong(date: string, today: string): string {
   return `${capitalise(weekdayLong.format(at))} ${at.getUTCDate()}`;
 }
 
+const stampDay = new Intl.DateTimeFormat('es-AR', {
+  weekday: 'short',
+  day: 'numeric',
+  timeZone: TIME_ZONE,
+});
+
+/** `jue 19 · 18:00`: when a forecast was made, with its day, in Argentina. */
+export function formatStamp(iso: string): string {
+  const at = new Date(iso);
+  const parts = stampDay.formatToParts(at);
+  const weekday = parts.find((p) => p.type === 'weekday')?.value.replace('.', '') ?? '';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '';
+  return `${weekday} ${day} · ${formatTime(at)}`;
+}
+
+/** `2026-09-18` → `18/9`: a sowing date short enough for the lote's header line. */
+export function formatDayMonthNumeric(iso: string): string {
+  const [, month, day] = iso.split('-').map(Number);
+  return `${day}/${month}`;
+}
+
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 
 /** Where the wind comes from, in the 8 points the radio uses. */

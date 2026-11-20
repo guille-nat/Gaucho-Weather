@@ -57,3 +57,43 @@ export function fieldVerdict(forecast: Forecast): Verdict {
 
 /** Keeps a number with its unit on one line: "12,4 mm", "85 %", "−0,6 °C", "13 h". */
 export const keepUnits = (text: string) => text.replace(/(\d) (mm|%|°C|h\b|km\/h)/g, '$1\u00a0$2');
+
+/** The lote board's plain order (lote-tablero S2): what ties keep. */
+const BOARD_ORDER: DecisionKey[] = ['frost_tonight', 'spray_today', 'field_work'];
+
+/** The lote's decisions, most urgent first; ties keep frost, spraying, field work (S2). */
+export function byUrgency(decisions: Decisions): DecisionKey[] {
+  // `sort` is stable, so equal levels stay in the plain order.
+  return [...BOARD_ORDER].sort(
+    (a, b) => SEVERITY[decisions[b].level] - SEVERITY[decisions[a].level],
+  );
+}
+
+/** The hours of the spray window: from its start, up to (not including) its end hour. */
+export function windowHours(forecast: Forecast): Forecast['hourly'] {
+  const window = forecast.decisions.spray_today.best_window;
+  if (!window) return [];
+  const start = Date.parse(window.start);
+  const end = Date.parse(window.end);
+  return forecast.hourly.filter((h) => {
+    const at = Date.parse(h.time);
+    return at >= start && at < end;
+  });
+}
+
+/** True when the hour is inside the spray window. */
+export function inWindow(forecast: Forecast, time: string): boolean {
+  const window = forecast.decisions.spray_today.best_window;
+  if (!window) return false;
+  const at = Date.parse(time);
+  return at >= Date.parse(window.start) && at < Date.parse(window.end);
+}
+
+/** `12–17`, or `12` when both ends round the same; null without data. */
+export function rangeText(values: (number | null | undefined)[]): string | null {
+  const known = values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  if (!known.length) return null;
+  const low = Math.round(Math.min(...known));
+  const high = Math.round(Math.max(...known));
+  return low === high ? `${low}` : `${low}–${high}`;
+}

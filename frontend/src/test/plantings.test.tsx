@@ -156,13 +156,19 @@ describe('Cultivos en el formulario del lote (S1)', () => {
   });
 });
 
+/** "Cambiar cultivos" lives in the folded "Datos del lote" (lote-tablero S5): open it first. */
+async function openCrops(user: User) {
+  await user.click(await screen.findByText('Datos del lote'));
+  await user.click(screen.getByRole('button', { name: 'Cambiar cultivos' }));
+}
+
 describe('Cambiar cultivos desde el lote (S2)', () => {
   it('opens the crops in a dialog and saves only them with PATCH', async () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
     const { user } = renderApp('/lotes/4', db);
     const bodies = captureBodies('/api/lotes/4/');
 
-    await user.click(await screen.findByRole('button', { name: 'Cambiar cultivos' }));
+    await openCrops(user);
     const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
     expect(dialog).toHaveAttribute('open');
     await user.click(within(dialog).getByRole('button', { name: 'Agregar cultivo' }));
@@ -196,7 +202,7 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
       ),
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Cambiar cultivos' }));
+    await openCrops(user);
     const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cultivos' }));
 
@@ -216,7 +222,7 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
       ),
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Cambiar cultivos' }));
+    await openCrops(user);
     const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cultivos' }));
 
@@ -230,7 +236,7 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
     const { user } = renderApp('/lotes/4', db);
 
-    await user.click(await screen.findByRole('button', { name: 'Cambiar cultivos' }));
+    await openCrops(user);
     const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
     await user.click(within(dialog).getByRole('button', { name: 'Agregar cultivo' }));
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cultivos' }));
@@ -241,25 +247,24 @@ describe('Cambiar cultivos desde el lote (S2)', () => {
   });
 });
 
-describe('Cultivos desde el encabezado del lote (S2)', () => {
-  it('opens the same crops dialog from the crops under the lote name', async () => {
+describe('Cultivos en el encabezado del lote (lote-tablero S2)', () => {
+  it('names each crop with its sowing date under the lote name, as text', async () => {
     const db = createMockDb({ user: demoUser, lotes: demoLotes() });
-    const { user } = renderApp('/lotes/4', db);
+    renderApp('/lotes/4', db);
 
-    const quick = await screen.findByRole('button', { name: /^Cambiar cultivos: / });
-    expect(quick).toHaveTextContent(/Soja · Maíz|Maíz · Soja/);
-    await user.click(quick);
-
-    const dialog = screen.getByRole('dialog', { name: 'Cultivos de Lote 4' });
-    expect(dialog).toHaveAttribute('open');
+    const line = await screen.findByText(/^Soja \(siembra 20\/10\) · Maíz · /);
+    expect(line.closest('button')).toBeNull();
+    // The one way to change them is inside "Datos del lote".
+    expect(screen.getAllByRole('button', { name: 'Cambiar cultivos' })).toHaveLength(1);
     expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(1);
   });
 
-  it('offers to add crops from the header when the lote has none', async () => {
+  it('leaves the crops out of the header when the lote has none', async () => {
     const db = createMockDb({ user: demoUser, lotes: withLote(4, { plantings: [] }) });
     renderApp('/lotes/4', db);
 
-    expect(await screen.findByRole('button', { name: 'Agregar cultivos' })).toBeInTheDocument();
+    expect(await screen.findByText('120 ha · La Esperanza · Firmat')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agregar cultivos' })).toBeNull();
   });
 });
 

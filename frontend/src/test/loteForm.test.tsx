@@ -283,6 +283,31 @@ describe('Editar lote', () => {
     ]);
   });
 
+  it('deletes the lote from its edit screen after confirming', async () => {
+    const db = createMockDb({ user: demoUser, lotes: demoLotes() });
+    const { user } = renderApp('/lotes/7/editar', db);
+
+    await user.click(await screen.findByRole('button', { name: 'Borrar lote' }));
+    expect(
+      screen.getByText('¿Borrar Lote 7? Se pierden sus datos y no se puede deshacer.'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Sí, borrar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Mis lotes' })).toBeInTheDocument();
+    expect(db.lotes.map((l) => l.id)).toEqual([12, 4]);
+  });
+
+  it('keeps the lote when the deletion is cancelled', async () => {
+    const db = createMockDb({ user: demoUser, lotes: demoLotes() });
+    const { user } = renderApp('/lotes/7/editar', db);
+
+    await user.click(await screen.findByRole('button', { name: 'Borrar lote' }));
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.getByRole('button', { name: 'Borrar lote' })).toBeInTheDocument();
+    expect(db.lotes).toHaveLength(3);
+  });
+
   it('has the new lote on disk by the time its page opens, so a reload keeps it', async () => {
     const db = createMockDb({ user: demoUser });
     const { user } = renderApp('/lotes/nuevo', db);
