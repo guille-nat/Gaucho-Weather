@@ -57,6 +57,8 @@ export interface AccountRow extends Person {
   date_joined: string;
   last_login: string | null;
   is_superuser: boolean;
+  /** A running subscription, or a cancelled one still in its paid month (cortesias L8). */
+  paying: boolean;
 }
 
 export interface AccountFilters {
@@ -75,9 +77,13 @@ export interface RequestRow {
   user: Person & { plan: PlanRef; status: MembershipStatus };
 }
 
-/** A scheduled peso price (avisos-cambios S4): who it reaches and how many were emailed. */
+/**
+ * Scheduled prices in pesos and dollars (avisos-cambios S4, L8): who it reaches and how many
+ * were emailed. Subscriptions are charged in pesos; both plan prices change on the date.
+ */
 export interface PendingPriceChange {
   price_ars_month: number;
+  price_usd_month: number;
   /** `YYYY-MM-DD`: new checkouts pay it from then; each subscription 30 days after its email. */
   effective_on: string;
   notices: number;
@@ -114,7 +120,10 @@ export type BackofficeActionKind =
   | 'founder_revoke'
   | 'subscription_sync'
   | 'subscription_cancel'
-  | 'export';
+  | 'export'
+  // cortesias S1, S2
+  | 'courtesy_grant'
+  | 'courtesy_revoke';
 
 export interface ActionRow {
   id: number;
@@ -215,7 +224,7 @@ export const updatePrice = (code: PlanCode, input: PriceInput) =>
 /** `POST precios/{code}/cambio/`: at least 30 days ahead; emails the subscribers it reaches. */
 export const schedulePriceChange = (
   code: PlanCode,
-  input: { price_ars_month: number; effective_on: string },
+  input: { price_ars_month: number; price_usd_month: number; effective_on: string },
 ) => backoffice<PlanPrice>(`precios/${code}/cambio/`, { method: 'POST', body: input });
 
 /** `DELETE precios/{code}/cambio/`: drops the pending change; sends no email. */
@@ -280,6 +289,31 @@ export interface AccountRecord extends Person {
   payments: RecordPayment[];
   lotes: RecordLote[];
   alert_rules: RecordAlertRule[];
+  /** The active cortesía, or null (cortesias S5). */
+  courtesy: RecordCourtesy | null;
+  /** A running subscription, or a cancelled one still in its paid month (cortesias L8). */
+  paying: boolean;
+}
+
+/** A paid plan for free until `ends_at`, the end of a day in Buenos Aires (cortesias S1). */
+export interface RecordCourtesy {
+  plan: PlanRef;
+  starts_at: string;
+  ends_at: string;
+  reason: string;
+  /** Who gave it first; null once that account is deleted. */
+  granted_by: Person | null;
+}
+
+/** The paid plans a cortesía gives. */
+export type CourtesyPlan = Exclude<PlanCode, 'basico'>;
+
+export interface CourtesyInput {
+  plan: CourtesyPlan;
+  /** `YYYY-MM-DD`, after today and at most a year ahead in Buenos Aires. */
+  hasta: string;
+  /** Up to 200 characters. */
+  motivo: string;
 }
 
 export type AccountEdit = Partial<Pick<AccountRecord, 'name' | 'email'>>;
@@ -312,3 +346,15 @@ export const accountAction = (id: number, path: AccountActionPath) =>
 /** `hasta` is a calendar date, `YYYY-MM-DD`, after today in Buenos Aires. */
 export const grantTrial = (id: number, hasta: string) =>
   backoffice<AccountRecord>(`cuentas/${id}/prueba/`, { method: 'POST', body: { hasta } });
+
+/**
+ * `POST cuentas/{id}/cortesia/`: gives the cortesía, or changes the active one's plan or date.
+ * 400 with field errors (`plan`, `hasta`, `motivo`), or `{detail}` for yourself, a founder asking
+ * for Productor, a paying account, the cap of 20 and a date past a year from the first grant.
+ */
+export const grantCourtesy = (id: number, input: CourtesyInput) =>
+  backoffice<AccountRecord>(`cuentas/${id}/cortesia/`, { method: 'POST', body: input });
+
+/** `DELETE cuentas/{id}/cortesia/`: back to the free plan now; 404 without an active one. */
+export const revokeCourtesy = (id: number) =>
+  backoffice<AccountRecord>(`cuentas/${id}/cortesia/`, { method: 'DELETE' });

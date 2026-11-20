@@ -1,6 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { changeAccountPlan } from '../api/backoffice';
+import { ApiError } from '../api/client';
 import type { User } from '../api/types';
+import { PAYING_PLAN } from '../pages/backoffice/cuenta/ChangePlanForm';
 import { account, demoLotes, demoUser } from '../mocks/fixtures';
 import { createMockDb, type MockDb } from '../mocks/handlers';
 import { renderApp } from './renderApp';
@@ -142,31 +145,63 @@ describe('Backoffice tabs', () => {
 
   it('changes an account’s plan with a note', async () => {
     const db = dbFor(admin);
+    // Juan without his subscription: an account that does not pay still moves down as before.
+    db.backoffice.subscriptions = db.backoffice.subscriptions.filter((s) => s.user.id !== 21);
     const { user } = renderApp('/backoffice', db);
 
     const panel = await openTab(user, 'Cuentas');
     const table = await within(panel).findByRole('table', { name: 'Cuentas' });
-    const marta = within(table).getByRole('row', { name: /Marta Ríos/ });
-    await user.click(within(marta).getByRole('button', { name: 'Cambiar plan' }));
+    const juan = within(table).getByRole('row', { name: /Juan Gómez/ });
+    await user.click(within(juan).getByRole('button', { name: 'Cambiar plan' }));
 
-    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Marta Ríos' });
-    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'empresa');
-    await user.type(within(dialog).getByLabelText('Nota (opcional)'), 'Pagó por transferencia');
+    // Only down to the free plan (cortesias S4): Juan ends his trial on Básico.
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Juan Gómez' });
+    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'basico');
+    await user.type(within(dialog).getByLabelText('Nota (opcional)'), 'No usa Productor');
     await user.click(within(dialog).getByRole('button', { name: 'Cambiar plan' }));
 
-    expect(await within(panel).findByText('Marta Ríos pasó al plan Empresa.')).toBeInTheDocument();
+    expect(await within(panel).findByText('Juan Gómez pasó al plan Básico.')).toBeInTheDocument();
     expect(backofficeCalls(db).find((r) => r.method === 'POST')).toEqual({
       method: 'POST',
-      path: '/api/backoffice/cuentas/22/plan/',
-      body: { plan: 'empresa', note: 'Pagó por transferencia' },
+      path: '/api/backoffice/cuentas/21/plan/',
+      body: { plan: 'basico', note: 'No usa Productor' },
     });
     expect(db.unsafeRequests.at(-1)).toMatchObject({
-      path: '/api/backoffice/cuentas/22/plan/',
+      path: '/api/backoffice/cuentas/21/plan/',
       csrf: db.csrfToken,
     });
     await waitFor(() =>
-      expect(within(table).getByRole('row', { name: /Marta Ríos/ })).toHaveTextContent('Empresa'),
+      expect(within(table).getByRole('row', { name: /Juan Gómez/ })).toHaveTextContent('Básico'),
     );
+  });
+
+  it('offers no plan change on the row of a paying account, and says why', async () => {
+    const db = dbFor(admin);
+    expect(db.backoffice.subscriptions.find((s) => s.user.id === 21)?.status).toBe('authorized');
+    const { user } = renderApp('/backoffice', db);
+
+    const panel = await openTab(user, 'Cuentas');
+    const table = await within(panel).findByRole('table', { name: 'Cuentas' });
+    const juan = within(table).getByRole('row', { name: /Juan Gómez/ });
+
+    expect(within(juan).queryByRole('button', { name: 'Cambiar plan' })).toBeNull();
+    expect(juan).toHaveTextContent(PAYING_PLAN);
+    const marta = within(table).getByRole('row', { name: /Marta Ríos/ });
+    expect(within(marta).getByRole('button', { name: 'Cambiar plan' })).toBeVisible();
+  });
+
+  it('refuses the plan change of a paying account in the mock, as the API does', async () => {
+    const db = dbFor(admin);
+    renderApp('/backoffice', db);
+    await screen.findByRole('heading', { name: 'Backoffice', level: 1 });
+
+    const refused = await changeAccountPlan(21, 'basico', '').catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(ApiError);
+    expect((refused as ApiError).status).toBe(400);
+    expect((refused as ApiError).message).toBe(PAYING_PLAN);
+    expect(db.backoffice.accounts.find((a) => a.id === 21)?.plan.code).toBe('productor');
+    expect(db.backoffice.actions.some((a) => a.action === 'plan_change')).toBe(false);
   });
 
   it('shows a refused plan change as the API words it', async () => {

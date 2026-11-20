@@ -420,25 +420,15 @@ class TestDjangoAdmin:
         assert (user.plan_id, request.status) == (Plan.PRODUCTOR, "pending")
         assert not PlanChange.objects.filter(user=user).exists()
 
-    def test_editing_a_founder_to_empresa_is_refused_on_the_form(self, user, staff_client):
+    @pytest.mark.parametrize("is_founder", [True, False])
+    def test_editing_the_plan_on_the_form_changes_nothing(self, user, staff_client, is_founder):
+        """The plan is read-only in the admin (cortesias S6): Empresa never comes from there,
+        for a founder or anyone else."""
         from .test_subscription import change_form_data
 
-        founder(user)
-        url = f"/api/admin/accounts/user/{user.pk}/change/"
-        data = change_form_data(staff_client.get(url))
-        data["plan"] = Plan.EMPRESA
-
-        response = staff_client.post(url, data)
-
-        assert response.status_code == 200  # the form comes back with the error
-        assert FOUNDER_PAYS_EMPRESA in response.content.decode()
-        user.refresh_from_db()
-        assert user.plan_id == Plan.PRODUCTOR
-        assert not PlanChange.objects.filter(user=user).exists()
-
-    def test_editing_a_non_founder_to_empresa_still_works(self, user, staff_client):
-        from .test_subscription import change_form_data
-
+        if is_founder:
+            founder(user)
+        before = user.plan_id
         url = f"/api/admin/accounts/user/{user.pk}/change/"
         data = change_form_data(staff_client.get(url))
         data["plan"] = Plan.EMPRESA
@@ -447,4 +437,5 @@ class TestDjangoAdmin:
 
         assert response.status_code == 302
         user.refresh_from_db()
-        assert user.plan_id == Plan.EMPRESA
+        assert user.plan_id == before
+        assert not PlanChange.objects.filter(user=user).exists()

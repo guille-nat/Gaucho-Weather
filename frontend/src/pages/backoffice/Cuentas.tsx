@@ -17,7 +17,7 @@ import { founderLabel } from '../../lib/membership';
 import { queryKeys } from '../../query/keys';
 import { Saved } from '../Perfil';
 import { formatDay, MEMBERSHIP_WORDS, PLAN_NAMES, plural } from './format';
-import { ChangePlanForm } from './cuenta/ChangePlanForm';
+import { ChangePlanForm, PAYING_PLAN } from './cuenta/ChangePlanForm';
 import { Ficha } from './cuenta/Ficha';
 import { recordLink } from './cuenta/link';
 import { useBackofficeQuery } from './queries';
@@ -147,16 +147,20 @@ function AccountList() {
                         {row.last_login ? formatDay(row.last_login) : DASH}
                       </td>
                       <td className="bo-actions">
-                        <button
-                          type="button"
-                          className="btn btn--secondary bo-row-btn"
-                          onClick={() => {
-                            setSaved(null);
-                            setEditing(row);
-                          }}
-                        >
-                          Cambiar plan
-                        </button>
+                        {row.paying ? (
+                          <span className="fine">{PAYING_PLAN}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn--secondary bo-row-btn"
+                            onClick={() => {
+                              setSaved(null);
+                              setEditing(row);
+                            }}
+                          >
+                            Cambiar plan
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -118,8 +118,9 @@ def subscribe(user: User, plan_code: str, currency: str) -> ProviderSubscription
         raise PaymentRefusal(400, FOUNDER_IS_FREE)
     if user.provider_subscriptions.filter(status__in=RUNNING, ended_at=None).exists():
         raise PaymentRefusal(400, ALREADY_SUBSCRIBED)
-    on_trial = plans.membership_status(user) == "trial"
-    if user.plan_id == plan.code and not on_trial and not _ending(user).exists():
+    # A trial or a cortesía (a founder's included) ends on a date: the same plan can be paid.
+    ends_on_a_date = user.plan_expires_at is not None
+    if user.plan_id == plan.code and not ends_on_a_date and not _ending(user).exists():
         raise PaymentRefusal(400, plans.ALREADY_ON_PLAN.format(name=plan.name))
     amount = price_for(user, plan)
     if amount is None:
@@ -226,6 +227,7 @@ def sync_subscription(
             sub.ended_at = None  # a paused subscription was resumed: it runs again
             sub.save(update_fields=["ended_at", "updated_at"])
         if sub.status == S.AUTHORIZED:
+            # Also ends an active cortesía: the payment sets the plan, once (cortesias S3).
             plans.change_plan(sub.user, sub.plan_id, PlanChange.Reason.PAYMENT)
             # A new subscription replaces one still running out its paid month.
             _ending(sub.user).exclude(pk=sub.pk).update(ended_at=now)

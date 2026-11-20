@@ -364,7 +364,16 @@ export interface PlanRequest {
 }
 
 export type PlanChangeReason =
-  'founder' | 'trial' | 'trial_ended' | 'request' | 'staff' | 'payment' | 'payment_ended';
+  | 'founder'
+  | 'trial'
+  | 'trial_ended'
+  | 'request'
+  | 'staff'
+  | 'payment'
+  | 'payment_ended'
+  // cortesias S1-S3
+  | 'courtesy'
+  | 'courtesy_ended';
 
 /** One recorded plan change; `from_plan` is null at sign-up. */
 export interface PlanChange {

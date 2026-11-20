@@ -9,11 +9,11 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,6 +35,7 @@ from .serializers import (
     AccountRowSerializer,
     BackofficeActionSerializer,
     ChangePlanSerializer,
+    CourtesySerializer,
     PaymentRowSerializer,
     PlanPriceSerializer,
     PriceChangeSerializer,
@@ -76,10 +77,25 @@ class BackofficeListView(generics.ListAPIView):
     pagination_class = BackofficePagination
 
 
+# The subscriptions that keep an account paying, as refuse_if_paying(trial=True) reads them:
+# one running (authorized or paused), or a cancelled one still inside its paid month.
+RUNNING_SUBSCRIPTION = Q(status__in=payment_services.RUNNING)
+PAID_MONTH_LEFT = Q(status=ProviderSubscription.Status.CANCELLED, next_payment_at__isnull=False)
+
+
+def is_paying():
+    """`paying` for a User queryset: true while refuse_if_paying(trial=True) would refuse."""
+    return Exists(
+        ProviderSubscription.objects.filter(user=OuterRef("pk"), ended_at=None).filter(
+            RUNNING_SUBSCRIPTION | PAID_MONTH_LEFT
+        )
+    )
+
+
 def account_rows():
     return (
         User.objects.select_related("plan")
-        .annotate(lotes_count=Count("lotes"))
+        .annotate(lotes_count=Count("lotes"), paying=is_paying())
         .order_by("-date_joined", "-id")
     )
 
@@ -155,7 +171,22 @@ class AccountListView(BackofficeListView):
         return rows
 
 
+USE_COURTESY = "Para dar un plan pago sin cobrar, usá una cortesía."
+PAYING_PLAN = (
+    "La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha "
+    "(sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al "
+    "otro plan."
+)
+
+
 class AccountPlanView(BackofficeView):
+    """Only down to the free plan (cortesias S4): Básico, or Productor for a founder, whose
+    free plan it is. A paid plan for free is a cortesía, with an end date. Moving down ends an
+    active cortesía (plans._switch does it).
+
+    Never for a paying account (cortesias L8): Mercado Pago would keep charging the old plan.
+    It goes down by cancelling the subscription, and up by subscribing to the other plan."""
+
     def post(self, request, pk):
         target = get_object_or_404(User, pk=pk)
         serializer = ChangePlanSerializer(data=request.data)
@@ -165,10 +196,17 @@ class AccountPlanView(BackofficeView):
             raise ValidationError({"detail": plans.NO_SUCH_PLAN})
         note = serializer.validated_data["note"]
         with transaction.atomic():
+            locked = locked_account(target.pk)
             try:
-                plans.refuse_free_empresa(locked_account(target.pk), plan.code)
+                refuse_if_paying(locked, trial=True)
+            except Refused as exc:
+                raise Refused(PAYING_PLAN) from exc
+            try:
+                plans.refuse_free_empresa(locked, plan.code)
             except plans.PlanRequestError as exc:
                 raise ValidationError({"detail": str(exc)}) from exc
+            if plan.code not in (Plan.BASICO, plans.free_plan(locked)):
+                raise Refused(USE_COURTESY)
             change = plans.change_plan(
                 target, plan.code, PlanChange.Reason.STAFF, by=request.user, note=note
             )
@@ -309,6 +347,7 @@ class PriceChangeView(BackofficeView):
             action,
             plan=change.plan_id,
             price_ars_month=change.price_ars_month,
+            price_usd_month=change.price_usd_month,
             effective_on=change.effective_on.isoformat(),
         )
 
@@ -354,6 +393,18 @@ PAYING = "La cuenta tiene una suscripción paga: cancelala primero."
 PAID_DAYS = "La cuenta tiene días pagos hasta el {date}: dale la prueba después de esa fecha."
 
 
+SUPERADMIN_NO_GRANTS = "La cuenta es super admin: no recibe cortesías, pruebas ni founder."
+
+
+def refuse_if_not_grantable(target: User) -> None:
+    """A free plan only goes to a working customer account (cortesias S6): never to a super
+    admin (themself or another, who could then return the favour) or a blocked account."""
+    if target.is_superuser:
+        raise Refused(SUPERADMIN_NO_GRANTS)
+    if not target.is_active:
+        raise Refused(ACCOUNT_BLOCKED)
+
+
 def refuse_if_paying(target: User, *, trial: bool) -> None:
     """A trial or a founder grant never leaves a paying account charged without service.
 
@@ -363,11 +414,11 @@ def refuse_if_paying(target: User, *, trial: bool) -> None:
     founder is safe there (that end only takes a founder back to Productor).
     """
     open_subs = target.provider_subscriptions.filter(ended_at=None)
-    if open_subs.filter(status__in=payment_services.RUNNING).exists():
+    if open_subs.filter(RUNNING_SUBSCRIPTION).exists():
         raise Refused(PAYING)
     if trial:
-        ending = open_subs.filter(status=ProviderSubscription.Status.CANCELLED).first()
-        if ending is not None and ending.next_payment_at is not None:
+        ending = open_subs.filter(PAID_MONTH_LEFT).first()
+        if ending is not None:
             date = timezone.localtime(ending.next_payment_at).strftime("%d/%m/%Y")
             raise Refused(PAID_DAYS.format(date=date))
 
@@ -384,7 +435,9 @@ class Refused(APIException):
 
 def account_record(pk: int) -> dict:
     user = get_object_or_404(
-        User.objects.select_related("plan").prefetch_related(
+        User.objects.select_related("plan")
+        .annotate(paying=is_paying())
+        .prefetch_related(
             Prefetch(
                 "plan_changes",
                 queryset=PlanChange.objects.select_related("from_plan", "to_plan", "by"),
@@ -534,6 +587,7 @@ class TrialView(BackofficeView):
         until = serializer.validated_data["hasta"]
         with transaction.atomic():
             target = locked_account(pk)
+            refuse_if_not_grantable(target)
             if target.is_founder:
                 raise Refused(FOUNDER_HAS_PRODUCTOR)
             refuse_if_paying(target, trial=True)
@@ -553,6 +607,62 @@ class TrialView(BackofficeView):
         return Response(account_record(pk))
 
 
+COURTESY_SELF = "No podés darte una cortesía a vos mismo."
+NO_COURTESY = "La cuenta no tiene una cortesía activa."
+
+
+class CourtesyView(BackofficeView):
+    """POST gives a paid plan for free until a date, or changes the active one; DELETE ends it
+    now (cortesias S1, S2). Every rule is checked here, under the account's lock."""
+
+    def post(self, request, pk):
+        get_object_or_404(User, pk=pk)
+        if pk == request.user.pk:
+            raise Refused(COURTESY_SELF)
+        serializer = CourtesySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan, until, reason = (serializer.validated_data[f] for f in ("plan", "hasta", "motivo"))
+        with transaction.atomic():
+            target = locked_account(pk)
+            refuse_if_not_grantable(target)
+            if target.is_founder and plan == Plan.PRODUCTOR:
+                raise Refused(FOUNDER_HAS_PRODUCTOR)
+            refuse_if_paying(target, trial=True)
+            try:
+                _, from_plan = plans.grant_courtesy(
+                    target, plan, end_of_day(until), reason, by=request.user
+                )
+            except plans.CourtesyError as exc:
+                raise Refused(str(exc)) from exc
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.COURTESY_GRANT,
+                target,
+                plan=plan,
+                until=until.isoformat(),
+                reason=reason,
+                from_plan=from_plan,
+            )
+        return Response(account_record(pk))
+
+    def delete(self, request, pk):
+        with transaction.atomic():
+            target = locked_account(pk)
+            revoked = plans.revoke_courtesy(target, by=request.user)
+            if revoked is None:
+                raise NotFound(NO_COURTESY)
+            courtesy, change = revoked
+            BackofficeAction.record(
+                request.user,
+                BackofficeAction.Action.COURTESY_REVOKE,
+                target,
+                plan=courtesy.plan_id,
+                until=timezone.localdate(courtesy.ends_at).isoformat(),
+                to_plan=change.to_plan_id,
+            )
+        return Response(account_record(pk))
+
+
 class FounderGrantView(BackofficeView):
     """The next founder number and Productor for good (S3).
 
@@ -565,6 +675,7 @@ class FounderGrantView(BackofficeView):
         with transaction.atomic():
             program, _ = FounderProgram.objects.select_for_update().get_or_create(pk=1)
             target = locked_account(pk)
+            refuse_if_not_grantable(target)
             if target.is_founder:
                 raise Refused(ALREADY_FOUNDER.format(number=target.founder_number))
             refuse_if_paying(target, trial=False)

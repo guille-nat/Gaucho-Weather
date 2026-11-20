@@ -65,6 +65,10 @@ function describeAction({ action, payload }: ActionRow): string {
       return (
         `Cambio de precio ${action === 'price_schedule' ? 'programado' : 'cancelado'}: ` +
         `${planName(payload.plan)} a ${price(payload.price_ars_month as number, 'ARS')} ` +
+        // Rows from before avisos-cambios L8 carry only the peso price.
+        (typeof payload.price_usd_month === 'number'
+          ? `y ${price(payload.price_usd_month, 'USD')} `
+          : '') +
         `desde el ${calendarDay(payload.effective_on)}`
       );
     case 'account_update':
@@ -98,6 +102,16 @@ function describeAction({ action, payload }: ActionRow): string {
       return (
         'Suscripción cancelada desde el backoffice: ' +
         `${subscriptionWord(payload.before)} → ${subscriptionWord(payload.after)}`
+      );
+    case 'courtesy_grant':
+      return (
+        `Cortesía de ${planName(payload.plan)} hasta el ${calendarDay(payload.until)} ` +
+        `(venía de ${planName(payload.from_plan)}). Motivo: «${String(payload.reason ?? '')}»`
+      );
+    case 'courtesy_revoke':
+      return (
+        `Cortesía de ${planName(payload.plan)} revocada ` +
+        `(era hasta el ${calendarDay(payload.until)}): pasó a ${planName(payload.to_plan)}`
       );
     case 'export':
       return (

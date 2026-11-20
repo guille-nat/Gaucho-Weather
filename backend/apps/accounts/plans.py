@@ -11,15 +11,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
-from .models import FounderProgram, Plan, PlanChange, PlanRequest, User
+from .models import Courtesy, FounderProgram, Plan, PlanChange, PlanRequest, User
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,9 @@ def _switch(
 ) -> PlanChange | None:
     """Move a locked user to `plan_code` and record it. Same plan: nothing to record.
 
-    Only a trial keeps an expiry: any other change is for good until the next one.
+    Only a trial keeps an expiry: any other change is for good until the next one. Any move
+    that is not the cortesía itself ends an active cortesía (cortesias S3, S4): a payment, a
+    staff change, a trial or founder grant, or its own end.
     """
     from_plan = user.plan_id
     keeps_trial_plan = (
@@ -103,6 +105,8 @@ def _switch(
     if reason != PlanChange.Reason.TRIAL:
         user.plan_expires_at = None
     user.save(update_fields=["plan", "plan_expires_at"])
+    if reason != PlanChange.Reason.COURTESY:
+        user.courtesies.filter(ended_at=None).update(ended_at=now)
     return PlanChange.objects.create(
         user=user,
         from_plan_id=from_plan,
@@ -214,7 +218,9 @@ def expire_trials(now: datetime | None = None) -> int:
     """
     now = now or timezone.now()
     moved = 0
-    trials = User.objects.filter(plan_id=Plan.PRODUCTOR, founder_number=None)
+    trials = User.objects.filter(plan_id=Plan.PRODUCTOR, founder_number=None).exclude(
+        pk__in=Courtesy.objects.filter(ended_at=None).values("user_id")
+    )
     candidates = trials.filter(plan_expires_at__lte=now).values_list("pk", flat=True)
     for pk in candidates:
         with transaction.atomic():
@@ -223,6 +229,7 @@ def expire_trials(now: datetime | None = None) -> int:
                 user.plan_id != Plan.PRODUCTOR
                 or user.plan_expires_at is None
                 or user.plan_expires_at > now
+                or user.courtesies.filter(ended_at=None).exists()
             ):
                 continue  # changed by staff meanwhile
             _switch(user, Plan.BASICO, PlanChange.Reason.TRIAL_ENDED, now)
@@ -248,6 +255,224 @@ def _send_trial_ended(user: User) -> None:
         )
     except Exception:  # the downgrade already happened; a lost email must not undo it
         logger.exception("Could not send the trial-ended email to user %s", user.pk)
+
+
+# --- Cortesías (odd/tasks/cortesias.md) ----------------------------------------------------
+
+COURTESY_PLANS = (Plan.PRODUCTOR, Plan.EMPRESA)
+COURTESY_MAX_DAYS = 365  # "no superior a 1 año"
+COURTESY_CAP = 20  # active at once (assumption in the spec)
+COURTESY_REMINDER_DAYS = 7
+COURTESY_CAP_REACHED = "Ya hay 20 cortesías activas. Revocá alguna antes de dar otra."
+COURTESY_WINDOW_DAYS = 730  # "1 año en 2 años" (cortesias L5)
+COURTESY_YEAR_IN_TWO = "Una cuenta suma como máximo un año de cortesía cada 2 años: "
+COURTESY_LAST_DAY = COURTESY_YEAR_IN_TWO + "esta puede terminar como máximo el {date}."
+COURTESY_NOT_YET = COURTESY_YEAR_IN_TWO + "puede recibir otra desde el {date}."
+# Taken by every new grant before counting the active ones (any constant shared by all).
+COURTESY_CAP_LOCK = 0x636F7274  # "cort"
+
+
+class CourtesyError(Exception):
+    """A cortesía the super admin cannot give; the message is shown as is."""
+
+
+def free_plan(user: User) -> str:
+    """Where an account goes when nothing pays for its plan: Básico, or Productor for a founder."""
+    return Plan.PRODUCTOR if user.is_founder else Plan.BASICO
+
+
+def active_courtesy(user: User) -> Courtesy | None:
+    return user.courtesies.filter(ended_at=None).first()
+
+
+def _day(moment: datetime) -> str:
+    return timezone.localdate(moment).strftime("%d/%m/%Y")
+
+
+Span = tuple[date, date]  # local days [start, end): its length is end - start
+
+
+def _overlap(span: Span, start: date, end: date) -> int:
+    return max((min(span[1], end) - max(span[0], start)).days, 0)
+
+
+def _within_year_in_two(past: list[Span], candidate: Span) -> bool:
+    """No 730-day window touching `candidate` sums more than 365 days of cortesía.
+
+    The busiest window starts at some span's start or ends at some span's end, so only
+    those are checked.
+    """
+    window = timedelta(days=COURTESY_WINDOW_DAYS)
+    spans = [*past, candidate]
+    starts = {s for s, _ in spans} | {e - window for _, e in spans}
+    for start in starts:
+        end = start + window
+        if _overlap(candidate, start, end) == 0:
+            continue
+        if sum(_overlap(span, start, end) for span in spans) > COURTESY_MAX_DAYS:
+            return False
+    return True
+
+
+def _past_spans(user: User, active: Courtesy | None) -> list[Span]:
+    """Every ended cortesía: a revoked one counts up to its revoke, an expired one up to its
+    end (not to when the daily task ran)."""
+    ended = user.courtesies.exclude(ended_at=None)
+    if active is not None:
+        ended = ended.exclude(pk=active.pk)
+    return [
+        (timezone.localdate(c.starts_at), timezone.localdate(min(c.ended_at, c.ends_at)))
+        for c in ended
+    ]
+
+
+def _refuse_over_a_year_in_two(user: User, active: Courtesy | None, ends_at: datetime) -> None:
+    """Raise with the latest end the cortesía could have, or the day a new one is possible."""
+    today = timezone.localdate()
+    start = timezone.localdate(active.starts_at) if active else today
+    past = _past_spans(user, active)
+    last = timezone.localdate(ends_at)
+    if _within_year_in_two(past, (start, last)):
+        return
+    while last > today and not _within_year_in_two(past, (start, last)):
+        last -= timedelta(days=1)
+    if last > today:
+        raise CourtesyError(COURTESY_LAST_DAY.format(date=last.strftime("%d/%m/%Y")))
+    day = today + timedelta(days=1)
+    while not _within_year_in_two(past, (day, day + timedelta(days=1))):
+        day += timedelta(days=1)
+    raise CourtesyError(COURTESY_NOT_YET.format(date=day.strftime("%d/%m/%Y")))
+
+
+def grant_courtesy(
+    user: User, plan_code: str, ends_at: datetime, reason: str, *, by: User
+) -> tuple[Courtesy, str]:
+    """Give `plan_code` for free until `ends_at`, or change the active cortesía's plan or date.
+
+    `user` must be locked by the caller (who also refuses paying accounts). Returns the
+    cortesía and the plan the account was on. Raises CourtesyError.
+    """
+    now = timezone.now()
+    courtesy = user.courtesies.select_for_update().filter(ended_at=None).first()
+    if courtesy is None:
+        # One lock every new grant shares, held until commit: the count below is a new
+        # statement, so it sees a grant that committed while this one waited.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [COURTESY_CAP_LOCK])
+        if Courtesy.objects.filter(ended_at=None).count() >= COURTESY_CAP:
+            raise CourtesyError(COURTESY_CAP_REACHED)
+    _refuse_over_a_year_in_two(user, courtesy, ends_at)
+    if courtesy is None:
+        courtesy = Courtesy(user=user, starts_at=now)
+    from_plan = user.plan_id
+    if courtesy.pk is None or from_plan != plan_code:
+        _switch(user, plan_code, PlanChange.Reason.COURTESY, now, by=by, note=reason)
+    user.plan_expires_at = ends_at
+    user.save(update_fields=["plan_expires_at"])
+    courtesy.plan_id, courtesy.ends_at, courtesy.reason = plan_code, ends_at, reason
+    courtesy.granted_by = courtesy.granted_by or by
+    courtesy.save()
+    return courtesy, from_plan
+
+
+def revoke_courtesy(user: User, *, by: User) -> tuple[Courtesy, PlanChange] | None:
+    """End the locked user's active cortesía now: back to the free plan. None without one."""
+    courtesy = active_courtesy(user)
+    if courtesy is None:
+        return None
+    change = _switch(user, free_plan(user), PlanChange.Reason.COURTESY_ENDED, timezone.now(), by=by)
+    return courtesy, change
+
+
+def end_courtesies(now: datetime | None = None) -> int:
+    """Move every cortesía whose date passed to the free plan and email the account. Idempotent.
+
+    Runs in the daily `accounts.expire_trials` task, before the trials.
+    """
+    now = now or timezone.now()
+    due = Courtesy.objects.filter(ended_at=None, ends_at__lte=now).values_list("pk", flat=True)
+    ended = 0
+    for pk in due:
+        with transaction.atomic():
+            courtesy = Courtesy.objects.select_for_update().get(pk=pk)
+            if courtesy.ended_at is not None or courtesy.ends_at > now:
+                continue  # revoked or given again meanwhile
+            user = User.objects.select_for_update().get(pk=courtesy.user_id)
+            _switch(user, free_plan(user), PlanChange.Reason.COURTESY_ENDED, now)
+            transaction.on_commit(lambda c=courtesy, u=user: _send_courtesy_ended(c, u))
+        ended += 1
+    return ended
+
+
+def remind_courtesies(now: datetime | None = None) -> int:
+    """One email, about a week before the end, inviting the account to subscribe."""
+    now = now or timezone.now()
+    soon = Courtesy.objects.filter(
+        ended_at=None,
+        reminder_sent_at=None,
+        ends_at__gt=now,
+        ends_at__lte=now + timedelta(days=COURTESY_REMINDER_DAYS),
+    ).values_list("pk", flat=True)
+    sent = 0
+    for pk in soon:
+        with transaction.atomic():
+            courtesy = Courtesy.objects.select_for_update().select_related("user").get(pk=pk)
+            if courtesy.ended_at is not None or courtesy.reminder_sent_at is not None:
+                continue
+            courtesy.reminder_sent_at = now
+            courtesy.save(update_fields=["reminder_sent_at"])
+            transaction.on_commit(lambda c=courtesy: _send_courtesy_reminder(c))
+        sent += 1
+    return sent
+
+
+COURTESY_REMINDER_SUBJECT = "Tu cortesía del plan {plan} termina el {date}"
+COURTESY_REMINDER_BODY = (
+    "Hola {name}:\n\n"
+    "Tu cortesía del plan {plan} termina el {date}. Después tu cuenta pasa al plan {free}.\n\n"
+    "Si querés seguir con el plan {plan}, podés suscribirte en {url}/planes\n\n"
+    "Gaucho Weather"
+)
+COURTESY_ENDED_SUBJECT = "Terminó tu cortesía del plan {plan}"
+COURTESY_ENDED_BODY = (
+    "Hola {name}:\n\n"
+    "Terminó tu cortesía del plan {plan} y tu cuenta pasó al plan {free}.\n"
+    "Tus lotes y reglas siguen guardados, pero el plan {free} {limits}.\n\n"
+    "Para seguir con el plan {plan}, suscribite en {url}/planes\n\n"
+    "Gaucho Weather"
+)
+
+
+def _send_courtesy_reminder(courtesy: Courtesy) -> None:
+    try:
+        user = courtesy.user
+        plan = Plan.objects.get(code=courtesy.plan_id)
+        free = Plan.objects.get(code=free_plan(user))
+        date = _day(courtesy.ends_at)
+        body = COURTESY_REMINDER_BODY.format(
+            name=user.name, plan=plan.name, date=date, free=free.name, url=settings.PUBLIC_APP_URL
+        )
+        send_mail(
+            COURTESY_REMINDER_SUBJECT.format(plan=plan.name, date=date), body, None, [user.email]
+        )
+    except Exception:  # marked as sent already; a lost reminder must not stop the others
+        logger.exception("Could not send the cortesía reminder %s", courtesy.pk)
+
+
+def _send_courtesy_ended(courtesy: Courtesy, user: User) -> None:
+    try:
+        plan = Plan.objects.get(code=courtesy.plan_id)
+        free = Plan.objects.get(code=user.plan_id)
+        body = COURTESY_ENDED_BODY.format(
+            name=user.name,
+            plan=plan.name,
+            free=free.name,
+            limits=_describe_limits(free),
+            url=settings.PUBLIC_APP_URL,
+        )
+        send_mail(COURTESY_ENDED_SUBJECT.format(plan=plan.name), body, None, [user.email])
+    except Exception:  # the downgrade already happened; a lost email must not undo it
+        logger.exception("Could not send the cortesía-ended email to user %s", user.pk)
 
 
 # --- Plan requests (S14) -------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ActionRow, BackofficeActionKind } from '../api/backoffice';
 import type { User } from '../api/types';
 import { demoLotes, demoUser } from '../mocks/fixtures';
+import { formatDay, lastCourtesyDay } from '../pages/backoffice/format';
 import { createMockDb, type MockDb } from '../mocks/handlers';
 import { renderApp } from './renderApp';
 
@@ -267,7 +268,33 @@ describe('Access control (S2)', () => {
 });
 
 describe('Plan and founder by hand (S3)', () => {
-  it('gives a trial until a date', async () => {
+  it('gives a trial until a date, at most a year ahead', async () => {
+    const db = dbFor();
+    const { user, record } = await openRecord(MARTA, db);
+    const last = lastCourtesyDay();
+    const lastText = formatDay(`${last}T23:59:59-03:00`);
+
+    await user.click(within(record).getByRole('button', { name: 'Dar o extender prueba' }));
+    const dialog = screen.getByRole('dialog', { name: 'Prueba de Productor para Marta Ríos' });
+    const field = within(dialog).getByLabelText(/^Hasta el día/);
+    expect(field).toHaveAttribute('max', last);
+    fireEvent.change(field, { target: { value: last } });
+    await user.click(within(dialog).getByRole('button', { name: 'Dar prueba' }));
+
+    expect(
+      await within(record).findByText(`Marta Ríos tiene Productor hasta el ${lastText}.`),
+    ).toBeVisible();
+    expect(posts(db).at(-1)).toEqual({
+      method: 'POST',
+      path: '/api/backoffice/cuentas/22/prueba/',
+      body: { hasta: last },
+    });
+    const data = within(record).getByRole('region', { name: 'Datos' });
+    expect(fact(data, 'Plan')).toBe('Productor');
+    expect(fact(data, 'Estado')).toBe(`En prueba hasta el ${lastText}`);
+  });
+
+  it('shows a date more than a year ahead refused next to the field', async () => {
     const db = dbFor();
     const { user, record } = await openRecord(MARTA, db);
 
@@ -278,19 +305,13 @@ describe('Plan and founder by hand (S3)', () => {
     });
     await user.click(within(dialog).getByRole('button', { name: 'Dar prueba' }));
 
+    const slashed = lastCourtesyDay().split('-').reverse().join('/');
     expect(
-      await within(record).findByText(
-        'Marta Ríos tiene Productor hasta el 31 de diciembre de 2099.',
+      await within(dialog).findByText(
+        `La prueba dura como máximo un año: elegí una fecha hasta el ${slashed}.`,
       ),
     ).toBeVisible();
-    expect(posts(db).at(-1)).toEqual({
-      method: 'POST',
-      path: '/api/backoffice/cuentas/22/prueba/',
-      body: { hasta: '2099-12-31' },
-    });
-    const data = within(record).getByRole('region', { name: 'Datos' });
-    expect(fact(data, 'Plan')).toBe('Productor');
-    expect(fact(data, 'Estado')).toBe('En prueba hasta el 31 de diciembre de 2099');
+    expect(db.backoffice.actions.some((a) => a.action === 'trial_grant')).toBe(false);
   });
 
   it('shows a past date refused next to the field', async () => {
@@ -316,7 +337,7 @@ describe('Plan and founder by hand (S3)', () => {
     await user.click(within(record).getByRole('button', { name: 'Dar o extender prueba' }));
     const trial = screen.getByRole('dialog', { name: /^Prueba de Productor para/ });
     fireEvent.change(within(trial).getByLabelText(/^Hasta el día/), {
-      target: { value: '2099-12-31' },
+      target: { value: lastCourtesyDay() },
     });
     await user.click(within(trial).getByRole('button', { name: 'Dar prueba' }));
     expect(await within(trial).findByRole('alert')).toHaveTextContent(
@@ -373,16 +394,18 @@ describe('Plan and founder by hand (S3)', () => {
 
   it('still changes the plan from the record', async () => {
     const db = dbFor();
-    const { user, record } = await openRecord(MARTA, db);
+    // Without his subscription: a paying account has no plan change (cortesias L8).
+    db.backoffice.subscriptions = db.backoffice.subscriptions.filter((s) => s.user.id !== 21);
+    const { user, record } = await openRecord(JUAN, db);
 
     await user.click(within(record).getByRole('button', { name: 'Cambiar plan' }));
-    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Marta Ríos' });
-    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'empresa');
+    const dialog = screen.getByRole('dialog', { name: 'Cambiar el plan de Juan Gómez' });
+    await user.selectOptions(within(dialog).getByLabelText('Plan nuevo'), 'basico');
     await user.click(within(dialog).getByRole('button', { name: 'Cambiar plan' }));
 
-    expect(await within(record).findByText('Marta Ríos pasó al plan Empresa.')).toBeVisible();
+    expect(await within(record).findByText('Juan Gómez pasó al plan Básico.')).toBeVisible();
     await waitFor(() =>
-      expect(fact(within(record).getByRole('region', { name: 'Datos' }), 'Plan')).toBe('Empresa'),
+      expect(fact(within(record).getByRole('region', { name: 'Datos' }), 'Plan')).toBe('Básico'),
     );
   });
 });

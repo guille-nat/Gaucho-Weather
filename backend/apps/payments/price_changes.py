@@ -60,8 +60,13 @@ def pending_change(plan: Plan) -> PriceChange | None:
     return plan.price_changes.filter(cancelled_at=None, applied_at=None).first()
 
 
-def schedule(actor: User, plan: Plan, price_ars_month: int, effective_on: date) -> PriceChange:
-    """S1: save the change and create its notices; the emails go out after the commit."""
+def schedule(
+    actor: User, plan: Plan, price_ars_month: int, price_usd_month: int, effective_on: date
+) -> PriceChange:
+    """S1: save the change and create its notices; the emails go out after the commit.
+
+    Both prices are the plan's from `effective_on` (L8); notices only carry the peso price.
+    """
     if plan.code == Plan.BASICO:
         raise PaymentRefusal(400, BASICO_IS_FREE)
     with transaction.atomic():
@@ -69,7 +74,11 @@ def schedule(actor: User, plan: Plan, price_ars_month: int, effective_on: date) 
         if pending_change(plan) is not None:
             raise PaymentRefusal(409, ALREADY_PENDING)
         change = PriceChange.objects.create(
-            plan=plan, price_ars_month=price_ars_month, effective_on=effective_on, created_by=actor
+            plan=plan,
+            price_ars_month=price_ars_month,
+            price_usd_month=price_usd_month,
+            effective_on=effective_on,
+            created_by=actor,
         )
         create_notices(change)
         transaction.on_commit(_send_later)
@@ -215,7 +224,7 @@ def daily_notices() -> int:
 def apply_due(today: date | None = None) -> int:
     """The daily task's apply part; returns how many subscriptions changed amount. Idempotent.
 
-    From its date a change becomes the plan's price, so new checkouts pay it. Each notified
+    From its date a change sets both plan prices, so new checkouts pay them. Each notified
     subscription changes amount on `applies_on`: at Mercado Pago first, then here. A refusal
     leaves it for the next run; the others go on.
     """
@@ -224,7 +233,9 @@ def apply_due(today: date | None = None) -> int:
         cancelled_at=None, applied_at=None, effective_on__lte=today
     ):
         with transaction.atomic():
-            Plan.objects.filter(code=change.plan_id).update(price_ars_month=change.price_ars_month)
+            Plan.objects.filter(code=change.plan_id).update(
+                price_ars_month=change.price_ars_month, price_usd_month=change.price_usd_month
+            )
             change.applied_at = timezone.now()
             change.save(update_fields=["applied_at"])
     due = (

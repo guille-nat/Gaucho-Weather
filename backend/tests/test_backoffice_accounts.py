@@ -3,7 +3,7 @@
 Spec: odd/tasks/backoffice-superadmin.md. Every Mercado Pago call is mocked with respx.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import httpx
@@ -85,7 +85,8 @@ ENDPOINTS = [
     ("post", "superadmin/dar/", {}),
     ("post", "superadmin/quitar/", {}),
     ("post", "restablecer-contrasena/", {}),
-    ("post", "prueba/", {"hasta": "2030-01-01"}),
+    # A month from the real today: the trial ends at most a year ahead (cortesias S6).
+    ("post", "prueba/", {"hasta": (date.today() + timedelta(days=30)).isoformat()}),
     ("post", "founder/dar/", {}),
     ("post", "founder/quitar/", {}),
     ("post", "suscripcion/sincronizar/", {}),
@@ -182,6 +183,8 @@ class TestRecord:
             "is_superuser": False,
             "date_joined": body["date_joined"],
             "last_login": "2026-11-16T06:00:00-03:00",
+            "courtesy": None,
+            "paying": True,  # its authorized subscription
         }
         assert [change["note"] for change in body["plan_changes"]] == ["extendida", ""]
         assert body["plan_changes"][0] == {

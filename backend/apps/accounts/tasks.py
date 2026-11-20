@@ -5,7 +5,13 @@ from . import password_reset, plans, terms
 
 @shared_task(name="accounts.expire_trials")
 def expire_trials() -> int:
-    return plans.expire_trials()
+    """Daily: cortesías whose date passed, the reminder a week before, then trials (cortesias S3).
+
+    Returns how many accounts moved to their free plan.
+    """
+    ended = plans.end_courtesies()
+    plans.remind_courtesies()
+    return ended + plans.expire_trials()
 
 
 @shared_task(

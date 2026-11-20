@@ -56,6 +56,8 @@ const REASONS: Record<PlanChangeReason, string> = {
   staff: 'Cambio hecho por el equipo',
   payment: 'Se aprobó tu pago',
   payment_ended: 'Terminó tu suscripción',
+  courtesy: 'Empezó tu cortesía',
+  courtesy_ended: 'Terminó tu cortesía',
 };
 
 /** The account's Mercado Pago subscription and payments (pagos-backoffice S3, S6). */

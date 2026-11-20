@@ -10,12 +10,19 @@ import type {
   PendingPriceChange,
   Person,
   RecordAlertRule,
+  RecordCourtesy,
   RecordLote,
   RecordPlanChange,
   RequestRow,
   SubscriptionRow,
 } from '../api/backoffice';
-import type { Plan, PlanCode, ProviderSubscriptionStatus, User } from '../api/types';
+import type {
+  Plan,
+  PlanChangeReason,
+  PlanCode,
+  ProviderSubscriptionStatus,
+  User,
+} from '../api/types';
 import { tomorrowInBuenosAires } from '../pages/backoffice/format';
 
 /** Like plans.refuse_free_empresa: a founder moves up to Empresa only by paying (promociones SF4). */
@@ -33,10 +40,13 @@ export function freeEmpresaRefusal(
  * In-memory backoffice API (pagos-backoffice S4, S7), mirroring backend/apps/backoffice. Every
  * route answers 403 to anyone but a super admin, like IsSuperuser.
  */
+/** An account row as the mock keeps it; the API adds `paying` (cortesias L8). */
+export type StoredAccount = Omit<AccountRow, 'paying'>;
+
 export interface BackofficeDb {
   summary: BackofficeSummary;
-  /** Newest sign-ups first, like the API. */
-  accounts: AccountRow[];
+  /** Newest sign-ups first, like the API. `paying` is worked out from the subscriptions. */
+  accounts: StoredAccount[];
   /** Every request; the list shows the pending ones, oldest first. */
   requests: RequestRow[];
   /** Newest first. */
@@ -65,6 +75,16 @@ export interface RecordExtras {
   plan_changes: RecordPlanChange[];
   lotes: RecordLote[];
   alert_rules: RecordAlertRule[];
+  /** The active cortesía (cortesias S1); missing in older fixtures means none. */
+  courtesy?: RecordCourtesy | null;
+  /** Ended cortesías as Buenos Aires days `[start, end)`, for "1 año en 2 años" (L5). */
+  pastCourtesies?: DaySpan[];
+}
+
+/** Buenos Aires days `[start, end)`, `YYYY-MM-DD`: its length is end − start. */
+export interface DaySpan {
+  start: string;
+  end: string;
 }
 
 /** What the backoffice handlers need from the app's mock (src/mocks/handlers.ts). */
@@ -88,7 +108,24 @@ export const NO_SUBSCRIPTION = 'La cuenta no tiene una suscripción con Mercado 
 export const PROVIDER_DOWN = 'No pudimos conectar con Mercado Pago. Probá de nuevo en un rato.';
 const NOT_ENABLED = 'Los pagos todavía no están habilitados.';
 const EMAIL_IN_USE = 'Ya hay una cuenta con ese email.';
+// cortesias S1, S2, S4: the words of backoffice/views.py, serializers.py and accounts/plans.py.
+export const USE_COURTESY = 'Para dar un plan pago sin cobrar, usá una cortesía.';
+const COURTESY_SELF = 'No podés darte una cortesía a vos mismo.';
+const NO_COURTESY = 'La cuenta no tiene una cortesía activa.';
+const FOUNDER_HAS_PRODUCTOR = 'La cuenta es founder: ya tiene Productor sin vencimiento.';
+const COURTESY_CAP = 20;
+const COURTESY_CAP_REACHED = 'Ya hay 20 cortesías activas. Revocá alguna antes de dar otra.';
+const COURTESY_MAX_DAYS = 365;
+const COURTESY_WINDOW_DAYS = 730;
+const YEAR_IN_TWO = 'Una cuenta suma como máximo un año de cortesía cada 2 años: ';
+// cortesias S6: no free plan for a super admin or a blocked account.
+const SUPERADMIN_NO_GRANTS = 'La cuenta es super admin: no recibe cortesías, pruebas ni founder.';
+const ACCOUNT_BLOCKED = 'La cuenta está bloqueada.';
+const REQUIRED = 'Este campo es requerido.';
 const PAGE_SIZE = 50;
+// cortesias L8: the words of AccountPlanView for a paying account.
+const PAYING_PLAN =
+  'La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha (sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al otro plan.';
 
 const ana: Person = { id: 1, name: 'Ana Ferreyra', email: 'ana@lacampana.com.ar' };
 const juan: Person = { id: 21, name: 'Juan Gómez', email: 'juan@elombu.com.ar' };
@@ -291,8 +328,45 @@ export function backofficeGate(db: BackofficeHost, csrf: CsrfCheck) {
 const membershipOf = (founder: number | null, expiresAt: string | null) =>
   founder !== null ? 'founder' : expiresAt ? 'trial' : 'active';
 
-/** Buenos Aires is UTC−3 all year: today there, as `YYYY-MM-DD`. */
-const todayInBuenosAires = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+/** Buenos Aires is UTC−3 all year: the day of an instant there, as `YYYY-MM-DD`. */
+const dayInBuenosAires = (ms: number) => new Date(ms - 3 * 3_600_000).toISOString().slice(0, 10);
+const todayInBuenosAires = () => dayInBuenosAires(Date.now());
+const addDays = (day: string, days: number) =>
+  new Date(Date.parse(`${day}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+/** `31/12/2026`, as Python's `strftime("%d/%m/%Y")`. */
+const slashed = (day: string) => day.split('-').reverse().join('/');
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
+const overlap = (span: DaySpan, from: string, to: string) =>
+  Math.max(daysBetween(span.start > from ? span.start : from, span.end < to ? span.end : to), 0);
+
+/** Like plans._within_year_in_two: no 730-day window touching `candidate` sums over 365 days. */
+function withinYearInTwo(past: DaySpan[], candidate: DaySpan): boolean {
+  const spans = [...past, candidate];
+  const starts = new Set([
+    ...spans.map((s) => s.start),
+    ...spans.map((s) => addDays(s.end, -COURTESY_WINDOW_DAYS)),
+  ]);
+  for (const from of starts) {
+    const to = addDays(from, COURTESY_WINDOW_DAYS);
+    if (overlap(candidate, from, to) === 0) continue;
+    const total = spans.reduce((sum, span) => sum + overlap(span, from, to), 0);
+    if (total > COURTESY_MAX_DAYS) return false;
+  }
+  return true;
+}
+
+/** Like plans._refuse_over_a_year_in_two: the refusal, or null when the end is allowed. */
+function yearInTwoRefusal(past: DaySpan[], start: string, until: string): string | null {
+  if (withinYearInTwo(past, { start, end: until })) return null;
+  const today = todayInBuenosAires();
+  let last = until;
+  while (last > today && !withinYearInTwo(past, { start, end: last })) last = addDays(last, -1);
+  if (last > today) return `${YEAR_IN_TWO}esta puede terminar como máximo el ${slashed(last)}.`;
+  let day = addDays(today, 1);
+  while (!withinYearInTwo(past, { start: day, end: addDays(day, 1) })) day = addDays(day, 1);
+  return `${YEAR_IN_TWO}puede recibir otra desde el ${slashed(day)}.`;
+}
 
 export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): HttpHandler[] {
   const gate = backofficeGate(db, csrf);
@@ -315,8 +389,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     return plan ? { code: plan.code, name: plan.name } : null;
   };
 
-  const person = (row: AccountRow): Person => ({ id: row.id, name: row.name, email: row.email });
-  const extrasOf = (row: AccountRow): RecordExtras =>
+  const person = (row: StoredAccount): Person => ({ id: row.id, name: row.name, email: row.email });
+  const extrasOf = (row: StoredAccount): RecordExtras =>
     (db.backoffice.records[row.id] ??= {
       plan_expires_at: null,
       is_active: true,
@@ -324,7 +398,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       lotes: [],
       alert_rules: [],
     });
-  const recordOf = (row: AccountRow): AccountRecord => {
+  const recordOf = (row: StoredAccount): AccountRecord => {
     const extras = extrasOf(row);
     return {
       id: row.id,
@@ -347,13 +421,18 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
         .map(({ user: _user, ...payment }) => payment),
       lotes: extras.lotes,
       alert_rules: extras.alert_rules,
+      courtesy: extras.courtesy ?? null,
+      paying: pays(row),
     };
   };
+  /** Like backoffice.views.is_paying: what refuse_if_paying(trial=True) refuses. */
+  const pays = (row: StoredAccount) => payingRefusal(row, true) !== null;
+  const rowOf = (row: StoredAccount): AccountRow => ({ ...row, paying: pays(row) });
   const findAccount = (id: unknown) => db.backoffice.accounts.find((a) => a.id === Number(id));
   const notFound = () => HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
   const refuse = (detail: string, status = 400) => HttpResponse.json({ detail }, { status });
   /** Like plans._switch with reason "staff": a move (or a trial ending) is recorded. */
-  const switchToProductor = (row: AccountRow) => {
+  const switchToProductor = (row: StoredAccount) => {
     const extras = extrasOf(row);
     if (row.plan.code === 'productor' && extras.plan_expires_at === null) return;
     extras.plan_changes.unshift({
@@ -367,8 +446,23 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     });
     row.plan = { code: 'productor', name: 'Productor' };
     extras.plan_expires_at = null;
+    extras.courtesy = null; // plans._switch ends an active cortesía on any other move
   };
-  const restatus = (row: AccountRow) => {
+  /** Like plans._switch: a recorded move, by the super admin. */
+  const moveTo = (row: StoredAccount, code: PlanCode, reason: PlanChangeReason, note = '') => {
+    const to = planRef(code)!;
+    extrasOf(row).plan_changes.unshift({
+      id: db.nextId++,
+      at: new Date().toISOString(),
+      from_plan: row.plan,
+      to_plan: to,
+      reason,
+      by: actor(),
+      note,
+    });
+    row.plan = to;
+  };
+  const restatus = (row: StoredAccount) => {
     row.status = membershipOf(row.founder_number, extrasOf(row).plan_expires_at);
   };
 
@@ -377,7 +471,14 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
    * Like refuse_if_paying in backoffice/views.py: a running subscription blocks a trial and a
    * founder grant; a cancelled one still inside its paid month blocks a trial only.
    */
-  function payingRefusal(row: AccountRow, trial: boolean): Response | null {
+  /** Like refuse_if_not_grantable (cortesias S6): never a super admin or a blocked account. */
+  function grantableRefusal(row: StoredAccount): Response | null {
+    if (row.is_superuser) return refuse(SUPERADMIN_NO_GRANTS);
+    if (!extrasOf(row).is_active) return refuse(ACCOUNT_BLOCKED);
+    return null;
+  }
+
+  function payingRefusal(row: StoredAccount, trial: boolean): Response | null {
     const open = db.backoffice.subscriptions.filter((s) => s.user.id === row.id && !s.ended_at);
     if (open.some((s) => s.status === 'authorized' || s.status === 'paused')) {
       return refuse('La cuenta tiene una suscripción paga: cancelala primero.');
@@ -397,7 +498,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
     return null;
   }
 
-  const actions: Record<string, (row: AccountRow) => Response | null> = {
+  const actions: Record<string, (row: StoredAccount) => Response | null> = {
     bloquear: (row) => {
       if (row.id === db.user!.id) return refuse(SELF_REFUSED);
       const extras = extrasOf(row);
@@ -443,6 +544,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       return null;
     },
     'founder/dar': (row) => {
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
       if (row.founder_number !== null) {
         return refuse(`La cuenta ya es founder (n.º ${row.founder_number}).`);
       }
@@ -526,7 +629,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           (!plan || row.plan.code === plan) &&
           (!estado || row.status === estado),
       );
-      return pageOr404(rows, url);
+      return pageOr404(rows.map(rowOf), url);
     }),
 
     http.post('*/api/backoffice/cuentas/:id/plan/', async ({ request, params }) => {
@@ -537,8 +640,12 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const { plan, note = '' } = (await request.json()) as { plan: PlanCode; note?: string };
       const to = planRef(plan);
       if (!to) return HttpResponse.json({ detail: 'Ese plan no existe.' }, { status: 400 });
+      if (pays(row)) return refuse(PAYING_PLAN);
       const free = freeEmpresaRefusal(row.founder_number !== null, row.plan.code, plan);
       if (free) return refuse(free);
+      if (plan !== 'basico' && !(plan === 'productor' && row.founder_number !== null)) {
+        return refuse(USE_COURTESY);
+      }
       if (row.plan.code === plan && row.status !== 'trial') {
         return HttpResponse.json(
           { detail: `La cuenta ya está en el plan ${to.name}.` },
@@ -548,7 +655,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       const from = row.plan.code;
       // change_plan ends a trial; a founder keeps the number.
       Object.assign(row, { plan: to, status: row.founder_number !== null ? 'founder' : 'active' });
-      extrasOf(row).plan_expires_at = null;
+      Object.assign(extrasOf(row), { plan_expires_at: null, courtesy: null });
       record(
         'plan_change',
         { id: row.id, name: row.name, email: row.email },
@@ -558,7 +665,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           note,
         },
       );
-      return HttpResponse.json(row);
+      return HttpResponse.json(rowOf(row));
     }),
 
     http.get('*/api/backoffice/pedidos/', async ({ request }) => {
@@ -658,9 +765,13 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       }
       const body = (await request.json()) as Record<string, unknown>;
       const errors: Record<string, string[]> = {};
-      const amount = body.price_ars_month;
-      if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
-        errors.price_ars_month = ['Asegúrese de que este valor sea mayor o igual a 1.'];
+      // Like PriceChangeSerializer: both prices, whole numbers from 1 (avisos-cambios L8).
+      for (const field of ['price_ars_month', 'price_usd_month'] as const) {
+        const value = body[field];
+        if (value === undefined) errors[field] = ['Este campo es requerido.'];
+        else if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+          errors[field] = ['Asegúrese de que este valor sea mayor o igual a 1.'];
+        }
       }
       const day = body.effective_on;
       const earliest = tomorrowInBuenosAires(Date.now() + 29 * 86_400_000);
@@ -683,7 +794,8 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
           row.plan.code === plan.code && (row.status === 'authorized' || row.status === 'paused'),
       ).length;
       const change = {
-        price_ars_month: amount as number,
+        price_ars_month: body.price_ars_month as number,
+        price_usd_month: body.price_usd_month as number,
         effective_on: day as string,
         notices: reached,
         notices_sent: reached,
@@ -692,6 +804,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       record('price_schedule', null, {
         plan: plan.code,
         price_ars_month: change.price_ars_month,
+        price_usd_month: change.price_usd_month,
         effective_on: change.effective_on,
       });
       return HttpResponse.json(
@@ -724,6 +837,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       record('price_unschedule', null, {
         plan: plan.code,
         price_ars_month: change.price_ars_month,
+        price_usd_month: change.price_usd_month,
         effective_on: change.effective_on,
       });
       return HttpResponse.json({
@@ -804,6 +918,19 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       if (hasta <= todayInBuenosAires()) {
         return HttpResponse.json({ hasta: ['La fecha tiene que ser futura.'] }, { status: 400 });
       }
+      const lastTrialDay = addDays(todayInBuenosAires(), COURTESY_MAX_DAYS);
+      if (hasta > lastTrialDay) {
+        return HttpResponse.json(
+          {
+            hasta: [
+              `La prueba dura como máximo un año: elegí una fecha hasta el ${slashed(lastTrialDay)}.`,
+            ],
+          },
+          { status: 400 },
+        );
+      }
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
       if (row.founder_number !== null) {
         return refuse('La cuenta es founder: ya tiene Productor sin vencimiento.');
       }
@@ -814,6 +941,105 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       extrasOf(row).plan_expires_at = new Date(`${hasta}T23:59:59-03:00`).toISOString();
       restatus(row);
       record('trial_grant', person(row), { until: hasta, from_plan: fromPlan });
+      return HttpResponse.json(recordOf(row));
+    }),
+
+    /** Like CourtesyView.post (cortesias S1): the same checks, in the same order. */
+    http.post('*/api/backoffice/cuentas/:id/cortesia/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const row = findAccount(params.id);
+      if (!row) return notFound();
+      if (row.id === db.user!.id) return refuse(COURTESY_SELF);
+      const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      const errors: Record<string, string[]> = {};
+      const { plan, hasta, motivo } = body;
+      if (plan === undefined || plan === null || plan === '') errors.plan = [REQUIRED];
+      else if (plan !== 'productor' && plan !== 'empresa') {
+        errors.plan = [`"${String(plan)}" no es una elección válida.`];
+      }
+      const today = todayInBuenosAires();
+      const last = addDays(today, COURTESY_MAX_DAYS);
+      if (hasta === undefined || hasta === null || hasta === '') errors.hasta = [REQUIRED];
+      else if (typeof hasta !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+        errors.hasta = [
+          'Fecha con formato erróneo. Use uno de los siguientes formatos en su lugar: YYYY-MM-DD.',
+        ];
+      } else if (hasta <= today) errors.hasta = ['La fecha tiene que ser futura.'];
+      else if (hasta > last) {
+        errors.hasta = [
+          `La cortesía dura como máximo un año: elegí una fecha hasta el ${slashed(last)}.`,
+        ];
+      }
+      const reason = typeof motivo === 'string' ? motivo.trim() : '';
+      if (motivo === undefined || motivo === null) errors.motivo = [REQUIRED];
+      else if (!reason) errors.motivo = ['Este campo no puede estar en blanco.'];
+      else if (reason.length > 200) {
+        errors.motivo = ['Asegúrese de que este campo no tenga más de 200 caracteres.'];
+      }
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      const code = plan as 'productor' | 'empresa';
+      const until = hasta as string;
+      const ungrantable = grantableRefusal(row);
+      if (ungrantable) return ungrantable;
+      if (row.founder_number !== null && code === 'productor') {
+        return refuse(FOUNDER_HAS_PRODUCTOR);
+      }
+      const paying = payingRefusal(row, true);
+      if (paying) return paying;
+      const extras = extrasOf(row);
+      const active = extras.courtesy ?? null;
+      if (!active) {
+        const count = Object.values(db.backoffice.records).filter((r) => r.courtesy).length;
+        if (count >= COURTESY_CAP) return refuse(COURTESY_CAP_REACHED);
+      }
+      const start = active ? dayInBuenosAires(Date.parse(active.starts_at)) : today;
+      const tooLong = yearInTwoRefusal(extras.pastCourtesies ?? [], start, until);
+      if (tooLong) return refuse(tooLong);
+      const fromPlan = row.plan.code;
+      if (!active || fromPlan !== code) moveTo(row, code, 'courtesy', reason);
+      const endsAt = new Date(`${until}T23:59:59-03:00`).toISOString();
+      extras.plan_expires_at = endsAt;
+      extras.courtesy = {
+        plan: planRef(code)!,
+        starts_at: active?.starts_at ?? new Date().toISOString(),
+        ends_at: endsAt,
+        reason,
+        granted_by: active?.granted_by ?? actor(),
+      };
+      restatus(row);
+      record('courtesy_grant', person(row), {
+        plan: code,
+        until,
+        reason,
+        from_plan: fromPlan,
+      });
+      return HttpResponse.json(recordOf(row));
+    }),
+
+    /** Like CourtesyView.delete (cortesias S2): back to the free plan now, without an email. */
+    http.delete('*/api/backoffice/cuentas/:id/cortesia/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const row = findAccount(params.id);
+      if (!row) return notFound();
+      const extras = extrasOf(row);
+      const active = extras.courtesy;
+      if (!active) return refuse(NO_COURTESY, 404);
+      const to: PlanCode = row.founder_number === null ? 'basico' : 'productor';
+      moveTo(row, to, 'courtesy_ended');
+      // A revoked cortesía counts up to its revoke (cortesias L5).
+      extras.pastCourtesies = [
+        ...(extras.pastCourtesies ?? []),
+        { start: dayInBuenosAires(Date.parse(active.starts_at)), end: todayInBuenosAires() },
+      ];
+      Object.assign(extras, { plan_expires_at: null, courtesy: null });
+      restatus(row);
+      record('courtesy_revoke', person(row), {
+        plan: active.plan.code,
+        until: dayInBuenosAires(Date.parse(active.ends_at)),
+        to_plan: to,
+      });
       return HttpResponse.json(recordOf(row));
     }),
 

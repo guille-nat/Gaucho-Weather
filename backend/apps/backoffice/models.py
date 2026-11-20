@@ -31,6 +31,9 @@ class BackofficeAction(models.Model):
         SUBSCRIPTION_SYNC = "subscription_sync", "suscripción sincronizada"
         SUBSCRIPTION_CANCEL = "subscription_cancel", "suscripción cancelada"
         EXPORT = "export", "exportación CSV"
+        # cortesias S1-S2
+        COURTESY_GRANT = "courtesy_grant", "cortesía dada o cambiada"
+        COURTESY_REVOKE = "courtesy_revoke", "cortesía revocada"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

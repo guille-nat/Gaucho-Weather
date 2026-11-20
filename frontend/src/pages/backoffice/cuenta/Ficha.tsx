@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import {
   accountAction,
   getAccount,
+  revokeCourtesy,
   type AccountActionPath,
   type AccountRecord,
   type RecordSubscription,
@@ -20,14 +21,23 @@ import { Saved } from '../../Perfil';
 import { PaymentStatusChip, SubscriptionStatusChip } from '../../Suscripcion';
 import { formatDay, REASON_WORDS } from '../format';
 import { useBackofficeQuery } from '../queries';
-import { ChangePlanForm } from './ChangePlanForm';
-import { ConfirmAction, EditForm, FounderQuota, TrialForm } from './dialogs';
+import { ChangePlanForm, PAYING_PLAN } from './ChangePlanForm';
+import { ConfirmAction, CourtesyForm, EditForm, FounderQuota, TrialForm } from './dialogs';
 import { LIST_LINK } from './link';
 
-/** The record's writes. Each one opens a dialog first (backoffice-superadmin, Frontend). */
-type FormKind = 'edit' | 'plan' | 'trial';
+/**
+ * The record's writes. Each one opens a dialog first (backoffice-superadmin, Frontend). The
+ * cortesía's revocation is a confirmation too, but a DELETE, so it is not an AccountActionPath.
+ */
+type FormKind = 'edit' | 'plan' | 'trial' | 'courtesy' | 'courtesy/revoke';
 type DialogKind = FormKind | AccountActionPath;
-const FORMS: readonly string[] = ['edit', 'plan', 'trial'] satisfies FormKind[];
+const FORMS: readonly string[] = [
+  'edit',
+  'plan',
+  'trial',
+  'courtesy',
+  'courtesy/revoke',
+] satisfies FormKind[];
 const isConfirmation = (kind: DialogKind | null): kind is AccountActionPath =>
   kind !== null && !FORMS.includes(kind);
 
@@ -45,6 +55,8 @@ const isRunning = (sub: RecordSubscription) =>
   (sub.status === 'authorized' || sub.status === 'paused') && !sub.ended_at;
 
 function statusText(account: AccountRecord) {
+  const { courtesy } = account;
+  if (courtesy) return `Cortesía de ${courtesy.plan.name} hasta el ${formatDay(courtesy.ends_at)}`;
   if (account.founder_number !== null) return founderLabel(account.founder_number);
   if (account.plan_expires_at) return `En prueba hasta el ${formatDay(account.plan_expires_at)}`;
   return 'Activa';
@@ -166,7 +178,8 @@ function confirmation(kind: AccountActionPath, account: AccountRecord): Confirma
         description: (
           <p className="fine">
             Mercado Pago deja de cobrarle. Sigue con {running?.plan.name ?? 'el plan'} hasta el fin
-            del mes pago y después pasa a Básico.
+            del mes pago y después pasa a {account.founder_number === null ? 'Básico' : 'Productor'}
+            .
           </p>
         ),
         confirm: 'Cancelar suscripción',
@@ -202,6 +215,13 @@ function Facts({ facts }: { facts: [label: string, value: string][] }) {
     </dl>
   );
 }
+
+const courtesyDone = (record: AccountRecord) =>
+  record.courtesy
+    ? `${record.name} tiene ${record.courtesy.plan.name} de cortesía hasta el ${formatDay(
+        record.courtesy.ends_at,
+      )}.`
+    : `Guardamos la cortesía de ${record.name}.`;
 
 function Actions({ children }: { children: ReactNode }) {
   return <div className="bo-record-actions">{children}</div>;
@@ -434,7 +454,11 @@ export function Ficha({ id }: { id: number }) {
         ? `Cambiar el plan de ${account.name}`
         : dialog === 'trial'
           ? `Prueba de Productor para ${account.name}`
-          : (ask?.title ?? 'Cuenta');
+          : dialog === 'courtesy'
+            ? `Cortesía para ${account.name}`
+            : dialog === 'courtesy/revoke'
+              ? `¿Revocar la cortesía de ${account.name}?`
+              : (ask?.title ?? 'Cuenta');
 
   return (
     <article className="bo-tab bo-record" aria-label={`Ficha de ${account.name}`}>
@@ -489,8 +513,32 @@ export function Ficha({ id }: { id: number }) {
       </Section>
 
       <Section title="Plan y founder">
+        {account.courtesy ? (
+          <>
+            <h4 className="bo-record-subtitle">Cortesía activa</h4>
+            <Facts
+              facts={[
+                ['Cortesía', account.courtesy.plan.name],
+                ['Hasta', formatDay(account.courtesy.ends_at)],
+                ['Motivo', account.courtesy.reason],
+                ['Dada por', account.courtesy.granted_by?.name ?? DASH],
+              ]}
+            />
+          </>
+        ) : null}
+        {account.paying ? <p className="fine">{PAYING_PLAN}</p> : null}
         <Actions>
-          <ActionButton label="Cambiar plan" onClick={() => open('plan')} />
+          {account.paying ? null : (
+            <ActionButton label="Cambiar plan" onClick={() => open('plan')} />
+          )}
+          {account.courtesy ? (
+            <>
+              <ActionButton label="Cambiar cortesía" onClick={() => open('courtesy')} />
+              <ActionButton label="Revocar cortesía" onClick={() => open('courtesy/revoke')} />
+            </>
+          ) : (
+            <ActionButton label="Dar cortesía" onClick={() => open('courtesy')} />
+          )}
           {account.founder_number === null ? (
             <>
               <ActionButton label="Dar o extender prueba" onClick={() => open('trial')} />
@@ -550,6 +598,28 @@ export function Ficha({ id }: { id: number }) {
                 next,
               )
             }
+          />
+        ) : dialog === 'courtesy' ? (
+          <CourtesyForm
+            account={account}
+            onCancel={close}
+            onDone={(next) => finish(courtesyDone(next), next)}
+          />
+        ) : dialog === 'courtesy/revoke' ? (
+          <ConfirmAction
+            description={
+              <p className="fine">
+                Pasa a {account.founder_number === null ? 'Básico' : 'Productor'} ahora, en vez del{' '}
+                {account.courtesy ? formatDay(account.courtesy.ends_at) : DASH}. No le mandamos
+                ningún mail.
+              </p>
+            }
+            confirmLabel="Revocar cortesía"
+            pendingLabel="Revocando…"
+            danger
+            run={() => revokeCourtesy(account.id)}
+            onCancel={close}
+            onDone={(next) => finish(`Revocamos la cortesía de ${next.name}.`, next)}
           />
         ) : pending && ask ? (
           <ConfirmAction

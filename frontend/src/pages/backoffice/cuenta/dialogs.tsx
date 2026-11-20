@@ -1,9 +1,16 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { getSummary, grantTrial, updateAccount, type AccountRecord } from '../../../api/backoffice';
+import {
+  getSummary,
+  grantCourtesy,
+  grantTrial,
+  updateAccount,
+  type AccountRecord,
+  type CourtesyPlan,
+} from '../../../api/backoffice';
 import { ApiError } from '../../../api/client';
-import { FormAlert, TextField } from '../../../components/Field';
+import { FormAlert, SelectField, TextField } from '../../../components/Field';
 import { queryKeys } from '../../../query/keys';
-import { tomorrowInBuenosAires } from '../format';
+import { formatDay, lastCourtesyDay, PLAN_NAMES, tomorrowInBuenosAires } from '../format';
 import { useBackofficeMutation, useBackofficeQuery } from '../queries';
 
 type Done = (record: AccountRecord) => void;
@@ -157,8 +164,9 @@ export function TrialForm({
         name="hasta"
         type="date"
         min={tomorrowInBuenosAires()}
+        max={lastCourtesyDay()}
         required
-        hint="Productor hasta el final de ese día, hora de Buenos Aires."
+        hint="Productor hasta el final de ese día, hora de Buenos Aires. Como máximo un año."
         value={until}
         error={missing ? 'Elegí una fecha.' : fieldError(grant.error, 'hasta')}
         onChange={(e) => {
@@ -171,6 +179,116 @@ export function TrialForm({
       <div className="bo-dialog-actions">
         <button type="submit" className="btn btn--primary" disabled={grant.isPending}>
           {grant.isPending ? 'Dando la prueba…' : 'Dar prueba'}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={onCancel}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** `YYYY-MM-DD` of an instant, in Buenos Aires (UTC−3 all year). */
+const isoDayOf = (iso: string) =>
+  new Date(Date.parse(iso) - 3 * 3_600_000).toISOString().slice(0, 10);
+
+/**
+ * `POST cuentas/{id}/cortesia/` (cortesias S1, S5): a paid plan for free until the end of a day,
+ * at most a year ahead, with a reason for the log. With an active cortesía it starts from it,
+ * and what is sent replaces it. Every rule is the server's; the form only asks for what is
+ * missing before sending.
+ */
+export function CourtesyForm({
+  account,
+  onDone,
+  onCancel,
+}: {
+  account: AccountRecord;
+  onDone: Done;
+  onCancel: () => void;
+}) {
+  const active = account.courtesy;
+  const founder = account.founder_number !== null;
+  // A founder already has Productor for free: only Empresa is a gift.
+  const plans: CourtesyPlan[] = founder ? ['empresa'] : ['productor', 'empresa'];
+  const [plan, setPlan] = useState<CourtesyPlan>(
+    plans.find((code) => code === active?.plan.code) ?? plans[0]!,
+  );
+  const [until, setUntil] = useState(active ? isoDayOf(active.ends_at) : '');
+  const [reason, setReason] = useState(active?.reason ?? '');
+  const [missing, setMissing] = useState({ until: false, reason: false });
+  const grant = useBackofficeMutation(() =>
+    grantCourtesy(account.id, { plan, hasta: until, motivo: reason.trim() }),
+  );
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const next = { until: !until, reason: !reason.trim() };
+    setMissing(next);
+    if (next.until || next.reason) return;
+    grant.mutate(undefined, { onSuccess: onDone });
+  }
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      <p className="fine">
+        {active
+          ? `Ya tiene ${active.plan.name} de cortesía hasta el ${formatDay(active.ends_at)}: lo que elijas reemplaza la de ahora.`
+          : `Ahora está en ${account.plan.name}. Pasa al plan elegido sin pagar y, al vencer, a ${
+              founder ? 'Productor' : 'Básico'
+            }. Una semana antes le mandamos un mail para que se suscriba.`}
+      </p>
+      <SelectField
+        label="Plan"
+        name="plan"
+        value={plan}
+        error={fieldError(grant.error, 'plan')}
+        onChange={(e) => {
+          grant.reset();
+          setPlan(e.target.value as CourtesyPlan);
+        }}
+      >
+        {plans.map((code) => (
+          <option key={code} value={code}>
+            {PLAN_NAMES[code]}
+          </option>
+        ))}
+      </SelectField>
+      <TextField
+        label="Hasta el día"
+        name="hasta"
+        type="date"
+        min={tomorrowInBuenosAires()}
+        max={lastCourtesyDay()}
+        required
+        hint="Gratis hasta el final de ese día, hora de Buenos Aires. Como máximo, un año."
+        value={until}
+        error={missing.until ? 'Elegí una fecha.' : fieldError(grant.error, 'hasta')}
+        onChange={(e) => {
+          setMissing((m) => ({ ...m, until: false }));
+          grant.reset();
+          setUntil(e.target.value);
+        }}
+      />
+      <TextField
+        label="Motivo"
+        name="motivo"
+        autoComplete="off"
+        maxLength={200}
+        required
+        hint="Por qué se la das, para el registro. Hasta 200 caracteres."
+        value={reason}
+        error={missing.reason ? 'Escribí el motivo.' : fieldError(grant.error, 'motivo')}
+        onChange={(e) => {
+          setMissing((m) => ({ ...m, reason: false }));
+          grant.reset();
+          setReason(e.target.value);
+        }}
+      />
+      <FormAlert message={formError(grant.error, ['plan', 'hasta', 'motivo'])} />
+      <div className="bo-dialog-actions">
+        <button type="submit" className="btn btn--primary" disabled={grant.isPending}>
+          {grant.isPending ? 'Dando la cortesía…' : 'Dar cortesía'}
         </button>
         <button type="button" className="btn btn--secondary" onClick={onCancel}>
           Cancelar

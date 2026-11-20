@@ -1,8 +1,10 @@
+from datetime import timedelta
+
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.accounts import plans
-from apps.accounts.models import Plan, PlanChange, PlanRequest, User
+from apps.accounts.models import Courtesy, Plan, PlanChange, PlanRequest, User
 from apps.accounts.serializers import PlanNameSerializer
 from apps.alerts.models import AlertRule
 from apps.lotes.models import Lote
@@ -19,6 +21,8 @@ class AccountRowSerializer(serializers.ModelSerializer):
     plan = PlanNameSerializer(read_only=True)
     status = serializers.SerializerMethodField()
     lotes = serializers.IntegerField(source="lotes_count", read_only=True)
+    # From the queryset's annotation (backoffice.views.is_paying): the plan change refuses it.
+    paying = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -33,6 +37,7 @@ class AccountRowSerializer(serializers.ModelSerializer):
             "date_joined",
             "last_login",
             "is_superuser",
+            "paying",
         ]
         read_only_fields = fields
 
@@ -96,6 +101,7 @@ class PlanPriceSerializer(serializers.ModelSerializer):
             return None
         return {
             "price_ars_month": change.price_ars_month,
+            "price_usd_month": change.price_usd_month,
             "effective_on": change.effective_on.isoformat(),
             "notices": change.notices.count(),
             "notices_sent": change.notices.exclude(sent_at=None).count(),
@@ -103,9 +109,10 @@ class PlanPriceSerializer(serializers.ModelSerializer):
 
 
 class PriceChangeSerializer(serializers.Serializer):
-    """A scheduled peso price (avisos-cambios S1): at least 30 days ahead."""
+    """Scheduled prices in pesos and in dollars (avisos-cambios S1, L8): at least 30 days ahead."""
 
     price_ars_month = serializers.IntegerField(min_value=1)
+    price_usd_month = serializers.IntegerField(min_value=1)
     effective_on = serializers.DateField()
 
     def validate_effective_on(self, value):
@@ -240,6 +247,18 @@ class RecordAlertRuleSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class RecordCourtesySerializer(serializers.ModelSerializer):
+    """The account's active cortesía: a paid plan for free until `ends_at` (cortesias S1)."""
+
+    plan = PlanNameSerializer(read_only=True)
+    granted_by = PersonSerializer(read_only=True, allow_null=True)
+
+    class Meta:
+        model = Courtesy
+        fields = ["plan", "starts_at", "ends_at", "reason", "granted_by"]
+        read_only_fields = fields
+
+
 class AccountRecordSerializer(serializers.ModelSerializer):
     """GET /api/backoffice/cuentas/{id}/: everything about one account on one screen.
 
@@ -255,6 +274,9 @@ class AccountRecordSerializer(serializers.ModelSerializer):
     payments = RecordPaymentSerializer(many=True, read_only=True)
     lotes = RecordLoteSerializer(many=True, read_only=True)
     alert_rules = RecordAlertRuleSerializer(many=True, read_only=True)
+    courtesy = serializers.SerializerMethodField()
+    # From the queryset's annotation (backoffice.views.is_paying): the plan change refuses it.
+    paying = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
@@ -275,11 +297,19 @@ class AccountRecordSerializer(serializers.ModelSerializer):
             "payments",
             "lotes",
             "alert_rules",
+            "courtesy",
+            "paying",
         ]
         read_only_fields = fields
 
     def get_status(self, user: User) -> str:
         return plans.membership_status(user)
+
+    def get_courtesy(self, user: User) -> dict | None:
+        courtesy = (
+            user.courtesies.select_related("plan", "granted_by").filter(ended_at=None).first()
+        )
+        return RecordCourtesySerializer(courtesy).data if courtesy else None
 
 
 EMAIL_IN_USE = "Ya hay una cuenta con ese email."
@@ -302,12 +332,45 @@ class AccountEditSerializer(serializers.Serializer):
 TRIAL_NOT_FUTURE = "La fecha tiene que ser futura."
 
 
+TRIAL_TOO_FAR = "La prueba dura como máximo un año: elegí una fecha hasta el {date}."
+
+
 class TrialSerializer(serializers.Serializer):
-    """POST /api/backoffice/cuentas/{id}/prueba/ {hasta}: a day after today, Buenos Aires time."""
+    """POST /api/backoffice/cuentas/{id}/prueba/ {hasta}: a day after today and at most a year
+    ahead, Buenos Aires time, like a cortesía (cortesias S6)."""
 
     hasta = serializers.DateField()
 
     def validate_hasta(self, value):
-        if value <= timezone.localdate():
+        today = timezone.localdate()
+        if value <= today:
             raise serializers.ValidationError(TRIAL_NOT_FUTURE)
+        last = today + timedelta(days=plans.COURTESY_MAX_DAYS)
+        if value > last:
+            raise serializers.ValidationError(TRIAL_TOO_FAR.format(date=last.strftime("%d/%m/%Y")))
+        return value
+
+
+COURTESY_TOO_FAR = "La cortesía dura como máximo un año: elegí una fecha hasta el {date}."
+
+
+class CourtesySerializer(serializers.Serializer):
+    """POST /api/backoffice/cuentas/{id}/cortesia/ {plan, hasta, motivo} (cortesias S1).
+
+    `hasta` is a day after today and at most a year ahead, Buenos Aires time.
+    """
+
+    plan = serializers.ChoiceField(choices=plans.COURTESY_PLANS)
+    hasta = serializers.DateField()
+    motivo = serializers.CharField(max_length=200)
+
+    def validate_hasta(self, value):
+        today = timezone.localdate()
+        if value <= today:
+            raise serializers.ValidationError(TRIAL_NOT_FUTURE)
+        last = today + timedelta(days=plans.COURTESY_MAX_DAYS)
+        if value > last:
+            raise serializers.ValidationError(
+                COURTESY_TOO_FAR.format(date=last.strftime("%d/%m/%Y"))
+            )
         return value
