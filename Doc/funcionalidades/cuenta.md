@@ -112,3 +112,4 @@ API.
 
 ## Historial
 - 2026-11-16: versión inicial (feature `cuenta-planes-alertas`, T3, T4 y T5).
+- 2026-11-19: el aviso de por qué se salió ("Borramos tu cuenta…", sesión cerrada) ya no se pierde si el guard de rutas privadas redirige antes que Perfil: el motivo también queda en memoria (`frontend/src/lib/signedOut.ts`) hasta que lo muestra el login.

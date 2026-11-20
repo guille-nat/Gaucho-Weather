@@ -28,6 +28,7 @@ import {
   useUpdatePreferences,
 } from '../query/hooks';
 import { fieldError, formError } from '../lib/formErrors';
+import { rememberSignedOut } from '../lib/signedOut';
 import { membership, trialLine } from '../lib/membership';
 
 /** What the login screen tells someone who just left (see Login). */
@@ -526,6 +527,7 @@ export function Perfil() {
   async function leave(signedOut: NonNullable<SignedOutState['signedOut']>) {
     // Ends the session at once (me = null), then moves in the same tick: had we waited for the
     // cleanup, the guard would redirect first and this screen, unmounted, could not say why.
+    rememberSignedOut(signedOut); // survives a guard redirect that lands first (lib/signedOut)
     const ending = endSession({ localOnly: signedOut === 'local' });
     const state: SignedOutState = { signedOut };
     navigate('/ingresar', { replace: true, state });

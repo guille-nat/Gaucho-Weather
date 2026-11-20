@@ -1,10 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { login } from '../api/auth';
 import { ApiError } from '../api/client';
 import { FormAlert, PasswordField, TextField } from '../components/Field';
 import { Icon } from '../components/Icon';
+import { clearSignedOut, peekSignedOut } from '../lib/signedOut';
 import { useStartSession } from '../query/hooks';
 import { AuthLayout } from './AuthLayout';
 import type { SignedOutState } from './Perfil';
@@ -13,7 +14,10 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const arrival = useLocation().state as SignedOutState | null;
-  const signedOut = arrival?.signedOut;
+  // The router state, or the remembered reason when the auth guard redirected first.
+  const [remembered] = useState(peekSignedOut);
+  const signedOut = arrival?.signedOut ?? remembered ?? undefined;
+  useEffect(clearSignedOut, []);
   const startSession = useStartSession();
   const mutation = useMutation({ mutationFn: login, onSuccess: startSession });
 
