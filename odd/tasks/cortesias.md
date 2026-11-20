@@ -52,6 +52,7 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 | T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | done | 96f80e3 |
 | T2 | S5 frontend (and S6 in the UI) | delegated writer (same reason) | done | abd3941 |
 | T3 | S1, S6 verifier blockers and hardening | delegated writer (context backstop) | done | 2a54254 |
+| T4 | S4 plan change refuses paying accounts (L8) | delegated writer (context backstop) | pending | |
 
 Risk: item 2 (permissions and guards: who can give a paid plan for free) and item 3 (changes the backoffice plan-change API, requested by the user). Independent verifier after T2.
 
@@ -73,3 +74,4 @@ Risk: item 2 (permissions and guards: who can give a paid plan for free) and ite
   3. `TrialForm` reuses `lastCourtesyDay()` for its `max` (same one-year limit; `format.ts` was outside the surface).
   4. The writer removed its own scratch copy of the mock after the frontend RED check.
 - **L7** (2026-11-20): parent recheck of T3 (2a54254): backend 947 passed. Verifier's probes rerun on the fix: the concurrency probe passes (at most 20 active); `test_revoke_then_regrant_resets_the_year`, written to show the bug, now gets 400 on the re-grant, the expected refusal. Verifier scratch removed. Feature closed: S1–S6 done. Pending for the user: push and PRs; two-step verification for super admins (follow-up).
+- **L8** (2026-11-20): user, about "Comprador Prueba" (Productor, paying through Mercado Pago): "por que no me deja subirlo o bajarlo de plan?". Probe (rolled back): empresa → 400 "Para dar un plan pago sin cobrar, usá una cortesía." (as designed); basico → 200, a bug present before this feature: the account drops to Básico while Mercado Pago keeps charging Productor. S4 addition: the plan change refuses an account with a running subscription (authorized or paused, or cancelled still in its paid month) with "La cuenta paga una suscripción: para bajarla, cancelá la suscripción desde su ficha (sigue con el plan hasta el fin del mes pagado); para subirla, la persona se suscribe al otro plan." The record does not offer "Cambiar plan" for such an account and shows that sentence instead. T4 opened.

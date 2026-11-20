@@ -43,6 +43,7 @@ The promises, verbatim from the texts:
 | T2 | S3 provider amount update and the daily task | inline | done, verified (Risk item 1) | b24b30a, 7021203 |
 | T3 | S4 backoffice Precios page | inline | done | 46c36fb |
 | T4 | S5 terms versions with an effective date and notices | inline | done | 5dcc845 |
+| T5 | S1 the dollar price in a scheduled change (L8) | delegated writer (context backstop) | pending | |
 
 Forecast: about 900 authored changed lines, over the 400 budget: PR slices T1+T2, T3, T4 (stacked-to-main).
 Risk: T2 is item 1 (changes what Mercado Pago charges running subscriptions) and gets its own commit and an independent verifier.
@@ -56,3 +57,4 @@ Risk: T2 is item 1 (changes what Mercado Pago charges running subscriptions) and
 - **L6** (2026-11-20): T4 done (5dcc845). `TERMS_VERSION` stays the shipped (newest) version, so the frontend drift test still holds; `EARLIER_VERSIONS` keeps the older ones and `version_in_force()` decides the dialog; `me.terms_version` is the version in force. With `EARLIER_VERSIONS` empty (today) nothing changes, pinned by a test. No frontend change was needed: the dialog reads `me.terms_version` and the legal pages already show "Vigente desde". `long_date` moved to `apps/accounts/dates.py`, shared by both notices. Backend 884 passed, ruff clean, migrations up to date. Risk: none for T4 (unchanged while there is one version).
   - Feature closed: S1–S5 done. Pending for the user: push and PRs (slices T1+T2+fix, T3, T4), the lawyer review of the texts.
 - **L7** (2026-11-20): native review of 2df06b5..ce45a31 (lineage review-79740b62cade8bfb, lenses risk, resilience and reliability), granted by the user: approved and acknowledged. Risk and resilience found nothing. Reliability: one WARNING, the notice email is sent inside the transaction that sets `sent_at` (the verifier's advisory 3, not fixed).
+- **L8** (2026-11-20): user, about the scheduling dialog showing only pesos: "noo, cargo yo el peso y el dolar". S1 changes: a scheduled change carries both `price_ars_month` and `price_usd_month` (both required, whole numbers ≥ 1); on its date both plan prices are set; notices and Mercado Pago amounts stay in pesos (every subscription is ARS today). The pending change, the log payload and Registro show both. T5 opened.
