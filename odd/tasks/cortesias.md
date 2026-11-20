@@ -72,3 +72,4 @@ Risk: item 2 (permissions and guards: who can give a paid plan for free) and ite
   2. `clean_plan` and the plan branch of `save_model` were removed from the Django admin: dead once the plan is read-only.
   3. `TrialForm` reuses `lastCourtesyDay()` for its `max` (same one-year limit; `format.ts` was outside the surface).
   4. The writer removed its own scratch copy of the mock after the frontend RED check.
+- **L7** (2026-11-20): parent recheck of T3 (2a54254): backend 947 passed. Verifier's probes rerun on the fix: the concurrency probe passes (at most 20 active); `test_revoke_then_regrant_resets_the_year`, written to show the bug, now gets 400 on the re-grant, the expected refusal. Verifier scratch removed. Feature closed: S1–S6 done. Pending for the user: push and PRs; two-step verification for super admins (follow-up).
