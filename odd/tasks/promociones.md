@@ -239,3 +239,9 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
     - fix advisories 1, 3 and 7;
     - the lab's daily subscription is still waiting for authorization;
     - then plan M1 (`odd/tasks/mejoras-productor.md`).
+- **L16** (2026-11-20): user: "seguimos donde lo dejamos". Advisories from L15:
+  - 1 fixed (811373e): `acepta_terminos` accepts only a JSON true; any other value answers TERMS_REQUIRED.
+  - 7 fixed (eb03b9a, 9324fd3): deleting an account cancels its pending, authorized and paused Mercado Pago subscriptions first; if Mercado Pago fails, 502 and the account stays; a remote "already cancelled" counts as done. Clause 9 of the terms updated (no version bump: draft until the lawyer review).
+    - Independent verifier (Risk item 1): pass, no blockers. Its advisories: the stale-row case (fixed in 9324fd3), the partial-failure probe (kept as a test). Not fixed: with the Mercado Pago token removed while subscription rows exist, deletion answers 502 (safer than leaving a charge running); the Django admin can still delete a user without cancelling at Mercado Pago (pre-existing, out of scope).
+  - 3: user chose "Hacerlo en la app (Recomendado)": scheduled price changes and terms versions with an email notice. Tracked in `odd/tasks/avisos-cambios.md`.
+  - Checks: backend 838 passed, ruff clean. Frontend terminos.test.tsx: 19 passed, 1 failed (advisory 5, the version-drift test inside the frontend container).
