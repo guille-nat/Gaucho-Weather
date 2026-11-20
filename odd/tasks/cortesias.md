@@ -51,7 +51,6 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 |---|---|---|---|---|
 | T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | done | 96f80e3 |
 | T2 | S5 frontend (and S6 in the UI) | delegated writer (same reason) | done | abd3941 |
-
 | T3 | S1, S6 verifier blockers and hardening | delegated writer (context backstop) | pending | |
 
 Risk: item 2 (permissions and guards: who can give a paid plan for free) and item 3 (changes the backoffice plan-change API, requested by the user). Independent verifier after T2.
