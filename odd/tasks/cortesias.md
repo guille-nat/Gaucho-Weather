@@ -44,7 +44,7 @@ User's decision (L2): "Cerrarlo (Recomendado)": "El cambio de plan del equipo so
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1–S4, S6 backend (model, API, expiry, emails, closing the plan change) | delegated writer (context backstop: the parent session is long) | done | 96f80e3 |
-| T2 | S5 frontend | delegated writer (same reason) | pending, after T1 | |
+| T2 | S5 frontend (and S6 in the UI) | delegated writer (same reason) | done | abd3941 |
 
 Risk: item 2 (permissions and guards: who can give a paid plan for free) and item 3 (changes the backoffice plan-change API, requested by the user). Independent verifier after T2.
 
@@ -56,3 +56,6 @@ Risk: item 2 (permissions and guards: who can give a paid plan for free) and ite
   2. `subscribe` allows the same plan when the account has an end date, so a founder on an Empresa cortesía can pay Empresa.
   3. A re-grant that only changes the date writes no plan-change row, and the reminder goes out once per cortesía.
   4. Revoking sends no email.
+- **L4** (2026-11-20): T2 done in abd3941 (S5, S6 in the UI). RED first: the 13 tests in `frontend/src/test/cortesias.test.tsx` failed before the code (the user-history one checked separately); all pass now. Two existing tests that moved Marta to Empresa through "Cambiar plan" now move Juan down to Básico. With the parent's approval, `founder-upgrade.test.tsx` now asserts that "Cambiar plan" offers a founder only Básico and Productor and sends nothing (the backend tests cover the refusal), and `PlanChangeReason` in `api/types.ts` gained `courtesy` and `courtesy_ended`. The user's plan history in `Suscripcion.tsx` says "Empezó tu cortesía" and "Terminó tu cortesía", in the second person like its other entries. Check: `docker compose exec -T frontend sh -c 'npx tsc --noEmit -p . && npx eslint src --max-warnings 0 && npx prettier --check src && npx vitest run'` → tsc, eslint and prettier clean; 365 passed, 1 failed: the known `terminos.test.tsx > shows the same version as the backend` (the container mounts only ./frontend). Deviations accepted by the parent:
+  1. With an active cortesía the button reads "Cambiar cortesía" and the dialog starts from its plan, date and reason (the re-grant of S1).
+  2. "Dar cortesía" is not hidden on the super admin's own account: the server refuses it and the dialog shows the refusal.
