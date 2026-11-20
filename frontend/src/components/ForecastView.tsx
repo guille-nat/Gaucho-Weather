@@ -1,4 +1,11 @@
-import { useId, useState, type ReactNode } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { Forecast, ForecastDay, Level, Sky } from '../api/types';
 import {
   DECISION_TITLE,
@@ -24,8 +31,9 @@ import {
   MODEL_LABELS,
   windFrom,
 } from '../lib/format';
-import { conditionLabel, dayPhase, todaySky } from '../lib/sky';
+import { conditionLabel, currentSky, dayPhase } from '../lib/sky';
 import { Icon, type IconName } from './Icon';
+import { SkyMotion, SkyPause } from './SkyMotion';
 
 /**
  * The forecast screen of a place (S1, S8, S9): Inicio and each lote share it. Big reading first,
@@ -47,6 +55,9 @@ interface ForecastViewProps {
   updating?: boolean;
 }
 
+/** The shortest wait that earns the rain bars growing: below it, nobody saw a wait. */
+const REVEAL_AFTER_MS = 120;
+
 export function ForecastView({
   forecast,
   fallback,
@@ -56,9 +67,25 @@ export function ForecastView({
   notice,
   updating,
 }: ForecastViewProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const waitingSince = useRef<number | null>(null);
+  // A forecast that arrives after a wait the farmer could see grows its rain bars (motion-pass).
+  // The blocks themselves enter by sections on every insertion (app.css, Motion).
+  // A wait too short to notice (a cached forecast while the phone finds itself) shows at once, so
+  // returning to Clima does not replay the entrance. Set before paint, outside React's attributes.
+  useLayoutEffect(() => {
+    if (!forecast) {
+      waitingSince.current ??= performance.now();
+      return;
+    }
+    if (waitingSince.current === null) return;
+    const waited = performance.now() - waitingSince.current;
+    waitingSince.current = null;
+    if (waited >= REVEAL_AFTER_MS && root.current) root.current.dataset.reveal = '';
+  }, [forecast]);
   // The header keeps its place in the tree whatever loads below it, so focus and taps survive.
   return (
-    <div className="forecast" aria-busy={updating || undefined}>
+    <div ref={root} className="forecast" aria-busy={updating || undefined}>
       <div className="forecast-head">
         {header}
         {notice}
@@ -79,6 +106,7 @@ function ForecastBody({
 }: Pick<ForecastViewProps, 'decisions' | 'frostModels'> & { forecast: Forecast }) {
   return (
     <>
+      <SkyMotion forecast={forecast} />
       <div className="forecast-main">
         <Hero forecast={forecast} />
         {decisions === 'pill' ? (
@@ -117,12 +145,13 @@ function Hero({ forecast }: { forecast: Forecast }) {
   const night = dayPhase(forecast) === 'night';
   return (
     <section className="hero" aria-label="Ahora">
+      <SkyPause forecast={forecast} />
       <p className="hero-temp">
         <span className="sr-only">Temperatura ahora: </span>
         <span>{formatDegrees(forecast.now.temperature_c)}</span>
       </p>
       <p className="hero-cond">
-        <Icon name={skyIcon(todaySky(forecast), night)} size={28} strokeWidth={1.8} />
+        <Icon name={skyIcon(currentSky(forecast), night)} size={28} strokeWidth={1.8} />
         <span>{conditionLabel(forecast)}</span>
       </p>
       <p className="hero-range">
@@ -212,9 +241,11 @@ function DecisionsBlock({
         Decisiones para este lote
       </h2>
       <ul className="decision-list">
-        <li className="decision">
+        <li className={`decision decision--${frost.level}`}>
           <span className="decision-head">
-            <Icon name="snowflake" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="snowflake" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.frost_tonight}</span>
             <LevelChip level={frost.level} />
           </span>
@@ -252,9 +283,11 @@ function DecisionsBlock({
             </details>
           ) : null}
         </li>
-        <li className="decision">
+        <li className={`decision decision--${spray.level}`}>
           <span className="decision-head">
-            <Icon name="drop" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="drop" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.spray_today}</span>
             <LevelChip level={spray.level} />
           </span>
@@ -270,9 +303,11 @@ function DecisionsBlock({
             </dl>
           ) : null}
         </li>
-        <li className="decision">
+        <li className={`decision decision--${field.level}`}>
           <span className="decision-head">
-            <Icon name="parcel" size={22} />
+            <span className="decision-icon" aria-hidden="true">
+              <Icon name="parcel" size={22} strokeWidth={2.2} />
+            </span>
             <span className="decision-title">{DECISION_TITLE.field_work}</span>
             <LevelChip level={field.level} />
           </span>
@@ -306,6 +341,11 @@ function Hours({ forecast }: { forecast: Forecast }) {
   // A new place has no ensemble: no probability at all, so the row goes instead of filling dashes.
   const withProbability = hours.some((h) => h.rain_probability_pct !== null);
   const today = forecast.daily[0]?.date ?? '';
+  // The first hour of each new day, marked in every row so the day change runs down the whole
+  // strip, not only through the header.
+  const newDay = hours.map((hour, i) => i > 0 && formatHour(hour.time) === '0\u00a0h');
+  const cell = (i: number, extra?: string) =>
+    [newDay[i] ? 'is-new-day' : '', extra ?? ''].filter(Boolean).join(' ') || undefined;
   return (
     <section className="panel hours" aria-labelledby={titleId}>
       <h2 id={titleId} className="panel-title">
@@ -323,10 +363,9 @@ function Hours({ forecast }: { forecast: Forecast }) {
               <td />
               {hours.map((hour, i) => {
                 const label = i === 0 ? 'Ahora' : formatHour(hour.time);
-                const midnight = i > 0 && label === '0\u00a0h';
                 return (
-                  <th key={hour.time} scope="col" className={midnight ? 'is-new-day' : undefined}>
-                    {midnight ? (
+                  <th key={hour.time} scope="col" className={cell(i)}>
+                    {newDay[i] ? (
                       <span className="hours-day">
                         {formatDayShort(hour.time.slice(0, 10), today)}{' '}
                       </span>
@@ -337,17 +376,23 @@ function Hours({ forecast }: { forecast: Forecast }) {
               })}
             </tr>
           </thead>
-          <tbody>
+          {/* One band per variable, each with its own tint, so temperature, rain and wind read
+              apart at a glance (the table stays one table for screen readers). */}
+          <tbody className="hours-band hours-band--temp">
             <tr className="hours-temp">
               <RowHead icon="thermometer" short="°C" name="Temperatura" />
-              {hours.map((h) => (
-                <td key={h.time}>{formatDegrees(h.temperature_c)}</td>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
+                  {formatDegrees(h.temperature_c)}
+                </td>
               ))}
             </tr>
+          </tbody>
+          <tbody className="hours-band hours-band--rain">
             <tr>
               <RowHead icon="rain" short="mm" name="Lluvia (mm)" />
-              {hours.map((h) => (
-                <td key={h.time} className={h.rain_mm ? 'is-wet' : undefined}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i, h.rain_mm ? 'is-wet' : undefined)}>
                   {formatOneDecimal(h.rain_mm)}
                 </td>
               ))}
@@ -355,23 +400,33 @@ function Hours({ forecast }: { forecast: Forecast }) {
             {withProbability ? (
               <tr>
                 <RowHead icon="drop" short="%" name="Probabilidad de lluvia" />
-                {hours.map((h) => (
-                  <td key={h.time}>{formatPct(h.rain_probability_pct)}</td>
+                {hours.map((h, i) => (
+                  <td key={h.time} className={cell(i)}>
+                    {/* A small bar under the figure: the chance of rain readable at a glance. */}
+                    <span
+                      className="hours-prob"
+                      style={{ '--p': `${h.rain_probability_pct ?? 0}%` } as CSSProperties}
+                    >
+                      {formatPct(h.rain_probability_pct)}
+                    </span>
+                  </td>
                 ))}
               </tr>
             ) : null}
+          </tbody>
+          <tbody className="hours-band hours-band--wind">
             <tr>
               <RowHead icon="wind" short="km/h" name="Viento (km/h)" />
-              {hours.map((h) => (
-                <td key={h.time}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
                   {formatOneDecimal(h.wind_kmh === null ? null : Math.round(h.wind_kmh))}
                 </td>
               ))}
             </tr>
             <tr>
               <RowHead icon="wind" short="ráf." name="Ráfagas (km/h)" />
-              {hours.map((h) => (
-                <td key={h.time}>
+              {hours.map((h, i) => (
+                <td key={h.time} className={cell(i)}>
                   {formatOneDecimal(h.gust_kmh === null ? null : Math.round(h.gust_kmh))}
                 </td>
               ))}
@@ -412,7 +467,7 @@ function Week({ forecast }: { forecast: Forecast }) {
         Próximos 7 días
       </h2>
       <ul className="week-list" aria-labelledby={titleId}>
-        {days.map((day) => {
+        {days.map((day, index) => {
           const mm = day.rain_mm ?? 0;
           const width = Math.min(100, (mm / scale) * 100);
           return (
@@ -440,7 +495,7 @@ function Week({ forecast }: { forecast: Forecast }) {
                   <span
                     className="rain-fill"
                     data-rain-bar=""
-                    style={{ width: `${Number(width.toFixed(2))}%` }}
+                    style={{ width: `${Number(width.toFixed(2))}%`, '--i': index } as CSSProperties}
                   />
                 </span>
                 <span className={mm > 0 ? 'day-mm' : 'day-mm is-dry'}>{formatMm(day.rain_mm)}</span>

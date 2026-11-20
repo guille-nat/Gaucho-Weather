@@ -19,7 +19,9 @@ body {
   font-size: var(--text-body);
   line-height: 1.45;
   color: var(--ink);
-  background: var(--sky-b);
+  /* Transparent on purpose: an opaque body paints over the z-index -1 sky field and the
+     animated sky. The html element keeps var(--sky-b) as the colour behind them. */
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

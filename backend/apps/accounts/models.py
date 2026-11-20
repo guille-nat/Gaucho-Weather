@@ -41,6 +41,11 @@ class Plan(models.Model):
     price_ars_month = models.PositiveIntegerField(
         "precio mensual (ARS)", null=True, blank=True, help_text="Vacío = «Precio a confirmar»."
     )
+    # A fixed dollar price, not a conversion: both prices are updated every three months
+    # (precios-productor S5).
+    price_usd_month = models.PositiveIntegerField(
+        "precio mensual (USD)", null=True, blank=True, help_text="Vacío = «Precio a confirmar»."
+    )
     max_lotes = models.PositiveIntegerField(
         "máximo de lotes", null=True, blank=True, help_text="Vacío = sin límite."
     )

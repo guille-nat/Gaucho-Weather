@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { AlertRule, PlanChange, User } from '../api/types';
 import { createMockDb, type MockDb } from '../mocks/handlers';
-import { account, demoLotes, demoUser, planOf } from '../mocks/fixtures';
+import { account, demoLotes, demoPlans, demoUser, planOf } from '../mocks/fixtures';
 import { renderApp } from './renderApp';
 
 const ROUTE = '/perfil/suscripcion';
@@ -128,6 +128,59 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
     expect(within(change).queryByRole('button', { name: /Quedarme con/ })).toBeNull();
   });
 
+  it('shows the three plans as cards, Productor the most chosen and the current one marked', async () => {
+    renderApp(ROUTE, dbFor(demoUser));
+
+    const change = await region('Cambiar de plan');
+    const cards = within(change).getAllByRole('article');
+    expect(cards.map((card) => card.getAttribute('aria-label'))).toEqual([
+      'Plan Productor',
+      'Plan Básico',
+      'Plan Empresa',
+    ]);
+    const [productor, basico] = cards as [HTMLElement, HTMLElement];
+    expect(within(productor).getByText('El más elegido')).toBeInTheDocument();
+    // A founder's card says they pay nothing, whatever the plan's price.
+    expect(within(productor).getByText('Gratis para siempre: sos founder n.º 7')).toBeVisible();
+    expect(within(basico).queryByText('El más elegido')).toBeNull();
+    // Going down to Básico is the cancel flow below, not a card button.
+    expect(within(basico).queryByRole('button')).toBeNull();
+    expect(within(basico).getByText('Es el plan al que pasás si te das de baja.')).toBeVisible();
+  });
+
+  it('offers the cards in pesos or dollars, with the payment line (precios-productor S5)', async () => {
+    const plans = demoPlans.map((p) =>
+      p.code === 'productor' ? { ...p, price_ars_month: 14900, price_usd_month: 10 } : p,
+    );
+    const { user } = renderApp(ROUTE, dbFor(basicoUser, { plans }));
+
+    const change = await region('Cambiar de plan');
+    expect(
+      within(change).getByText(
+        'Podés pagar en pesos o en dólares. Actualizamos los precios cada 3 meses.',
+      ),
+    ).toBeInTheDocument();
+    const productor = within(change).getByRole('article', { name: 'Plan Productor' });
+    expect(within(productor).getByText('$ 14.900')).toBeInTheDocument();
+
+    const choice = within(change).getByRole('group', { name: 'Moneda' });
+    await user.click(within(choice).getByRole('button', { name: 'Dólares' }));
+
+    expect(within(productor).getByText('US$ 10')).toBeInTheDocument();
+    expect(within(productor).queryByText('$ 14.900')).toBeNull();
+  });
+
+  it('invites a Básico account to Productor with the founder places left', async () => {
+    renderApp(ROUTE, dbFor(basicoUser, { founders: { limit: 100, remaining: 37 } }));
+
+    const change = await region('Cambiar de plan');
+    const productor = within(change).getByRole('article', { name: 'Plan Productor' });
+    expect(
+      within(productor).getByText('Quedan 37 lugares de founder: gratis para siempre'),
+    ).toBeInTheDocument();
+    expect(within(productor).getByRole('button', { name: 'Pedir este plan' })).toBeEnabled();
+  });
+
   it('asks for another plan and shows the request as pending', async () => {
     const db = dbFor(demoUser);
     const { user } = renderApp(ROUTE, db);
@@ -138,7 +191,10 @@ describe('Tu suscripción (cuenta-planes-alertas S14)', () => {
         'Todavía no cobramos online: el equipo aplica tu pedido a mano y te avisa por email.',
       ),
     ).toBeInTheDocument();
-    expect(within(change).queryByRole('article', { name: 'Plan Productor' })).toBeNull();
+    // The current plan is one of the cards now, marked and with nothing to ask for.
+    const productor = within(change).getByRole('article', { name: 'Plan Productor' });
+    expect(within(productor).getByText('Tu plan')).toBeInTheDocument();
+    expect(within(productor).queryByRole('button', { name: 'Pedir este plan' })).toBeNull();
     const empresa = await within(change).findByRole('article', { name: 'Plan Empresa' });
     await user.click(within(empresa).getByRole('button', { name: 'Pedir este plan' }));
 

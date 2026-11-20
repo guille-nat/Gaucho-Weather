@@ -199,6 +199,7 @@ def test_me_reports_plan_usage_founder_number_and_preferences(api_client):
         "code": "productor",
         "name": "Productor",
         "price_ars_month": None,
+        "price_usd_month": None,
         "max_lotes": 15,
         "max_alert_rules": None,
         "allows_push": True,
@@ -223,6 +224,18 @@ def test_plans_endpoint_is_public_and_counts_founder_slots_left(api_client):
     assert [plan["highlighted"] for plan in body["plans"]] == [False, True, False]
     assert body["founders"] == {"limit": 100, "remaining": 99}
     assert body["trial_days"] == 30
+
+
+def test_plans_endpoint_returns_the_dollar_price_beside_the_peso_price(api_client):
+    Plan.objects.filter(code="productor").update(price_ars_month=14900, price_usd_month=10)
+    Plan.objects.filter(code="basico").update(price_ars_month=0, price_usd_month=0)
+
+    body = api_client.get(PLANS).json()
+
+    prices = {
+        plan["code"]: (plan["price_ars_month"], plan["price_usd_month"]) for plan in body["plans"]
+    }
+    assert prices == {"basico": (0, 0), "productor": (14900, 10), "empresa": (None, None)}
 
 
 def test_backfill_makes_existing_accounts_founders_oldest_first(make_user):

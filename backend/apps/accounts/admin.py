@@ -91,6 +91,7 @@ class PlanAdmin(admin.ModelAdmin):
         "name",
         "code",
         "price_ars_month",
+        "price_usd_month",
         "max_lotes",
         "max_alert_rules",
         "allows_push",
@@ -100,6 +101,7 @@ class PlanAdmin(admin.ModelAdmin):
     ]
     list_editable = [
         "price_ars_month",
+        "price_usd_month",
         "max_lotes",
         "max_alert_rules",
         "allows_push",

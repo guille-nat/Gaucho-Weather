@@ -34,14 +34,24 @@ abajo).
 
   ```
   {fetched_at, models: [str],
-   now: {time, temperature_c, humidity_pct, wind_kmh, wind_dir_deg, gust_kmh},
+   now: {time, temperature_c, humidity_pct, wind_kmh, wind_dir_deg, gust_kmh,
+         sky, cloud_cover_pct, rain_mm},
    today: {max_c, min_c, sunrise, sunset},
    rain_past_7d_mm,
    daily: [{date, max_c, min_c, rain_mm, rain_probability_pct, sky}] (7),
    hourly: [{time, temperature_c, humidity_pct, wind_kmh, gust_kmh, rain_mm,
-             rain_probability_pct}] (48),
+             rain_probability_pct, sky, cloud_cover_pct}] (48),
    decisions: {frost_tonight, spray_today, field_work, engine_version, validated}}
   ```
+- **Cielo de cada hora** (`now.sky`, `hourly[].sky`): alimenta el fondo animado. Las
+  reglas son las del cielo del día, con un umbral de lluvia propio de una hora:
+  - es `tormenta` si la mayoría de los modelos trae un código WMO 95, 96 o 99 en esa hora;
+  - es `lluvia` si la mediana de la precipitación de la hora llega a 0,2 mm
+    (`SKY_RAIN_HOUR_MM`). El umbral es el doble de la resolución de 0,1 mm de los
+    modelos, para que una traza no se pinte como lluvia;
+  - si no, decide la nubosidad: menos de 30 % es `sol`, menos de 70 % es `parcial` y
+    el resto `nublado`. Sin dato de nubes, `parcial`.
+  - `cloud_cover_pct` es la mediana entre modelos.
 
 ### Pronóstico público (S8, S10)
 - Vista: `PublicForecastView` en `backend/apps/weather/views.py`; la lógica, en
@@ -121,3 +131,6 @@ abajo).
 - 2026-11-03: versión inicial (feature `clima-y-fileteado`).
 - 2026-11-03: pronóstico público `GET /api/pronostico/?lat=&lon=` con descarga
   a demanda y `place` (S8, S10, T5). El del lote no cambia.
+- 2026-11-17: `sky` y `cloud_cover_pct` por hora, y `now.rain_mm`, para el fondo
+  animado (feature `cielo-animado`). Son campos agregados; nadie que ya consuma la
+  API se rompe.

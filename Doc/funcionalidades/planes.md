@@ -24,7 +24,39 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
 - Lógica en `backend/apps/accounts/plans.py`. Los valores por defecto están en
   `DEFAULT_PLANS` y los siembra la migración `0003_seed_plans` (hay que
   mantener los dos iguales).
-- El precio arranca vacío y la página muestra "Precio a confirmar".
+- El precio arranca vacío y la página muestra "Precio a confirmar". Un precio de 0 se
+  muestra como "Gratis", sin "/ mes".
+- **Precios decididos (2026-11-17):** Básico gratis, Productor $ 14.900 / mes y Empresa
+  $ 49.900 / mes. Se cargan en el admin (Planes → precio mensual); en desarrollo ya
+  están cargados y el mock (`dev:mock`) usa los mismos. El modelo es freemium:
+  - **Básico gratis** compite con las apps de clima agro gratuitas y es donde cae quien
+    termina la prueba. Así nadie pierde el pronóstico ni sus 2 lotes.
+  - **Productor** sale unos $ 1.000 por lote al mes con 15 lotes. Una sola helada o
+    pulverización bien decidida lo paga muchas veces.
+  - **Empresa** cuesta más de 3 veces Productor, así que Productor queda como la opción
+    obvia. Es para contratistas y empresas con muchos lotes.
+  - Referencia de mercado: casi todas las apps de clima agro en Argentina son gratis o
+    no publican su precio. La única con precios en pesos (ClimaVista Agro, por
+    hectárea, con un mes de prueba) tiene montos desactualizados. Los precios se
+    revisan con la inflación desde el admin, sin tocar código.
+
+### Moneda
+- Cada plan tiene dos precios fijos: `price_ars_month` (pesos) y `price_usd_month`
+  (dólares). Los dos se cargan en el admin y vacío significa "Precio a confirmar".
+- **Decisión:** precios fijos en cada moneda, sin convertir con el dólar oficial ni el
+  MEP. **Por qué:** el usuario decidió dar las dos opciones de pago y actualizar los
+  precios cada 3 meses (precios-productor L9), así que no hace falta una API de
+  cotización.
+- Planes y Suscripción muestran un selector "Pesos" / "Dólares" arriba de las
+  tarjetas. La elección se guarda en el dispositivo (`localStorage`, clave
+  `gw-currency-v1`, en `frontend/src/lib/currency.ts`) y arranca en pesos. Si el
+  navegador bloquea el almacenamiento, la elección dura solo esa visita.
+- Las tarjetas muestran "$ 14.900 / mes" o "US$ 10 / mes". Un precio de 0 se muestra
+  como "Gratis" en las dos monedas. Debajo del selector se lee: "Podés pagar en pesos o
+  en dólares. Actualizamos los precios cada 3 meses."
+- **Precios en dólares (2026-11-17):** Básico 0, Productor US$ 10 y Empresa US$ 35, en
+  línea con los precios en pesos. En desarrollo y en el mock ya están cargados; en
+  producción se cargan en el admin.
 
 ### Founders
 - `start_membership` corre dentro de la transacción del registro. Bloquea la
@@ -144,7 +176,7 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   [cuenta.md](cuenta.md).
 
 ## Cómo modificarlo
-- Límites, precio, push, soporte, destacado y orden se editan en el admin
+- Límites, precios (pesos y dólares), push, soporte, destacado y orden se editan en el admin
   (`/api/admin/`, Planes). El cupo de founders y los días de prueba, en
   "Programa founders". El plan y el vencimiento de cada usuario, en Usuarios.
 - Un plan nuevo con límite: sumar el campo en `Plan`, el caso en `LIMITS` y la
@@ -168,3 +200,9 @@ Básico. Todavía no se cobra: no hay pasarela de pago.
   que siembra el historial de las cuentas existentes.
 
 - 2026-11-16 — Quien está en la prueba puede pedir quedarse con Productor ("Quedarme con Productor" en `/perfil/suscripcion`): pedir el mismo plan en una prueba significa conservarlo; al aplicarlo se borra el vencimiento y queda en el historial como pedido aplicado.
+- 2026-11-17 — Precios: Básico gratis, Productor $ 14.900 y Empresa $ 49.900 por mes;
+  "Gratis" en lugar de "$ 0"; tarjetas de precios con Productor como "El más elegido"
+  (feature `precios-productor`).
+- 2026-11-17 — Moneda: precio fijo en dólares por plan (`price_usd_month`, migración
+  `0008_plan_price_usd`) y selector "Pesos" / "Dólares" en Planes y Suscripción
+  (feature `precios-productor`, S5).

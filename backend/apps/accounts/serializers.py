@@ -14,6 +14,7 @@ class PlanSerializer(serializers.ModelSerializer):
             "code",
             "name",
             "price_ars_month",
+            "price_usd_month",
             "max_lotes",
             "max_alert_rules",
             "allows_push",

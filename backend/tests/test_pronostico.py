@@ -140,6 +140,9 @@ def test_payload_shape_matches_the_contract(auth_client, user):
         "wind_kmh",
         "wind_dir_deg",
         "gust_kmh",
+        "sky",
+        "cloud_cover_pct",
+        "rain_mm",
     }
     assert set(body["today"]) == {"max_c", "min_c", "sunrise", "sunset"}
     assert len(body["daily"]) == 7
@@ -156,7 +159,10 @@ def test_payload_shape_matches_the_contract(auth_client, user):
             "gust_kmh",
             "rain_mm",
             "rain_probability_pct",
+            "sky",
+            "cloud_cover_pct",
         }
+        assert hour["sky"] in {"sol", "parcial", "nublado", "lluvia", "tormenta"}
     decisions = body["decisions"]
     assert set(decisions) == {
         "frost_tonight",
@@ -192,6 +198,9 @@ def test_values_use_the_median_across_models_in_local_time(auth_client, user):
         "wind_kmh": 13.0,
         "wind_dir_deg": 350,  # circular mean, not 350 averaged with 0
         "gust_kmh": 20.0,
+        "sky": "parcial",  # 50 % cloud, dry
+        "cloud_cover_pct": 50.0,
+        "rain_mm": 0.0,
     }
     assert body["today"] == {
         "max_c": 21.0,
@@ -209,6 +218,66 @@ def test_values_use_the_median_across_models_in_local_time(auth_client, user):
     assert body["hourly"][0]["time"] == f"2026-11-03T15:00:00{OFFSET}"
     assert body["hourly"][-1]["time"] == f"2026-11-05T14:00:00{OFFSET}"
     assert body["hourly"][1]["rain_mm"] == 0.0  # 4 mm in one model only
+
+
+def with_hours(payload, **columns):
+    """Overrides hourly values: `columns` maps a variable to {stamp: value}."""
+    times = payload["hourly"]["time"]
+    for variable, by_stamp in columns.items():
+        values = payload["hourly"][variable]
+        for stamp, value in by_stamp.items():
+            values[times.index(stamp)] = value
+    return payload
+
+
+@time_machine.travel(NOW, tick=False)
+def test_each_hour_has_its_own_sky_from_rain_thunder_and_cloud(auth_client, user):
+    det = ForecastSnapshot.Kind.DETERMINISTIC
+    hours = ["2026-11-03T16:00", "2026-11-03T17:00", "2026-11-03T18:00", "2026-11-03T19:00"]
+    clouds = {hours[2]: 10, hours[3]: 90}
+    for model, rain, storm in (
+        ("ecmwf_ifs025", 0.3, True),
+        ("gfs_seamless", 0.5, True),
+        ("icon_seamless", 0.0, False),
+    ):
+        payload = with_hours(
+            deterministic(20.0),
+            precipitation={hours[0]: rain},
+            weather_code={hours[1]: 95 if storm else 3},
+            cloud_cover=clouds,
+        )
+        store(model, det, payload)
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    by_time = {h["time"]: h for h in body["hourly"]}
+    sky = [by_time[f"{stamp}:00{OFFSET}"]["sky"] for stamp in hours]
+    # 0.3 mm median is rain for one hour; two of three models thunder; 10 % and 90 % cloud.
+    assert sky == ["lluvia", "tormenta", "sol", "nublado"]
+    assert by_time[f"{hours[0]}:00{OFFSET}"]["rain_mm"] == 0.3
+    assert by_time[f"{hours[3]}:00{OFFSET}"]["cloud_cover_pct"] == 90.0
+    assert body["now"]["sky"] == "parcial"
+
+
+@time_machine.travel(NOW, tick=False)
+def test_a_trace_of_rain_or_one_thundering_model_does_not_change_the_hour_sky(auth_client, user):
+    det = ForecastSnapshot.Kind.DETERMINISTIC
+    hour = "2026-11-03T16:00"
+    for model, rain, code in (
+        ("ecmwf_ifs025", 0.1, 95),
+        ("gfs_seamless", 0.1, 3),
+        ("icon_seamless", 0.0, 3),
+    ):
+        store(
+            model,
+            det,
+            with_hours(deterministic(20.0), precipitation={hour: rain}, weather_code={hour: code}),
+        )
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    entry = next(h for h in body["hourly"] if h["time"] == f"{hour}:00{OFFSET}")
+    assert entry["sky"] == "parcial"
 
 
 @time_machine.travel(NOW, tick=False)

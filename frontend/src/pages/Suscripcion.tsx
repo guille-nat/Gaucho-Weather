@@ -11,10 +11,12 @@ import type {
 import { FormAlert } from '../components/Field';
 import { FounderBadge, FounderStory } from '../components/FounderBadge';
 import { Icon } from '../components/Icon';
+import { CurrencyChoice, PricingCard } from '../components/PricingCard';
 import { StatusChip } from '../components/StatusChip';
+import { useCurrency } from '../lib/currency';
 import { TIME_ZONE } from '../lib/format';
 import { trialLine } from '../lib/membership';
-import { planFeatures } from '../lib/planFeatures';
+import { featuredFirst, planFeatures } from '../lib/planFeatures';
 import { usePlans, useRequestPlan, useSubscription, useWithdrawPlanRequest } from '../query/hooks';
 import { Saved, Section } from './Perfil';
 
@@ -25,7 +27,6 @@ const dateLong = new Intl.DateTimeFormat('es-AR', {
   timeZone: TIME_ZONE,
 });
 const formatWhen = (iso: string) => dateLong.format(new Date(iso));
-const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 
 const REASONS: Record<PlanChangeReason, string> = {
   founder: 'Te sumaste como founder',
@@ -272,19 +273,21 @@ function CancelPlan({
 function ChangePlan({
   sub,
   plans,
+  foundersLeft,
   saved,
   onSaved,
   onRequested,
 }: {
   sub: Subscription;
   plans: Plan[] | undefined;
+  foundersLeft: number;
   saved: string | null;
   onSaved: (message: string | null) => void;
   onRequested: () => void;
 }) {
   const request = useRequestPlan();
+  const currency = useCurrency();
   const blocked = request.isPending || sub.pending_request !== null;
-  const others = plans?.filter((p) => p.code !== sub.plan.code && p.code !== 'basico') ?? [];
   const basico = plans?.find((p) => p.code === 'basico');
   const ask = (input: PlanRequestInput) => {
     onSaved(null);
@@ -296,6 +299,36 @@ function ChangePlan({
     });
   };
 
+  // The three plans as pricing cards (precios-productor S3): the account's plan marked, the
+  // others one request away. Going down to Básico stays the cancel flow below.
+  const actionFor = (plan: Plan) => {
+    if (plan.code === sub.plan.code) {
+      return sub.status === 'trial' ? (
+        <button
+          type="button"
+          className="btn btn--primary btn--block"
+          disabled={blocked}
+          onClick={() => ask({ kind: 'change', plan: plan.code })}
+        >
+          Quedarme con {plan.name}
+        </button>
+      ) : null;
+    }
+    if (plan.code === 'basico') {
+      return <p className="fine">Es el plan al que pasás si te das de baja.</p>;
+    }
+    return (
+      <button
+        type="button"
+        className={`btn btn--block ${plan.highlighted ? 'btn--primary' : 'btn--secondary'}`}
+        disabled={blocked}
+        onClick={() => ask({ kind: 'change', plan: plan.code })}
+      >
+        Pedir este plan
+      </button>
+    );
+  };
+
   return (
     <Section title="Cambiar de plan">
       <p className="fine">
@@ -304,53 +337,46 @@ function ChangePlan({
       {sub.pending_request ? (
         <p className="fine">Ya tenés un pedido pendiente: retiralo si querés pedir otro.</p>
       ) : null}
-      {sub.status === 'trial' ? (
-        <div className="sub-keep">
-          <p className="fine">
-            Cuando termine la prueba pasás a Básico. Si querés seguir con {sub.plan.name}, pedilo
-            ahora.
-          </p>
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={blocked}
-            onClick={() => ask({ kind: 'change', plan: sub.plan.code })}
-          >
-            Quedarme con {sub.plan.name}
-          </button>
-        </div>
-      ) : null}
-      {others.length ? (
-        <div className="sub-options">
-          {others.map((plan) => (
-            <article key={plan.code} className="sub-option" aria-label={`Plan ${plan.name}`}>
-              <div className="sub-option-body">
-                <h3 className="sub-option-name">{plan.name}</h3>
-                <p className="sub-option-price">
-                  {plan.price_ars_month === null
-                    ? // Decided by the user (perfil-ux L6): the team emails the price first.
-                      'Precio a confirmar: te lo pasamos por email antes de aplicar el pedido.'
-                    : `$ ${pesos.format(plan.price_ars_month)} / mes`}
-                </p>
-                <p className="fine">
-                  {planFeatures(plan)
-                    .filter((f) => !f.missing)
-                    .slice(0, 2)
-                    .map((f) => f.text)
-                    .join(' · ')}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={blocked}
-                onClick={() => ask({ kind: 'change', plan: plan.code })}
-              >
-                Pedir este plan
-              </button>
-            </article>
-          ))}
-        </div>
+      {plans ? (
+        <>
+          <CurrencyChoice />
+          <div className="pricing">
+            {featuredFirst(plans).map((plan) => {
+              const current = plan.code === sub.plan.code;
+              const trial = current && sub.status === 'trial';
+              return (
+                <PricingCard
+                  key={plan.code}
+                  plan={plan}
+                  currency={currency}
+                  headingLevel={3}
+                  current={current && !trial}
+                  // Decided by the user (perfil-ux L6): the team emails the price first.
+                  priceNote="Te lo pasamos por email antes de aplicar el pedido."
+                  perk={
+                    plan.highlighted && !current && sub.status !== 'founder' && foundersLeft > 0
+                      ? `Quedan ${foundersLeft} lugares de founder: gratis para siempre`
+                      : null
+                  }
+                  action={actionFor(plan)}
+                  note={
+                    current && sub.status === 'founder' && sub.founder_number !== null ? (
+                      // The card shows the plan's price; a founder pays none of it.
+                      <p className="plan-membership">
+                        Gratis para siempre: sos founder n.º {sub.founder_number}
+                      </p>
+                    ) : trial ? (
+                      <p className="fine">
+                        Cuando termine la prueba pasás a Básico. Si querés seguir con {plan.name},
+                        pedilo ahora.
+                      </p>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </div>
+        </>
       ) : null}
       <FormAlert message={request.error?.message} />
       <Saved message={saved} />
@@ -407,11 +433,6 @@ export function Suscripcion() {
       {data ? (
         <>
           <CurrentPlan sub={data} />
-          {data.status === 'founder' && data.founder_number !== null ? (
-            <Section title="Sos founder">
-              <FounderStory number={data.founder_number} />
-            </Section>
-          ) : null}
           <PendingRequest
             sub={data}
             plans={plans.data?.plans}
@@ -422,23 +443,36 @@ export function Suscripcion() {
           <ChangePlan
             sub={data}
             plans={plans.data?.plans}
+            foundersLeft={plans.data?.founders.remaining ?? 0}
             saved={saved}
             onSaved={setSaved}
             onRequested={() => setFocusPending(true)}
           />
-          <Section title="Historial">
-            {data.history.length ? (
-              <ol className="timeline" aria-label="Cambios de plan">
-                {data.history.map((change, i) => (
-                  // The same reason can land twice in one second (two staff edits): the
-                  // position, newest first, keeps the key unique.
-                  <HistoryItem key={`${change.at}-${change.reason}-${i}`} change={change} />
-                ))}
-              </ol>
-            ) : (
-              <p className="fine">Todavía no hay cambios de plan.</p>
-            )}
-          </Section>
+          {/* Wide screens: the founder story beside the history. Phones stack them in order. */}
+          <div className="page-columns">
+            {data.status === 'founder' && data.founder_number !== null ? (
+              <div className="page-col">
+                <Section title="Sos founder">
+                  <FounderStory number={data.founder_number} />
+                </Section>
+              </div>
+            ) : null}
+            <div className="page-col">
+              <Section title="Historial">
+                {data.history.length ? (
+                  <ol className="timeline" aria-label="Cambios de plan">
+                    {data.history.map((change, i) => (
+                      // The same reason can land twice in one second (two staff edits): the
+                      // position, newest first, keeps the key unique.
+                      <HistoryItem key={`${change.at}-${change.reason}-${i}`} change={change} />
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="fine">Todavía no hay cambios de plan.</p>
+                )}
+              </Section>
+            </div>
+          </div>
         </>
       ) : sub.isError ? (
         <div className="notice">

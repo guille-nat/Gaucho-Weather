@@ -16,7 +16,7 @@ señal se siguen viendo los últimos datos.
     el veredicto dorado "Para el campo", 48 h, 7 días, lluvia caída y esperada, viento,
     humedad y sol. Datos de `GET /api/pronostico/?lat&lon` (S10).
   - `/buscar` (`Buscar.tsx`), pública: búsqueda con debounce de 300 ms en
-    `/api/lugares/?q=`, lugares recientes y "Usar mi ubicación".
+    `/api/lugares/?q=`, lugares guardados y recientes, y "Usar mi ubicación".
   - `/ingresar` y `/crear-cuenta`. Sin destino previo, al entrar se va a `/lotes`.
   - Con cuenta (`RequireAuth`): `/lotes` Mis lotes, `/lotes/nuevo`, `/lotes/:id`,
     `/lotes/:id/editar`, `/alertas` y `/perfil`. Anónimo, estas pestañas llevan a
@@ -27,7 +27,50 @@ señal se siguen viendo los últimos datos.
   el usuario haya elegido un lugar. Si la niega, se muestra el último lugar o Rosario y
   una invitación a buscar. El nombre del punto GPS sale de `/api/lugares/reverso/`; si
   no hay nombre (por ejemplo, fuera de la Argentina) se muestran las coordenadas.
-  El lugar actual y los 6 recientes se guardan en localStorage (`src/lib/places.ts`).
+  El lugar actual, los 6 recientes y los guardados viven en localStorage
+  (`src/lib/places.ts`). Cada fila de Buscar tiene una estrella (`aria-pressed`) que
+  guarda el lugar. Los guardados aparecen en "Guardados", arriba de "Recientes", y una
+  búsqueda nueva nunca los desplaza, porque el productor vuelve siempre a los mismos
+  pueblos. No hay tope de guardados, porque cada lugar ocupa unos pocos bytes.
+- **Cielo animado** (`components/SkyMotion.tsx`, `lib/atmosphere.ts`, `lib/skyMotion.ts`):
+  - El color del cielo y la condición del bloque "Ahora" siguen `now.sky`, el cielo de
+    esta hora. Un pronóstico guardado antes por el service worker usa el del día.
+  - Solo en Inicio y en el detalle del lote, un canvas fijo detrás del contenido dibuja
+    la lluvia, las nubes, los relámpagos y las estrellas. Cada efecto sale de un dato:
+    los mm de la hora, la nubosidad y el viento. Un día despejado y calmo no se mueve.
+    `PRODUCT.md` rechaza las "animaciones de nubes que no informan nada".
+  - Accesibilidad: el canvas es `aria-hidden` y no recibe toques. Hay un botón "Pausar
+    el cielo" junto a la temperatura (WCAG 2.2.2) que este teléfono recuerda en
+    `gw-sky-motion`. Con `prefers-reduced-motion` se dibuja un cuadro quieto y no hay
+    botón. El relámpago cae cada 6 a 14 s (WCAG 2.3.1).
+  - Contraste: el blanco que agrega la capa se limita al presupuesto de cada tema
+    (`whiteBudget`). Las nubes usan el tono del cielo velado con su misma luminancia
+    (`cloudTone`), así nunca le bajan el contraste al texto.
+  - Costo: unos 30 cuadros por segundo, densidad de píxeles hasta 2 y nada mientras la
+    pestaña está oculta.
+  - `body` no tiene fondo: uno opaco tapaba el canvas y también el degradado de
+    `body::before`, que no se veía desde el rediseño "Cielo vivo". El color de respaldo
+    está en `html`.
+  - Mock: `?cielo=sol|lluvia|noche` elige el clima y `?ahora=sol|parcial|nublado|lluvia|tormenta`
+    fuerza el cielo de esta hora, en Inicio **y en cada lote** (cada lote conserva sus
+    decisiones). `?cielo=noche&ahora=sol` es una noche estrellada. Antes solo cambiaba
+    Inicio, y por eso los lotes parecían no reaccionar.
+- **Motion** (feature `motion-pass`; reglas completas en `DESIGN.md` › Motion):
+  - Cada página entra por secciones en toda navegación: cada sección aparece con un
+    fundido, sube 12 px y arranca 45 ms después de la anterior. Lo que llega después de
+    cargar (bloques del pronóstico, tarjetas de lotes, avisos) entra igual. Es CSS que corre
+    al insertarse cada elemento, así que funciona también sin View Transitions.
+  - Al cambiar de pestaña, la lente de vidrio viaja a la pestaña nueva (`<ViewTransition
+    name="tab-lens">` en `AppShell.tsx`). Funciona porque `BrowserRouter` envuelve cada
+    navegación en `React.startTransition`. La raíz tiene `view-transition-name: none`: un
+    fundido de toda la página se leía como un cambio de golpe y congelaba el blur de la
+    barra. La prop `viewTransition` de `Link` no se usa: está deprecada y no anda con
+    `BrowserRouter`.
+  - Las barras de lluvia crecen solo si la espera del pronóstico se llegó a ver (≥ 120 ms,
+    `REVEAL_AFTER_MS` en `ForecastView.tsx`).
+  - Buscar: al marcar la estrella, la fila viaja a "Guardados"
+    (`document.startViewTransition` y `flushSync`).
+  - Diálogos y `details` animados solo con CSS; sin soporte, cambian de golpe.
 - **Errores del pronóstico:** se muestra el `detail` del servidor tal cual (400 "Por
   ahora solo cubrimos Argentina." con botón de búsqueda; 503 con "Reintentar").
 - **Probabilidad de lluvia:** un lugar nuevo no tiene ensamble y llega `null`; se
@@ -298,3 +341,10 @@ señal se siguen viendo los últimos datos.
 - 2026-11-16: service worker propio (`src/sw.ts`, `injectManifest`) con los mismos cachés
   y rutas, más `/api/planes/` en el caché público, `/api/alertas/` sin caché y los
   eventos de Web Push (T9, S7).
+- 2026-11-17: lugares guardados con estrella en Buscar; cierra el pendiente de S8 de
+  clima-y-fileteado.
+- 2026-11-17: cielo animado según el clima de esta hora, con pausa y presupuesto de
+  contraste; el cuerpo de la página pasa a ser transparente para que se vea el campo
+  del cielo (feature `cielo-animado`).
+- 2026-11-17: barra de pestañas de vidrio líquido y pasada de motion: lente que viaja,
+  entrada del pronóstico, diálogos y acordeones (feature `motion-pass`).

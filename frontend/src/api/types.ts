@@ -8,6 +8,8 @@ export interface Plan {
   name: string;
   /** ARS per month; null until it is set ("Precio a confirmar"). */
   price_ars_month: number | null;
+  /** USD per month, a fixed price beside the peso one (precios-productor S5); null = to confirm. */
+  price_usd_month: number | null;
   /** null = no limit. */
   max_lotes: number | null;
   max_alert_rules: number | null;
@@ -127,6 +129,10 @@ export interface ForecastNow {
   wind_kmh: number | null;
   wind_dir_deg: number | null;
   gust_kmh: number | null;
+  /** The sky of this hour. Missing in a forecast cached before it existed. */
+  sky?: Sky;
+  cloud_cover_pct?: number | null;
+  rain_mm?: number | null;
 }
 
 export interface ForecastDay {
@@ -146,6 +152,8 @@ export interface ForecastHour {
   gust_kmh: number | null;
   rain_mm: number | null;
   rain_probability_pct: number | null;
+  sky?: Sky;
+  cloud_cover_pct?: number | null;
 }
 
 export interface FrostDecision {

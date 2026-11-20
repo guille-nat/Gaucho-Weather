@@ -409,14 +409,20 @@ export function Alertas() {
           Armá tus reglas por lote: te avisamos por notificación, por email y en esta pantalla.
         </p>
       </header>
-      <InboxSection />
-      {me.data ? (
-        <>
-          <RulesSection me={me.data} />
-          <NewRuleSection />
-          <PushSection me={me.data} />
-        </>
-      ) : null}
+      {/* Wide screens: what you read on the left, what you do on the right. Phones stack the
+          columns in this same order. */}
+      <div className="page-columns page-columns--wide-first">
+        <div className="page-col">
+          <InboxSection />
+          {me.data ? <RulesSection me={me.data} /> : null}
+        </div>
+        {me.data ? (
+          <div className="page-col">
+            <NewRuleSection />
+            <PushSection me={me.data} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

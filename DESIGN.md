@@ -145,16 +145,17 @@ components:
 
 **Creative North Star: "Cielo vivo"**
 
-The app is painted in the sky over the place on screen. A full-bleed field, drawn from a pair of sky colours and a soft radial glow where the sun stands, sits behind everything. Its colour follows today's condition and the time of day: deep sky blue for a clear day, slate for cloud, deep teal for rain, violet for storm, navy at night and warm coral at dawn and dusk. When the forecast changes, the whole interface cross-fades to the new sky over 1600 ms. Every panel, line and secondary ink is mixed from the sky, so the screen changes as one surface instead of being repainted piece by piece.
+The app is painted in the sky over the place on screen. A full-bleed field, drawn from a pair of sky colours and a soft radial glow where the sun stands, sits behind everything. Its colour follows the condition of this hour and the time of day: deep sky blue for a clear day, slate for cloud, deep teal for rain, violet for storm, navy at night and warm coral at dawn and dusk. When the forecast changes, the whole interface cross-fades to the new sky over 1600 ms. On the forecast screens the weather of this hour also moves in that field: rain falls as hard as the millimetres say and leans with the wind, clouds drift at the wind's speed and direction, a storm brightens now and then, and a clear night shows its stars. A clear, calm day stays still. Every panel, line and secondary ink is mixed from the sky, so the screen changes as one surface instead of being repainted piece by piece.
 
-On that field the type is white, the numbers are large and confident, and a few solid tinted panels answer the field questions. The personality is trustworthy, plain-spoken and direct, with life in it. Colour gives the mood, and a single warm accent, pampa gold, marks what matters for the field: the day's verdict, a lote's decisions, the active tab, a switch that is on, the founder seal. The world rejects both the empty minimal screen and the decorated one. There is no glassmorphism, no blur and no ornament over a number.
+On that field the type is white, the numbers are large and confident, and a few solid tinted panels answer the field questions. The personality is trustworthy, plain-spoken and direct, with life in it. Colour gives the mood, and a single warm accent, pampa gold, marks what matters for the field: the day's verdict, a lote's decisions, the active tab, a switch that is on, the founder seal. The world rejects both the empty minimal screen and the decorated one. Panels are solid and nothing ornaments a number; the only glass is the floating tab bar.
 
 Legibility in full sun is a hard rule here, not a polish step. Every sky pair is checked for AA with white text (white on `sky-a` ≥ 5.4:1, `ink-2` ≥ 4.6:1). Body text is 17 px, the smallest text, tab labels included, is 16 px, targets are 44 px or more, and state is never carried by colour alone.
 
 **Key Characteristics:**
 - A full-bleed sky field whose colour follows the forecast condition and time of day, and cross-fades between skies (static with reduced motion).
+- An animated weather layer on the forecast screens, drawn from the data of this hour, with a pause beside the temperature (one still frame with reduced motion).
 - White type on the sky. Dark ink appears only on light fills: white controls, gold, and the status fills.
-- Solid panels mixed from the sky toward a deep navy. No translucency and no backdrop blur.
+- Solid panels mixed from the sky toward a deep navy. The floating tab bar is the only glass: tinted, lightly blurred, and AA-safe.
 - One warm accent, pampa gold, reserved for field verdicts, decisions, the active state and the founder seal.
 - Onest Light for big tabular numerals, Onest SemiBold for headings, and Atkinson Hyperlegible Next for everything you read.
 - Soft, generous rounding (20 px panels) and a calm 16 px internal rhythm.
@@ -186,6 +187,8 @@ The sky supplies the field and every neutral, and the gold is the only colour th
 
 **The One Warm Thing Rule.** Gold marks field verdicts, decisions, the active state, focus and the founder seal. It is never a decorative fill and never a second brand colour on a panel.
 
+**The Contrast Budget Rule.** Anything drawn over the sky (the animated layer, a flash) may add only as much white as keeps secondary ink at 4.5:1 on that sky, with a 10 % margin (`whiteBudget` in `frontend/src/lib/atmosphere.ts`). A bright day leaves about 1.5 % and a night about 25 %. Clouds therefore use the sky veiled toward grey at its own luminance (`cloudTone`): they desaturate the field and never brighten it.
+
 **The Paired Ink Rule.** Every light fill names its ink (`gold`/`gold-ink`, `ok-fill`/`ok-ink`, `crit-fill`/`crit-ink`, `offline-fill`/`offline-ink`, white/`ink-deep`). White text never sits on a light fill.
 
 ## Typography
@@ -212,7 +215,7 @@ The sky supplies the field and every neutral, and the gold is the only colour th
 
 ## Layout
 
-The layout is mobile-first and single-column at 390 px. Content lives in a centred column (max 1180 px) with a gutter that grows from 16 px to 24 px at 600 px and to 40 px at 960 px. Below 960 px a fixed four-tab bar (Clima, Lotes, Alertas, Perfil, 68 px plus the safe area) sits at the bottom, and the main column reserves its height plus 32 px. At 960 px and above the tab bar becomes a sticky, transparent top bar with the brand mark, and the forecast splits into two columns (5fr / 7fr). Grids of cards go to two columns at 760 px, and to three for plans.
+The layout is mobile-first and single-column at 390 px. Content lives in a centred column (max 1180 px) with a gutter that grows from 16 px to 24 px at 600 px and to 40 px at 960 px. Below 960 px a fixed four-tab bar (Clima, Lotes, Alertas, Perfil, 68 px plus the safe area) sits at the bottom, and the main column reserves its height plus 32 px. At 960 px and above the tab bar becomes a sticky, transparent top bar with the brand mark, and the forecast splits into two columns (5fr / 7fr). Grids of cards go to two columns at 760 px, and to three for plans. From 960 px the account screens use the width in two ordered columns (`.page-columns` > `.page-col`): Alertas puts what you read (inbox, rules) on a 7fr left and what you do (new rule, notifications) on a 5fr right; Perfil and Suscripción split evenly, with what you have on the left and what you can change on the right. Phones stack the columns in the same DOM order. The lote form puts its fields on the left and holds the map sticky on the right. The desktop glass bar is as wide as the content column, so it lines up with the content at every width.
 
 The rhythm is 16 px: panel padding, gaps between forecast blocks and the 16 px gutter. Sections are separated by 24 px. Plan cards use 20 px padding. The hour strip scrolls horizontally inside its panel rather than widening the page.
 
@@ -223,12 +226,12 @@ Depth comes mostly from tone. Panels are flat, solid steps darker than the sky, 
 ### Shadow Vocabulary
 - **Float** (`box-shadow: 0 10px 28px rgb(2 8 24 / 0.25)`): the verdict pill and the search field, the two light objects that lead the screen.
 - **Lift** (`box-shadow: 0 6px 18px rgb(2 8 24 / 0.22)`): the white primary button.
-- **Bar** (`box-shadow: 0 -8px 24px rgb(2 8 24 / 0.22)`): the fixed mobile tab bar, cast upward over scrolling content.
+- **Glass** (`box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24), inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 12px 32px rgb(2 8 24 / 0.34)`): the floating glass tab bar.
 - **Featured** (`box-shadow: inset 0 0 0 2px var(--gold), 0 10px 28px rgb(2 8 24 / 0.28)`): the recommended plan card.
 - **Control Ring** (`box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 55%, var(--panel))`): secondary buttons and pending chips.
 
 ### Named Rules
-**The Solid Panel Rule.** Panels are opaque tints of the sky. No `backdrop-filter`, no glass, no translucent white cards.
+**The Solid Panel Rule.** Panels are opaque tints of the sky. No `backdrop-filter`, no glass, no translucent white cards. The one exception is the tab bar, a pane of liquid glass by the user's decision (2026-11-17, "La navbar debe diferenciarse hazla estilo liquit glass pero con un poco de blur"). It keeps a 78 % Deep Sky Panel tint under a 14 px blur, so its labels hold AA with any content beneath, and it turns solid without `backdrop-filter` or under `prefers-reduced-transparency`.
 
 **The Light Floats Rule.** Only light-filled elements on the sky (white controls, gold) cast a drop shadow. Sky-tinted panels stay flat.
 
@@ -249,6 +252,15 @@ Big, quiet and thumb-sized.
 ### Field Verdict Pill (signature)
 The "Para el campo" pill is the one gold object on the sky. It is a full-width button with 20 px corners, a gold fill and Gold Ink text. Its head is in Onest 600 at 16 px and its verdict sentence in Atkinson 700 at 18 px (for example "Jueves llueve 12 mm: no entres con la sembradora"). It casts the Float shadow and has a chevron that rotates on expand. Its focus outline turns white so it stays visible against gold. When expanded, a Sky Panel opens below with the other decisions and the reasons behind them, revealed in 200 ms.
 
+### Pricing Card (Planes, Suscripción)
+The plans read like a hosting pricing page, inside the sky world. Three cards side by side from 760 px. Productor comes first in the DOM, so phones, screen readers and the keyboard meet it first, and the grid places it in the middle column on wide screens. An ordinary card is Deep Sky Panel, a step darker than its surroundings. The featured card is Lifted Sky Panel, a step lighter: it stands 16 px taller above and below the row, carries a full-width gold band ("El más elegido", Gold Ink), a 2 px gold ring and a deeper shadow, and holds the one bright white action. Each card, top to bottom:
+- the name (Onest 600, 1.5rem) and who the plan is for;
+- the price (Onest 600, 2.75rem, tabular, with " / mes" in Sky Ink), or "Precio a confirmar" with its note;
+- a perk on Rain Track with a gold sun, only when true: the trial days for a visitor, or the founder places left on Suscripción;
+- the action;
+- what it includes, below a hairline. Limitations stay muted with a cross, never struck through.
+There is no struck-through reference price and no discount without a real previous price.
+
 ### Level Chips and Chips
 - **Level chips:** a pill with an icon and a word on a light fill: `ok-fill`/`ok-ink`, gold/`gold-ink` for caution, and `crit-fill`/`crit-ink` for critical. Atkinson 700 at 16 px. The word and the icon carry the meaning, and the fill confirms it.
 - **Chips:** a pill on Rain Track with white text. The pending variant is transparent with the Control Ring.
@@ -266,7 +278,20 @@ The "Para el campo" pill is the one gold object on the sky. It is a full-width b
 - **Error:** a 3 px red inset ring, plus a field-error line with an icon and text below.
 
 ### Navigation
-On mobile, four equal tabs sit on Deep Sky Panel, each with an icon above a 16 px label in Sky Ink. The active tab turns white, bold (700), and gets a 4 px gold bar on its top edge, so it is never marked by colour alone. At 960 px and above the bar is transparent, the tabs sit in a row with the icon beside the label, the gold bar moves under the label, and the brand mark sits at the left.
+The navigation is a floating pane of liquid glass: Deep Sky Panel at 78 % with `blur(14px) saturate(170%)`, 28 px corners, a 1 px white highlight on its top edge and a soft navy shadow. On mobile it floats 12 px above the bottom edge, or above the home indicator, inset 12 px from the sides, with four equal tabs, each an icon above a 16 px label in Sky Ink. The active tab turns white and bold (700), sits on a lens (a 22 px pill of 8 % white), and gets a 4 px gold bar, so it is never marked by colour alone. At 960 px and above the pane is a sticky top bar 12 px from the top, with the brand mark at the left, the icon beside each label, and the gold bar under the active label.
+
+### Hours Strip and Decision Cards
+- **Próximas horas** is one table in three bands:
+  - temperature on white 6 % into the panel;
+  - rain (mm and chance) on Rain Blue 14 % into the panel;
+  - wind (speed and gusts) on white 3 % into the panel.
+  - A 6 px gap in the panel colour separates the bands. The chance of rain carries a small Rain Blue bar under its figure. "Ahora" is a lighter column with white figures. Every tint keeps secondary ink at 5.5:1 or more.
+- **Decisiones para este lote** is a list of cards, each a step darker than the panel and set apart by space:
+  - a 40 px icon tile in the level's paired fill: `ok-fill`/`ok-ink`, gold/`gold-ink` or `crit-fill`/`crit-ink`;
+  - the title and its level chip;
+  - the verdict in bold;
+  - the figures in an inset well.
+  - The chip states the level in words, so the tile's colour never carries it alone.
 
 ### Rain Bars
 A 10 px pill track in Rain Track with a Rain Blue fill. All 7 days share one scale. The millimetres sit to the right in bold Onest with tabular numerals, and dry days drop to Sky Ink at weight 400.
@@ -276,6 +301,18 @@ The offline strip uses a warm cream fill with dark ink, 14 px corners, Atkinson 
 
 ### Switch
 A 52 by 32 px pill on Rain Track with the Control Ring and a white thumb. When on, the track turns gold and the thumb turns Gold Ink. The hit area extends to 44 px without changing what is drawn.
+
+## Motion
+
+Motion explains a change of state and never decorates. Without support, or with reduced motion, every change simply happens. The tokens are `--dur-fast` (120 ms) for press and hover, `--dur-base` (200 ms) for state changes and page cross-fades, and `--dur-sky` (1600 ms) for the sky. Easing is `--ease-out` for state changes and `--ease-glide` (`cubic-bezier(0.22, 1, 0.36, 1)`) for anything that travels or enters.
+
+- **Navigation** (the focal moment): each page enters by sections on every navigation, whether between tabs or within one (Lotes to a lote, back, Perfil to Suscripción). Each section fades in and rises 12 px over 380 ms (`--ease-glide`), 45 ms after the one above it, capped at 180 ms. Content that replaces a loading state (the forecast blocks, the lote cards, alert items) enters the same way when it is inserted. On a tab change, the glass lens also travels to the new tab as a shared `<ViewTransition name="tab-lens">` (320 ms). The root takes no part in the view transition: a whole-page cross-fade read as an abrupt swap, and it froze the glass tab bar into a snapshot.
+- **Rain bars:** after a wait the farmer saw (120 ms or more), the 7-day rain bars grow from zero, one day after another, 40 ms apart.
+- **Saved place:** starring a place moves its row from "Recientes" to "Guardados" with a view transition, one name per row.
+- **Icon swap:** the sky pause keeps both icons in the slot and cross-fades them (opacity, scale 0.25 to 1, blur 4 px).
+- **Dialogs:** they open in 240 ms from 96 % scale with a fade, close in 160 ms, and the backdrop fades with them (`@starting-style`, `allow-discrete`).
+- **Disclosures:** the Perfil rows, the account-danger block and "Ver modelos" grow and shrink by height where `::details-content` and `interpolate-size` exist.
+- **Reduced motion:** view transitions are off, sections only fade in (160 ms), icons only cross-fade and dialogs only fade.
 
 ## Do's and Don'ts
 
@@ -287,9 +324,10 @@ A 52 by 32 px pill on Rain Track with the Control Ring and a white thumb. When o
 - **Do** keep targets at 44 px or more, growing the hit area with a pseudo-element when the drawn shape is smaller (switch, founder badge).
 - **Do** use tabular numerals for every figure that is compared.
 - **Do** let the sky cross-fade over `--dur-sky` (1600 ms) and keep it static under `prefers-reduced-motion`.
+- **Do** draw every moving effect from a datum of this hour, keep it under the contrast budget, and keep lightning at most once a second.
 
 ### Don't:
-- **Don't** use glassmorphism, `backdrop-filter` or translucent white panels. Panels are solid.
+- **Don't** use glassmorphism, `backdrop-filter` or translucent white panels. Panels are solid; the tab bar is the only glass, with its tint held for AA.
 - **Don't** spend gold on decoration or as a second panel colour. It marks the field verdict, decisions, the active state, focus and the founder seal.
 - **Don't** set any text below 16 px, and don't lower contrast for elegance (light grey on light, white on gold).
 - **Don't** use uppercase labels, eyebrows or tracked small caps above headings.

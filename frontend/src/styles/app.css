@@ -20,20 +20,48 @@
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 var(--gutter) calc(var(--tabbar-h) + var(--safe-bottom) + 32px);
+  padding: 0 var(--gutter) calc(var(--tabbar-h) + var(--tabbar-lift) + 32px);
 }
 
 .shell-main:focus {
   outline: none;
 }
 
+/*
+ * The tab bar is a floating pane of liquid glass (user decision, 2026-11-17): the sky and the
+ * animated weather pass blurred under it. The tint stays at 78 % so labels keep AA even with the
+ * white button or the gold pill underneath (ink-2 ≥ 5.0:1, active white on the lens ≥ 4.9:1).
+ * Without backdrop-filter, or with reduced transparency, it is the solid Deep Sky Panel.
+ */
 .tabbar {
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 12px var(--tabbar-lift);
   z-index: 20;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 6px;
+  border-radius: 28px;
   background: var(--panel-deep);
-  padding-bottom: var(--safe-bottom);
-  box-shadow: 0 -8px 24px rgb(2 8 24 / 0.22);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 12px 32px rgb(2 8 24 / 0.34);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .tabbar {
+    background: color-mix(in srgb, var(--panel-deep) 78%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tabbar {
+    background: var(--panel-deep);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .tabbar-brand {
@@ -43,8 +71,7 @@
 .tabbar ul {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  max-width: 560px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .tab {
@@ -70,8 +97,21 @@
   font-weight: 700;
 }
 
-/* The active tab carries a gold bar and a heavier label: never colour alone. */
-.tab.is-active::before {
+/*
+ * The lens: a brighter drop of glass under the active tab, carrying the gold bar, so the active
+ * tab is marked by bar and weight, never colour alone. It is a shared <ViewTransition
+ * name="tab-lens"> (AppShell), so on a tab change it travels from the old tab to the new one.
+ */
+.tab-lens {
+  position: absolute;
+  inset: 6px 2px;
+  z-index: -1;
+  border-radius: 22px;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+
+.tab-lens::before {
   content: '';
   position: absolute;
   top: 0;
@@ -89,15 +129,16 @@
 @media (min-width: 960px) {
   .tabbar {
     position: sticky;
-    inset: 0 0 auto;
+    inset: 12px 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 var(--gutter);
-    background: transparent;
-    box-shadow: none;
+    /* The content column's inner width at any viewport, so the pane lines up with the content
+       and never touches the screen edges. */
+    width: calc(min(1180px, 100%) - 2 * var(--gutter));
+    max-width: none;
+    margin: 12px auto 0;
+    padding: 0 8px 0 20px;
   }
 
   .tabbar-brand {
@@ -123,9 +164,13 @@
     padding: 0 14px;
   }
 
-  .tab.is-active::before {
+  .tab-lens {
+    inset: 8px 0;
+  }
+
+  .tab-lens::before {
     top: auto;
-    bottom: 8px;
+    bottom: 4px;
     left: 14px;
     right: 14px;
     border-radius: 4px;
@@ -538,9 +583,38 @@
 }
 
 .hero {
+  position: relative;
   display: grid;
   justify-items: start;
   padding-top: 4px;
+}
+
+/* The pause for the moving sky (WCAG 2.2.2): quiet, beside the temperature it never covers. */
+.sky-pause {
+  position: absolute;
+  top: 8px;
+  right: -8px;
+  color: var(--ink-2);
+}
+
+.sky-pause:hover {
+  color: #fff;
+}
+
+/* The weather of this hour, drawn over the sky field and under everything else. */
+.sky-motion {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-sky) var(--ease-out);
+}
+
+.sky-motion[data-shown] {
+  opacity: 1;
 }
 
 .hero-temp {
@@ -698,20 +772,57 @@
   font-size: 1.25rem;
 }
 
-.decision {
+/*
+ * Each decision is its own card (forecast blocks redesign): a level-tinted icon tile, the title
+ * and level chip, the verdict in bold, then its figures in an inset well. Cards are a step
+ * darker than the decisions panel and separated by space, not hairlines.
+ */
+.decision-list {
   display: grid;
-  gap: 8px;
-  padding: 14px 0;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.decision + .decision {
-  border-top: 1px solid var(--line);
+.decision {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--panel-deep);
 }
 
 .decision-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+/* The level in a tile with its own paired ink; the chip beside it says it in words. */
+.decision-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--track);
+}
+
+.decision--ok .decision-icon {
+  background: var(--ok-fill);
+  color: var(--ok-ink);
+}
+
+.decision--caution .decision-icon {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+.decision--critical .decision-icon {
+  background: var(--crit-fill);
+  color: var(--crit-ink);
 }
 
 .decision-title {
@@ -723,12 +834,17 @@
 
 .decision-reason {
   font-weight: 700;
+  font-size: 1.0625rem;
+  text-wrap: pretty;
 }
 
 .decision-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 10px 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #fff 6%, var(--panel-deep));
 }
 
 .decision-facts dt,
@@ -864,13 +980,22 @@
   padding-right: 16px;
 }
 
+/*
+ * The start of a new day runs down the whole strip (header and every band): a solid line and
+ * extra room before the first hour, and the day's name set above its hour, so today and tomorrow
+ * read apart at a glance.
+ */
 .hours-table .is-new-day {
-  box-shadow: inset 2px 0 0 var(--line);
+  padding-left: 14px;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #fff 70%, var(--panel));
 }
 
 .hours-day {
+  display: block;
   color: #fff;
+  font-family: var(--font-body);
   font-weight: 700;
+  font-size: var(--text-small);
 }
 
 .hours-temp td {
@@ -890,6 +1015,62 @@
 
 .hours-table td.is-wet {
   font-weight: 700;
+}
+
+/*
+ * One band per variable (forecast blocks redesign): temperature, rain and wind each on their own
+ * tint, with a gap between bands, so the strip reads by row at a glance. "Ahora" is a lighter
+ * column with white figures. Every tint keeps secondary ink at 5.5:1 or more on the brightest
+ * day sky.
+ */
+.hours-band--temp > tr > * {
+  background: color-mix(in srgb, #fff 6%, var(--panel));
+}
+
+.hours-band--rain > tr > * {
+  background: color-mix(in srgb, var(--rain) 14%, var(--panel));
+}
+
+.hours-band--wind > tr > * {
+  background: color-mix(in srgb, #fff 3%, var(--panel));
+}
+
+/* The gap between bands, drawn in the panel colour so the bands read as separate strips. */
+.hours-band + .hours-band > tr:first-child > * {
+  border-top: 6px solid var(--panel);
+}
+
+.hours-band > tr > * {
+  padding-block: 8px;
+}
+
+.hours-table thead th:nth-child(2),
+.hours-band > tr > td:nth-child(2) {
+  background-image: linear-gradient(rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.08));
+  color: #fff;
+}
+
+.hours-table thead th:nth-child(2) {
+  border-radius: 10px 10px 0 0;
+}
+
+.hours-band--wind > tr:last-child > td:nth-child(2) {
+  border-radius: 0 0 10px 10px;
+}
+
+/* The chance of rain as a small bar under its figure. */
+.hours-prob {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.hours-prob::after {
+  content: '';
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--rain) var(--p, 0%), var(--track) var(--p, 0%));
 }
 
 /* Week */
@@ -1264,7 +1445,7 @@
 
 .dock {
   position: sticky;
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px);
+  bottom: calc(var(--tabbar-h) + var(--tabbar-lift) + 12px);
   margin-top: 20px;
 }
 
@@ -1473,6 +1654,38 @@
 
 .page-form {
   max-width: 640px;
+}
+
+/*
+ * From 960 px the lote form uses the width: the fields run down the left and the map holds the
+ * right, sticky while the fields scroll. DOM order is unchanged (the map sits between the
+ * locality and the hectares it fills in), so keyboard and screen reader order stay the same.
+ */
+@media (min-width: 960px) {
+  .page-form {
+    max-width: none;
+  }
+
+  /* The last row is flexible: the taller map's extra height lands there, never as gaps between
+     the fields (the alert, four fields, the crops and the button take the auto rows). */
+  .page-form .form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: repeat(7, auto) 1fr;
+    column-gap: 32px;
+    align-items: start;
+    padding: 24px;
+  }
+
+  .page-form .form > * {
+    grid-column: 1;
+  }
+
+  .page-form .form > .location {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 100px;
+  }
 }
 
 .field {
@@ -2039,6 +2252,41 @@ input[type='date'].input {
   color: var(--ink-2);
 }
 
+.place-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.place-row .place-option {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-star {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.place-star:hover {
+  background: var(--panel-hover);
+}
+
+.place-star:focus-visible {
+  outline-offset: -3px;
+}
+
+.place-star[aria-pressed='true'] {
+  color: var(--gold);
+}
+
 .place-option-text {
   display: grid;
 }
@@ -2066,6 +2314,36 @@ input[type='date'].input {
   display: grid;
   gap: 16px;
   max-width: 560px;
+}
+
+/*
+ * Two ordered columns for the account screens (Perfil, Suscripción, Alertas). Phones stack them
+ * in DOM order, the same order as before; from 960 px they sit side by side and use the width.
+ * Real columns, not a row grid, so a tall section never leaves a hole beside it.
+ */
+.page-columns,
+.page-col {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+@media (min-width: 960px) {
+  .page-profile,
+  .page-alerts {
+    max-width: none;
+  }
+
+  .page-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* Alertas: the inbox and the rules you read lead; the form you fill supports. */
+  .page-columns--wide-first {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
 }
 
 .page-profile .page-head,
@@ -2199,69 +2477,161 @@ input[type='date'].input {
   margin-top: 1px;
 }
 
-.plans {
+/*
+ * Pricing cards (precios-productor), the pattern of hosting pricing pages: three plans side by
+ * side, the recommended one taller with a gold band and ring, a big price, the action above what
+ * it includes. Ordinary cards sit a step darker than their surroundings; the featured one a step
+ * lighter, so it reads first at a glance.
+ */
+/* Pesos or dollars above the cards (precios-productor S5): a short control, not a full-width bar. */
+.pricing-currency {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-bottom: 16px;
+}
+
+.segmented--currency {
+  inline-size: min(100%, 280px);
+}
+
+.pricing {
   display: grid;
   gap: 16px;
   margin-bottom: 20px;
 }
 
-.plan-card {
-  position: relative;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
-  gap: 12px;
-  padding: 20px;
-  border-radius: var(--radius-panel);
-  background: var(--panel);
+@media (min-width: 760px) {
+  /* The featured card comes first in the DOM (phones show it first); here it takes the middle
+     column and the others fill the sides in order. */
+  .pricing {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: dense;
+    align-items: stretch;
+    /* Room for the featured card standing out above and below the row. */
+    padding-block: 16px;
+  }
 }
 
-.plan-card--featured {
+.pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 20px 20px;
+  border-radius: var(--radius-panel);
+  background: var(--panel-deep);
+}
+
+.pricing-card--current {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 55%, var(--panel));
+}
+
+.pricing-card--featured {
+  z-index: 1;
+  padding-top: 52px;
   background: var(--panel-hover);
   box-shadow:
     inset 0 0 0 2px var(--gold),
-    0 10px 28px rgb(2 8 24 / 0.28);
+    0 16px 40px rgb(2 8 24 / 0.34);
 }
 
-.plan-badge {
+@media (min-width: 760px) {
+  .pricing-card--featured {
+    grid-column: 2;
+    grid-row: 1;
+    margin-block: -16px;
+    padding-bottom: 36px;
+  }
+}
+
+.pricing-ribbon {
   position: absolute;
-  top: 0;
-  left: 50%;
-  translate: -50% -50%;
-  padding: 4px 12px;
-  border-radius: 999px;
+  inset: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   background: var(--gold);
   color: var(--gold-ink);
   font-weight: 700;
-  font-size: var(--text-small);
-  white-space: nowrap;
+  text-align: center;
 }
 
-.plan-name {
-  font-size: 1.375rem;
+.pricing-name {
+  font-size: 1.5rem;
   text-wrap: balance;
 }
 
-.plan-price {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
+.pricing-for {
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+@media (min-width: 760px) {
+  /* Two lines held for everyone, so the prices line up across the row. */
+  .pricing-for {
+    min-block-size: calc(2 * 1.45em);
+  }
+}
+
+.pricing-price {
+  display: grid;
+  gap: 2px;
   font-variant-numeric: tabular-nums;
 }
 
-.plan-price-amount {
+.pricing-amount {
   font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 2.75rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.plan-price-period,
-.plan-price-tbd {
+.pricing-period {
   color: var(--ink-2);
+  font-size: 1.125rem;
 }
 
-.plan-price-tbd {
+.pricing-tbd {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.pricing-tbd-note {
+  color: var(--ink-2);
+  font-size: var(--text-small);
+  text-wrap: pretty;
+}
+
+.pricing-perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--track);
   font-weight: 700;
+  text-wrap: pretty;
+}
+
+.pricing-perk svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--gold);
+}
+
+.pricing-action {
+  display: grid;
+  gap: 8px;
+}
+
+/* What the plan includes, below the action, set off by a hairline. */
+.pricing-card .plan-features {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 
 .plan-features {
@@ -2283,18 +2653,12 @@ input[type='date'].input {
   margin-top: 2px;
 }
 
-.plan-card--featured .plan-features li:not(.plan-feature--missing) svg {
+.pricing-card--featured .plan-features li:not(.plan-feature--missing) svg {
   color: var(--gold);
 }
 
 .plan-feature--missing {
   color: var(--ink-2);
-}
-
-.plan-foot {
-  display: grid;
-  gap: 6px;
-  align-self: end;
 }
 
 .plan-current {
@@ -2307,16 +2671,11 @@ input[type='date'].input {
   font-size: var(--text-small);
 }
 
+/* The current plan's list in two columns on wider screens: a strip, not a tall card. */
 @media (min-width: 760px) {
-  .plans {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: stretch;
-    padding-top: 12px;
-  }
-
-  .plan-card--featured {
-    margin-block: -12px;
-    padding-block: 32px;
+  .page-subscription .sub-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
   }
 }
 
@@ -3185,48 +3544,6 @@ button.alert-event-tap:focus-visible {
 /* Compact options sit mid-panel, away from its corners, so they take the control radius like
    the buttons in them instead of a strict 20 − 16 = 4px. */
 /* Trial: the sentence and its action as one group, apart from the other plans. */
-.sub-keep {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.sub-options {
-  display: grid;
-  gap: 10px;
-}
-
-.sub-option {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
-  padding: 12px;
-  border-radius: var(--radius-control);
-  background: var(--panel-deep);
-}
-
-.sub-option-body {
-  display: grid;
-  gap: 2px;
-  flex: 1 1 12rem;
-}
-
-.sub-option-name {
-  font-size: 1.125rem;
-  text-wrap: balance;
-}
-
-.sub-option-price {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.sub-option .btn {
-  min-height: 48px;
-}
-
 .sub-cancel ul {
   display: grid;
   gap: 6px;
@@ -3531,4 +3848,230 @@ button.alert-event-tap:focus-visible {
 .crops-quick > svg:first-child {
   flex-shrink: 0;
   color: var(--gold);
+}
+
+/* ───────── Motion (motion-pass) ─────────
+ * Every effect explains a change of state and degrades to the plain change: without support,
+ * or with reduced motion, things simply appear. Durations come from the shared tokens.
+ */
+
+/*
+ * Page changes. The root takes no part in the view transition: a cross-fade of the whole page
+ * read as an abrupt swap, and it froze the glass tab bar into a snapshot. Only named elements
+ * travel (the tab lens, a starred place); the new page enters by sections, below.
+ */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition-group(*) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-glide);
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--dur-base);
+}
+
+::view-transition-group(tab-lens) {
+  animation-duration: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/*
+ * Every page enters by sections on every navigation, tab or not: each section fades and rises
+ * 12 px, 45 ms after the one above it, so the eye follows the page down instead of taking it in
+ * at once. It runs when a section is inserted, so content that replaces a loading state (the
+ * forecast blocks after the skeleton) enters the same way. Loaded list items only fade.
+ */
+@keyframes section-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rain-grow {
+  from {
+    scale: 0 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.shell-main > * > :not(.forecast, .ghost, .page-columns), .forecast > *, .page-col > *) {
+    animation: section-in 380ms var(--ease-glide) both;
+  }
+
+  :is(
+    .shell-main > * > :not(.forecast, .ghost, .page-columns),
+    .forecast > *,
+    .page-col > *
+  ):nth-child(2) {
+    animation-delay: 45ms;
+  }
+
+  :is(
+    .shell-main > * > :not(.forecast, .ghost, .page-columns),
+    .forecast > *,
+    .page-col > *
+  ):nth-child(3) {
+    animation-delay: 90ms;
+  }
+
+  :is(
+    .shell-main > * > :not(.forecast, .ghost, .page-columns),
+    .forecast > *,
+    .page-col > *
+  ):nth-child(4) {
+    animation-delay: 135ms;
+  }
+
+  :is(
+    .shell-main > * > :not(.forecast, .ghost, .page-columns),
+    .forecast > *,
+    .page-col > *
+  ):nth-child(n + 5) {
+    animation-delay: 180ms;
+  }
+
+  :is(.lote-list, .alert-events, .alert-rules) > li {
+    animation: fade-in 280ms var(--ease-out) both;
+  }
+
+  :is(.lote-list, .alert-events, .alert-rules) > li:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  :is(.lote-list, .alert-events, .alert-rules) > li:nth-child(n + 3) {
+    animation-delay: 80ms;
+  }
+
+  /* After a wait the farmer saw, each rain bar grows to its millimetres, one day after another. */
+  .forecast[data-reveal] .rain-fill {
+    transform-origin: left center;
+    animation: rain-grow 520ms var(--ease-glide) both;
+    animation-delay: calc(220ms + var(--i, 0) * 40ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.shell-main > * > :not(.forecast, .ghost, .page-columns), .forecast > *, .page-col > *) {
+    animation: fade-in 160ms var(--ease-out) both;
+  }
+}
+
+/* Two icons in one slot: the shown one scales and un-blurs in, the other out. */
+.icon-swap {
+  display: grid;
+  place-items: center;
+}
+
+.icon-swap > svg {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    scale var(--dur-base) var(--ease-out),
+    filter var(--dur-base) var(--ease-out);
+}
+
+.icon-swap:not([data-shown='pause']) > [data-icon='pause'],
+.icon-swap:not([data-shown='play']) > [data-icon='play'] {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-swap > svg {
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+
+  .icon-swap:not([data-shown='pause']) > [data-icon='pause'],
+  .icon-swap:not([data-shown='play']) > [data-icon='play'] {
+    scale: 1;
+    filter: none;
+  }
+}
+
+/* Dialogs grow from 96 % with a fade and close a little faster; the backdrop fades with them. */
+:is(.crops-dialog, .sub-cancel-dialog) {
+  opacity: 0;
+  transition-property: opacity, scale, display, overlay;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)[open] {
+  opacity: 1;
+  transition-duration: 240ms;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.crops-dialog, .sub-cancel-dialog) {
+    scale: 0.96;
+  }
+
+  :is(.crops-dialog, .sub-cancel-dialog)[open] {
+    scale: 1;
+
+    @starting-style {
+      scale: 0.96;
+    }
+  }
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)::backdrop {
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+  transition-behavior: allow-discrete;
+}
+
+:is(.crops-dialog, .sub-cancel-dialog)[open]::backdrop {
+  opacity: 1;
+  transition-duration: 240ms;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* Disclosures open and close by height where the browser can size to auto. */
+:is(.account-row, .account-danger, .models-more)::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+:is(.account-row, .account-danger, .models-more):not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.account-row, .account-danger, .models-more)::details-content {
+    transition:
+      block-size var(--dur-base) var(--ease-glide),
+      content-visibility var(--dur-base);
+    transition-behavior: allow-discrete;
+  }
 }

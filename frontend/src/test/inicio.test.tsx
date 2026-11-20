@@ -106,7 +106,76 @@ describe('Inicio: the weather first, no account needed', () => {
 
     await user.click(screen.getByRole('link', { name: 'Buscar lugar' }));
     const recent = screen.getByRole('list', { name: 'Recientes' });
-    expect(within(recent).getByRole('button', { name: /Casilda/ })).toBeInTheDocument();
+    expect(within(recent).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
+  });
+
+  it('paints the sky and names the condition of this hour, not of the whole day', async () => {
+    stubGeolocation(CASILDA);
+    const forecast = demoPublicForecast('sol');
+    forecast.now = { ...forecast.now, sky: 'lluvia', rain_mm: 2.4, cloud_cover_pct: 96 };
+    renderApp('/', createMockDb({ user: null, publicForecast: () => forecast }));
+
+    const now = await screen.findByRole('region', { name: 'Ahora' });
+    expect(within(now).getByText('Lluvia')).toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.dataset.sky).toBe('lluvia'));
+    // The week keeps each day's sky: today is still a sunny day.
+    expect(screen.getByRole('list', { name: 'Próximos 7 días' })).toHaveTextContent(/soleado/);
+  });
+
+  it('falls back to the day sky for a cached forecast without the hour sky', async () => {
+    stubGeolocation(CASILDA);
+    const forecast = demoPublicForecast('sol');
+    delete forecast.now.sky;
+    delete forecast.now.cloud_cover_pct;
+    delete forecast.now.rain_mm;
+    renderApp('/', createMockDb({ user: null, publicForecast: () => forecast }));
+
+    const now = await screen.findByRole('region', { name: 'Ahora' });
+    expect(within(now).getByText('Soleado')).toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.dataset.sky).toBe('dia'));
+  });
+
+  it('marks where a new day starts in every row of the hours, not only the header', async () => {
+    stubGeolocation(CASILDA);
+    renderApp('/', createMockDb({ user: null }));
+
+    const table = await screen.findByRole('table', { name: 'Próximas horas' });
+    const rows = within(table).getAllByRole('row');
+    const newDayColumns = (row: HTMLElement) =>
+      [...row.children].flatMap((cell, i) => (cell.classList.contains('is-new-day') ? [i] : []));
+    const header = newDayColumns(rows[0]!);
+    // 10 h to 9 h two days later: midnight twice.
+    expect(header).toHaveLength(2);
+    for (const row of rows) expect(newDayColumns(row)).toEqual(header);
+    expect(rows[0]!.children[header[0]!]).toHaveTextContent('Mañana 0 h');
+  });
+
+  it('saves a recent place with its star and lists it under Guardados', async () => {
+    stubGeolocation('denied');
+    const { user } = renderApp('/', createMockDb({ user: null }));
+
+    await user.click(await screen.findByRole('link', { name: 'Buscar lugar' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar localidad o paraje' }), 'casil');
+    const results = await screen.findByRole('list', { name: 'Resultados' });
+    await user.click(within(results).getByRole('button', { name: /Casilda/ }));
+    await user.click(await screen.findByRole('link', { name: 'Buscar lugar' }));
+
+    const star = screen.getByRole('button', { name: 'Guardar Casilda' });
+    expect(star).toHaveAttribute('aria-pressed', 'false');
+    await user.click(star);
+
+    const saved = screen.getByRole('list', { name: 'Guardados' });
+    expect(within(saved).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar Casilda' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('list', { name: 'Recientes' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Guardar Casilda' }));
+    expect(screen.queryByRole('list', { name: 'Guardados' })).not.toBeInTheDocument();
+    const recent = screen.getByRole('list', { name: 'Recientes' });
+    expect(within(recent).getByRole('button', { name: /^Casilda/ })).toBeInTheDocument();
   });
 
   it('says it only covers Argentina for a place outside it', async () => {

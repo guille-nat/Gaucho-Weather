@@ -131,7 +131,9 @@ Ideas, no código:
   [reglas-agronomicas.md](reglas-agronomicas.md) (2026-11-03).
 - ¿Qué presupuesto hay? Lo de Open-Meteo quedó resuelto (pago por etapas,
   ver Decisiones). Falta definir el costo de WhatsApp, que cobra por mensaje.
-- ¿Cómo se cobra: gratis, freemium o por lote?
+- ~~¿Cómo se cobra: gratis, freemium o por lote?~~ Freemium: Básico gratis,
+  Productor $ 14.900 y Empresa $ 49.900 por mes (2026-11-17). Ver
+  [funcionalidades/planes.md](funcionalidades/planes.md).
 - ~~¿Cuál es la zona inicial para validar con estaciones?~~ El sur de Santa Fe,
   en la zona núcleo (2026-11-03). Ver Decisiones.
 

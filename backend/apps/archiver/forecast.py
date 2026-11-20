@@ -6,7 +6,7 @@ engine; ensembles give rain probabilities. The API never calls Open-Meteo.
 
 import math
 from collections.abc import Iterable
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime, timedelta
 from statistics import mean, median
 from typing import NamedTuple
@@ -278,6 +278,28 @@ def _day(models: dict[str, list[Hour]], day: date, probability) -> dict:
     }
 
 
+HOUR_SKY = replace(engine.config.DEFAULT, sky_rain_mm=engine.config.SKY_RAIN_HOUR_MM)
+
+
+def _hour_skies(models: dict[str, list[Hour]], series: list[Hour]) -> dict[datetime, str]:
+    """The sky of each consensus hour: thunder when most models carry it that hour."""
+    thunder: dict[datetime, list[bool]] = {}
+    for hours in models.values():
+        for hour in hours:
+            thunder.setdefault(hour.time, []).append(
+                hour.weather_code in engine.config.THUNDER_WEATHER_CODES
+            )
+    return {
+        h.time: engine.sky(
+            h.precipitation_mm,
+            h.cloud_cover_pct,
+            sum(thunder.get(h.time, [])) * 2 > len(thunder.get(h.time, [])),
+            HOUR_SKY,
+        )
+        for h in series
+    }
+
+
 class Forecast(NamedTuple):
     payload: dict  # the S5 body
     headline: engine.Headline  # the most urgent decision, for the lote card
@@ -300,6 +322,7 @@ def build_forecast(archive: CellArchive, now: datetime) -> Forecast:
     hourly_probability = _probabilities(archive.ensemble, lambda t: t) if archive.ensemble else {}
 
     current = by_time.get(now_hour) or Hour(time=now_hour)
+    hour_sky = _hour_skies(models, series)
     days = [today + timedelta(days=i) for i in range(DAILY_DAYS)]
     daily = [_day(models, d, daily_probability.get(d)) for d in days]
     sunrise, sunset = _sun_times(archive.deterministic, today)
@@ -335,6 +358,9 @@ def build_forecast(archive: CellArchive, now: datetime) -> Forecast:
             "wind_kmh": _round(current.wind_kmh),
             "wind_dir_deg": current.wind_dir_deg,
             "gust_kmh": _round(current.gust_kmh),
+            "sky": hour_sky.get(now_hour) or engine.sky(None, None, thunder=False, cfg=HOUR_SKY),
+            "cloud_cover_pct": _round(current.cloud_cover_pct),
+            "rain_mm": _round(current.precipitation_mm),
         },
         "today": {
             "max_c": daily[0]["max_c"],
@@ -353,6 +379,8 @@ def build_forecast(archive: CellArchive, now: datetime) -> Forecast:
                 "gust_kmh": _round(h.gust_kmh),
                 "rain_mm": _round(h.precipitation_mm),
                 "rain_probability_pct": hourly_probability.get(h.time),
+                "sky": hour_sky[h.time],
+                "cloud_cover_pct": _round(h.cloud_cover_pct),
             }
             for h in upcoming
         ],

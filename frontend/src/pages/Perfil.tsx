@@ -544,33 +544,39 @@ export function Perfil() {
           </div>
         ) : null}
       </header>
-      {me.data ? (
-        <>
-          <AvisosSection me={me.data} />
-          <PlanSection me={me.data} />
-          <DatosSection key={`datos-${me.data.id}`} me={me.data} />
-        </>
-      ) : null}
-      <FormAlert message={exit.error?.message} />
-      <button
-        type="button"
-        className="btn btn--secondary btn--block"
-        onClick={() => exit.mutate()}
-        disabled={exit.isPending}
-      >
-        <Icon name="logout" />
-        {exit.isPending ? 'Saliendo…' : 'Salir'}
-      </button>
-      <p className="fine">
-        Al salir borramos de este teléfono los datos de tu cuenta guardados para usar sin conexión.
-        El pronóstico de los lugares que buscaste queda.
-      </p>
-      {me.data ? (
-        <BorrarSection
-          founderNumber={me.data.founder_number ?? null}
-          onDeleted={() => leave('deleted')}
-        />
-      ) : null}
+      {/* Wide screens: how we reach you and your plan on the left, your account on the right.
+          Phones stack the columns in this same order. */}
+      <div className="page-columns">
+        {me.data ? (
+          <div className="page-col">
+            <AvisosSection me={me.data} />
+            <PlanSection me={me.data} />
+          </div>
+        ) : null}
+        <div className="page-col">
+          {me.data ? <DatosSection key={`datos-${me.data.id}`} me={me.data} /> : null}
+          <FormAlert message={exit.error?.message} />
+          <button
+            type="button"
+            className="btn btn--secondary btn--block"
+            onClick={() => exit.mutate()}
+            disabled={exit.isPending}
+          >
+            <Icon name="logout" />
+            {exit.isPending ? 'Saliendo…' : 'Salir'}
+          </button>
+          <p className="fine">
+            Al salir borramos de este teléfono los datos de tu cuenta guardados para usar sin
+            conexión. El pronóstico de los lugares que buscaste queda.
+          </p>
+          {me.data ? (
+            <BorrarSection
+              founderNumber={me.data.founder_number ?? null}
+              onDeleted={() => leave('deleted')}
+            />
+          ) : null}
+        </div>
+      </div>
       <p className="credits">{CREDITS}</p>
     </div>
   );

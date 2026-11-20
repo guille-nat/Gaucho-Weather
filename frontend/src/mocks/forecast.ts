@@ -141,6 +141,8 @@ const PLANS: Record<DemoSky, Plan> = {
   },
 };
 
+const CLOUD: Record<Sky, number> = { sol: 12, parcial: 48, nublado: 86, lluvia: 96, tormenta: 100 };
+
 function hourly(plan: Plan): ForecastHour[] {
   return Array.from({ length: 48 }, (_, i) => {
     const at = localMs(0, plan.nowHour + i);
@@ -150,6 +152,8 @@ function hourly(plan: Plan): ForecastHour[] {
     const max = plan.max[day] ?? 24;
     const min = plan.min[day] ?? 12;
     const raining = plan.rain[day]! > 5 && hour >= 12 && hour <= 20;
+    const daySky = plan.sky[day] ?? 'parcial';
+    const sky: Sky = raining ? 'lluvia' : daySky === 'lluvia' ? 'nublado' : daySky;
     return {
       time: isoAR(at),
       temperature_c: Math.round(((max + min) / 2 + ((max - min) / 2) * warm) * 10) / 10,
@@ -162,6 +166,8 @@ function hourly(plan: Plan): ForecastHour[] {
         : (plan.probability[day] ?? 0) > 50
           ? 35
           : 2,
+      sky,
+      cloud_cover_pct: CLOUD[sky],
     };
   });
 }
@@ -191,6 +197,9 @@ export function demoForecast(variant: DemoSky = 'sol'): Forecast {
       wind_kmh: now.wind_kmh,
       wind_dir_deg: plan.nulls ? null : 124,
       gust_kmh: plan.nulls ? null : now.gust_kmh,
+      sky: now.sky,
+      cloud_cover_pct: plan.nulls ? null : now.cloud_cover_pct,
+      rain_mm: now.rain_mm,
     },
     today: {
       max_c: plan.max[0] ?? null,
