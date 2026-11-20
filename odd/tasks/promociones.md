@@ -70,6 +70,10 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - An account that is not paying gets Productor until a date (like today's trial, not an expiry that `expire_trials` fights).
 - An account that is paying, without cancelling the subscription: how depends on the lab result (L2).
   - (a) If resuming after a skipped date does not charge the skipped period, pause before the next charge and resume when the credit ends. This is the user's "que tome como débito el día siguiente".
+    - Preferred by the user (L10), for every free month, including the 3-referral one.
+    - The app keeps the plan during our own pause. It records the credit with its end date, so `sync_subscription` and `end_cancelled_subscriptions` do not treat our pause as the payer's pause (S8 in pagos: paused = cancelled).
+    - A daily task resumes the subscription when the credit ends and re-reads Mercado Pago to confirm `authorized`, since a 200 is not proof. A failure retries and shows an alert in the backoffice.
+    - A pause the payer starts at Mercado Pago keeps today's behavior.
   - (b) Otherwise, turn the credit into a discount on the following charges through the amount (the same machinery as S1), with the $15 minimum per charge.
 - The backoffice "Dar prueba" for a paying account becomes "Regalar meses", replacing today's refusal.
 
@@ -142,3 +146,5 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - **L9** (2026-11-19): user: "si". All product decisions are closed.
   - Still pending: the lab result (credits), the S0 texts and their lawyer review.
   - The user's authorization to start implementing.
+- **L10** (2026-11-19): user: "le podriamos pausar las sub y reanudarle despues sin cobrar el mes pasado, hablo del cobro de mercado pago, pero la app si recibe y maneja que esta habilitada su sub".
+  - Accepted as the preferred credit mechanism, including the free month earned by referrals, if the lab shows that resume does not charge the skipped period. Otherwise the $15 discount is the fallback.
