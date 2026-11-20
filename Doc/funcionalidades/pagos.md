@@ -86,6 +86,10 @@ anticipación y rige desde el cobro siguiente a ese plazo". Por eso se hace así
 - Desde el backoffice se programa un `PriceChange`, al menos 30 días antes de su fecha.
 - Al programarlo se crea un `PriceNotice` por cada suscripción `authorized` o `paused` cuyo
   monto cambia, y los emails salen en una tarea apenas se confirma la transacción.
+- El monto nuevo sale del cambio programado, nunca del precio de hoy: el `PUT precios/` inmediato
+  solo cambia lo que pagan los checkouts nuevos. Un suscriptor del plan pasa al precio del cambio.
+  Un founder en Empresa paga Empresa menos Productor, cada uno según su último cambio programado,
+  así que un cambio en Productor le llega solo a los founders de Empresa y no al resto.
 - El aviso es por suscripción: su monto cambia 30 días después de que salió su email, y nunca
   antes de la fecha del cambio. Así, quien se suscribe al precio viejo mientras el cambio está
   pendiente también recibe sus 30 días de aviso.

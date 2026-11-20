@@ -267,3 +267,78 @@ def test_an_older_change_never_overwrites_a_newer_one_already_applied():
     run_on(DAY_30)
 
     assert not route.called
+
+
+# --- the verifier's blockers (T2 review) -----------------------------------------------------
+
+
+def schedule_on_now(plan, price):
+    with time_machine.travel(NOW, tick=False):
+        price_changes.schedule(
+            None, Plan.objects.get(code=plan), price_ars_month=price, effective_on=DAY_30.date()
+        )
+        price_changes.send_pending_notices()
+
+
+def echo_route(sub):
+    """Mercado Pago answering whatever amount it was sent."""
+
+    def answer(request):
+        amount = json.loads(request.content)["auto_recurring"]["transaction_amount"]
+        return httpx.Response(
+            200, json=preapproval(status=sub.status, amount=amount, external_id=sub.external_id)
+        )
+
+    return respx.put(f"{API}/preapproval/{sub.external_id}").mock(side_effect=answer)
+
+
+@respx.mock
+def test_a_productor_change_leaves_non_founder_empresa_subscribers_alone():
+    _, empresa = subscribed("emp@example.com", plan=Plan.EMPRESA, amount=45000)
+    schedule_on_now(Plan.PRODUCTOR, 16900)
+    route = echo_route(empresa)
+
+    run_on(DAY_30)
+
+    assert not PriceNotice.objects.filter(subscription=empresa).exists()
+    assert not route.called
+
+
+@respx.mock
+def test_an_immediate_edit_never_reaches_running_subscriptions():
+    _, empresa = subscribed("emp@example.com", plan=Plan.EMPRESA, amount=49900)
+    _, productor = subscribed("ana@example.com", amount=14900)
+    schedule_on_now(Plan.PRODUCTOR, 16900)
+    # During the pending change, the immediate edit of both plans: new checkouts only.
+    Plan.objects.filter(code=Plan.EMPRESA).update(price_ars_month=59900)
+    Plan.objects.filter(code=Plan.PRODUCTOR).update(price_ars_month=18900)
+    with time_machine.travel(NOW + timedelta(days=1), tick=False):
+        tasks.price_notices()
+    routes = [echo_route(empresa), echo_route(productor)]
+
+    run_on(DAY_30 + timedelta(days=2))
+    with time_machine.travel(DAY_30 + timedelta(days=3), tick=False):
+        tasks.price_notices()  # after it was applied too
+    run_on(DAY_30 + timedelta(days=40))
+
+    empresa.refresh_from_db()
+    productor.refresh_from_db()
+    assert (empresa.amount, productor.amount) == (49900, 16900)
+    assert not routes[0].called
+    assert routes[1].call_count == 1
+
+
+@respx.mock
+def test_a_founder_on_empresa_pays_the_difference_of_both_scheduled_prices():
+    _, founder = subscribed(
+        "fundador@example.com", plan=Plan.EMPRESA, amount=35000, founder_number=1
+    )
+    schedule_on_now(Plan.PRODUCTOR, 16900)
+    schedule_on_now(Plan.EMPRESA, 59900)
+    echo_route(founder)
+
+    run_on(DAY_30)
+    run_on(DAY_30 + timedelta(days=40))
+
+    founder.refresh_from_db()
+    assert founder.amount == 59900 - 16900

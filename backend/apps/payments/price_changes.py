@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Plan, User
@@ -109,9 +110,29 @@ def cancel(plan: Plan) -> PriceChange:
     return change
 
 
+def subscriber_prices(change: PriceChange) -> dict[str, int | None]:
+    """The prices running subscriptions move to: each plan's newest standing change, or its
+    price today when it never had one, with `change` itself for its plan.
+
+    Never today's price of a plan that had a change: an immediate edit only prices new
+    checkouts. A founder on Empresa pays Empresa minus Productor, so with both plans changing
+    the difference uses both new prices.
+    """
+    prices = ars_prices()
+    for standing in PriceChange.objects.filter(cancelled_at=None).order_by(
+        "plan_id", "created_at", "id"
+    ):
+        prices[standing.plan_id] = standing.price_ars_month  # the newest wins
+    prices[change.plan_id] = change.price_ars_month
+    return prices
+
+
 def create_notices(change: PriceChange) -> int:
-    """A notice for every running subscription whose amount the change moves. Idempotent."""
-    prices = {**ars_prices(), change.plan_id: change.price_ars_month}
+    """A notice for every running subscription whose amount the change moves. Idempotent.
+
+    A subscriber of the plan moves to the change's price. A Productor change also moves
+    founders on Empresa, who pay the difference; nobody else on another plan.
+    """
     affected = (
         ProviderSubscription.objects.filter(status__in=RUNNING, ended_at=None)
         .exclude(price_notices__change=change)
@@ -119,13 +140,16 @@ def create_notices(change: PriceChange) -> int:
     )
     if change.applied_at is not None:
         affected = affected.filter(created_at__lt=change.applied_at)
-    if change.plan_id == Plan.PRODUCTOR:  # founders pay Empresa minus Productor
-        affected = affected.filter(plan_id__in=(Plan.PRODUCTOR, Plan.EMPRESA))
-    else:
-        affected = affected.filter(plan_id=change.plan_id)
+    on_plan = Q(plan_id=change.plan_id)
+    if change.plan_id == Plan.PRODUCTOR:
+        on_plan |= Q(plan_id=Plan.EMPRESA, user__founder_number__isnull=False)
+    prices = subscriber_prices(change)
     created = 0
-    for sub in affected:
-        new_amount = price_for(sub.user, sub.plan, prices)
+    for sub in affected.filter(on_plan):
+        if sub.user.is_founder:
+            new_amount = price_for(sub.user, sub.plan, prices)
+        else:
+            new_amount = change.price_ars_month
         if new_amount is None or new_amount == sub.amount:
             continue
         PriceNotice.objects.create(
