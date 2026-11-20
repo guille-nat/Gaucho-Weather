@@ -90,12 +90,12 @@ def test_accept_get_is_405(user):
     "value,ok",
     [
         (True, True),
-        ("true", True),  # DRF BooleanField truthy string
-        ("True", True),
-        (1, True),
-        ("1", True),
-        ("on", True),
-        ("yes", True),
+        ("true", False),  # only a JSON true counts: no loose truthy strings or numbers
+        ("True", False),
+        (1, False),
+        ("1", False),
+        ("on", False),
+        ("yes", False),
         (False, False),
         ("false", False),
         (0, False),
@@ -104,6 +104,7 @@ def test_accept_get_is_405(user):
         ("", False),
         ("si", False),
         ([True], False),
+        ({}, False),
     ],
 )
 def test_register_acepta_terminos_values(api_client, value, ok):
@@ -112,8 +113,11 @@ def test_register_acepta_terminos_values(api_client, value, ok):
         {"email": "p@example.com", "password": PASSWORD, "name": "P", "acepta_terminos": value},
         format="json",
     )
-    print("REGISTER", repr(value), r.status_code, r.content[:200])
     assert (r.status_code == 201) is ok
+    if not ok:
+        assert r.json()["acepta_terminos"] == [
+            "Tenés que aceptar los términos y la política de privacidad."
+        ]
     assert TermsAcceptance.objects.count() == (1 if ok else 0)
 
 

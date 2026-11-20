@@ -17,7 +17,8 @@ TERMS_REQUIRED = "Tenés que aceptar los términos y la política de privacidad.
 
 
 class AcceptTermsField(serializers.BooleanField):
-    """`acepta_terminos`: must be true. Missing or false answers TERMS_REQUIRED."""
+    """`acepta_terminos`: must be the JSON value true. Anything else, missing included, answers
+    TERMS_REQUIRED: no loose truthy strings or numbers ("true", 1, "on") and no DRF messages."""
 
     def __init__(self, **kwargs):
         kwargs.setdefault("default", False)
@@ -25,7 +26,7 @@ class AcceptTermsField(serializers.BooleanField):
         super().__init__(**kwargs)
 
     def run_validation(self, data=empty):
-        if super().run_validation(data) is not True:
+        if data is not True:
             raise serializers.ValidationError(TERMS_REQUIRED)
         return True
 
