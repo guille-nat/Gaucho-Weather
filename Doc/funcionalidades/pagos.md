@@ -79,6 +79,21 @@ siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambi
   pago se guarda con `update_or_create` sobre su id único.
 - Una notificación de una suscripción o un pago desconocido se ignora con 200.
 
+### Cambios de precio programados
+Los términos dicen: "Un cambio de precio se avisa por email con al menos 30 días de
+anticipación y rige desde el cobro siguiente a ese plazo". Por eso se hace así
+(`apps/payments/price_changes.py`, feature `avisos-cambios`):
+- Desde el backoffice se programa un `PriceChange`, al menos 30 días antes de su fecha.
+- Al programarlo se crea un `PriceNotice` por cada suscripción `authorized` o `paused` cuyo
+  monto cambia, y los emails salen en una tarea apenas se confirma la transacción.
+- El aviso es por suscripción: su monto cambia 30 días después de que salió su email, y nunca
+  antes de la fecha del cambio. Así, quien se suscribe al precio viejo mientras el cambio está
+  pendiente también recibe sus 30 días de aviso.
+- La tarea diaria `payments.price_notices` (08:00) crea los avisos de esos suscriptores nuevos y
+  reintenta los emails que fallaron. Un aviso sale una sola vez (`sent_at`, con
+  `select_for_update`). Mientras su email no salió, la suscripción sigue con el monto viejo.
+- Un cambio cancelado no manda nada más.
+
 ### Archivos
 - `providers/base.py`: la interfaz `PaymentProvider` (iniciar, cancelar, consultar
   suscripción, pago y cobro, y verificar el webhook).
@@ -256,3 +271,5 @@ cobro hecho (próximo cobro el 19/12):
   Productor (promociones SF).
 - 2026-11-19: `suscribirme/` exige `acepta_terminos`, la SPA muestra el resumen antes de pagar y
   la suscripción autorizada manda un email de confirmación (feature `promociones`, S0b, S0d, S0e).
+- 2026-11-20: borrar la cuenta cancela antes la suscripción en Mercado Pago.
+- 2026-11-20: cambios de precio programados y su email de aviso (feature `avisos-cambios`, T1).

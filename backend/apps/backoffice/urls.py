@@ -62,6 +62,11 @@ urlpatterns = [
     ),
     path("precios/", views.PriceListView.as_view(), name="backoffice-prices"),
     path("precios/<slug:code>/", views.PriceDetailView.as_view(), name="backoffice-price"),
+    path(
+        "precios/<slug:code>/cambio/",
+        views.PriceChangeView.as_view(),
+        name="backoffice-price-change",
+    ),
     path("registro/", views.ActionLogView.as_view(), name="backoffice-log"),
     path("pagos/", views.PaymentListView.as_view(), name="backoffice-payments"),
     path("informes/", include("apps.backoffice.reports")),

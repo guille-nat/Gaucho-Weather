@@ -172,6 +172,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "payments.end_cancelled_subscriptions",
         "schedule": crontab(minute=30),
     },
+    "price-notices": {
+        # Daily: notices for late subscribers and unsent ones (avisos-cambios S2).
+        "task": "payments.price_notices",
+        "schedule": crontab(minute=0, hour=8),
+    },
 }
 
 # --- Email (trial notices, password reset, alerts) ---
