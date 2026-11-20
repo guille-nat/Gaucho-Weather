@@ -135,6 +135,18 @@ class MercadoPago(PaymentProvider):
         body = self._request("PUT", f"/preapproval/{external_id}", json={"status": "cancelled"})
         return _subscription(body, external_id)
 
+    def change_amount(self, external_id: str, amount: int, currency: str) -> None:
+        body = self._request(
+            "PUT",
+            f"/preapproval/{external_id}",
+            json={"auto_recurring": {"transaction_amount": amount, "currency_id": currency}},
+        )
+        # Mercado Pago answers 200 and ignores some fields (memory: preapproval-mutability):
+        # only an answer that carries the new amount counts.
+        answered = (body.get("auto_recurring") or {}).get("transaction_amount")
+        if answered is None or float(answered) != amount:
+            raise ProviderError("Mercado Pago did not take the new amount")
+
     def fetch_subscription(self, external_id: str) -> RemoteSubscription:
         return _subscription(self._request("GET", f"/preapproval/{external_id}"), external_id)
 

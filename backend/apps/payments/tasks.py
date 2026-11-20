@@ -18,3 +18,9 @@ def send_price_notices() -> int:
 def price_notices() -> int:
     """Daily: late subscribers' notices and every unsent one (avisos-cambios S2)."""
     return price_changes.daily_notices()
+
+
+@shared_task(name="payments.apply_price_changes")
+def apply_price_changes() -> int:
+    """Daily: scheduled prices whose date came, at Mercado Pago (avisos-cambios S3)."""
+    return price_changes.apply_due()

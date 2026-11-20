@@ -21,6 +21,8 @@ from django.utils import timezone
 from apps.accounts.models import Plan, User
 
 from .models import PriceChange, PriceNotice, ProviderSubscription
+from .providers import get_provider
+from .providers.base import ProviderError
 from .services import RUNNING, PaymentRefusal, ars_prices, pesos, price_for
 
 logger = logging.getLogger(__name__)
@@ -200,3 +202,68 @@ def daily_notices() -> int:
     for change in newest.values():
         create_notices(change)
     return send_pending_notices()
+
+
+# --- S3: applying it -------------------------------------------------------------------------
+
+
+def apply_due(today: date | None = None) -> int:
+    """The daily task's apply part; returns how many subscriptions changed amount. Idempotent.
+
+    From its date a change becomes the plan's price, so new checkouts pay it. Each notified
+    subscription changes amount on `applies_on`: at Mercado Pago first, then here. A refusal
+    leaves it for the next run; the others go on.
+    """
+    today = today or timezone.localdate()
+    for change in PriceChange.objects.filter(
+        cancelled_at=None, applied_at=None, effective_on__lte=today
+    ):
+        with transaction.atomic():
+            Plan.objects.filter(code=change.plan_id).update(price_ars_month=change.price_ars_month)
+            change.applied_at = timezone.now()
+            change.save(update_fields=["applied_at"])
+    due = (
+        PriceNotice.objects.filter(
+            applied_at=None,
+            change__cancelled_at=None,
+            change__effective_on__lte=today,
+            sent_at__isnull=False,
+            subscription__status__in=RUNNING,
+            subscription__ended_at=None,
+        )
+        .order_by("change__created_at", "change_id")
+        .values_list("pk", flat=True)
+    )
+    return sum(_apply(pk, today) for pk in list(due))
+
+
+def _apply(notice_pk: int, today: date) -> bool:
+    with transaction.atomic():
+        notice = (
+            PriceNotice.objects.select_for_update(skip_locked=True, of=("self",))
+            .select_related("change", "subscription")
+            .filter(pk=notice_pk, applied_at=None)
+            .first()
+        )
+        if notice is None or applies_on(notice.change, notice.sent_at) > today:
+            return False
+        sub = ProviderSubscription.objects.select_for_update().get(pk=notice.subscription_id)
+        if sub.status not in RUNNING or sub.ended_at is not None:
+            return False
+        if sub.price_notices.filter(
+            applied_at__isnull=False, change__created_at__gt=notice.change.created_at
+        ).exists():  # a newer change already set its amount: never go back to an older one
+            return False
+        try:
+            get_provider(sub.provider).change_amount(
+                sub.external_id, notice.new_amount, sub.currency
+            )
+        except ProviderError:
+            logger.warning("Price notice %s not applied; retried on the next run", notice_pk)
+            return False
+        now = timezone.now()
+        sub.amount = notice.new_amount
+        sub.save(update_fields=["amount", "updated_at"])
+        notice.applied_at = now
+        notice.save(update_fields=["applied_at"])
+    return True
