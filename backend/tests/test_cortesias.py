@@ -581,6 +581,7 @@ class TestPayment:
     @respx.mock
     def test_a_founder_on_an_empresa_cortesia_can_subscribe_to_empresa(self, settings):
         settings.MERCADOPAGO_ACCESS_TOKEN = "TEST-access-token"
+        settings.MERCADOPAGO_WEBHOOK_SECRET = "secret"
         settings.MERCADOPAGO_API_URL = API
         Plan.objects.filter(code=Plan.PRODUCTOR).update(price_ars_month=14900)
         Plan.objects.filter(code=Plan.EMPRESA).update(price_ars_month=49900)
