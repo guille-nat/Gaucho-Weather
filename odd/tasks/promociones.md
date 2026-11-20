@@ -140,7 +140,7 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 |---|---|---|---|---|
 | L-lab | credits approach | inline sandbox experiment | running (L2) | |
 | T0 | S0 clear terms (pages, acceptance, pre-checkout summary, emails) | tbd | blocked on the texts and the lawyer review | |
-| TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) | in progress | |
+| TF | SF1–SF6 founder upgrade | delegated writer (context backstop: the parent session is long) + parent (Django admin) | done | f46128e |
 | T1 | S1 coupons (models, API, subscribe flow, restore task, backoffice) | tbd | ready (go-live after S0 lawyer review) | |
 | T2 | S2 referrals | tbd | ready (go-live after S0 lawyer review) | |
 | T3 | S3 credits | tbd | blocked on the lab result | |
@@ -166,3 +166,12 @@ What Mercado Pago allows. Sandbox-verified on 2026-11-19; see `Doc/funcionalidad
 - **L10** (2026-11-19): user: "le podriamos pausar las sub y reanudarle despues sin cobrar el mes pasado, hablo del cobro de mercado pago, pero la app si recibe y maneja que esta habilitada su sub".
   - Accepted as the preferred credit mechanism, including the free month earned by referrals, if the lab shows that resume does not charge the skipped period. Otherwise the $15 discount is the fallback.
 - **L11** (2026-11-19): user: "dale, arrancá con el founder". SF1–SF6 written; TF is delegated to one writer, because of the long-session context backstop.
+- **L12** (2026-11-19): TF done (f46128e).
+  - The writer covered SF1–SF6: `price_for`/`founder_empresa_price`, the optional `founder_empresa_price_ars` in `GET /api/planes/`, `_end` returning founders to Productor, and `refuse_free_empresa` in `request_plan`, `apply_request` and the backoffice.
+  - The parent closed two gaps:
+    - the Django admin "Aplicar pedidos" action now reports the refusal instead of answering 500;
+    - the user form refuses founder→Empresa.
+  - It also replaced the old founder test in `pagos.test.tsx`.
+  - Checks: backend 777 passed, ruff clean; frontend 326 passed (4 of 4 runs), eslint, prettier and tsc clean.
+  - The new tests' extra load exposed an existing race: the guard's redirect dropped "Borramos tu cuenta…". Fixed in 7e75bf1 by remembering the reason in `lib/signedOut.ts`. RED: a test failed without it; GREEN afterwards.
+  - Native review is still pending: 530dcef..HEAD exceeds the lens budget (see backoffice-superadmin L6).
