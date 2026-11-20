@@ -1,5 +1,5 @@
 # Pronóstico (del lote y público)
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-20
 
 ## Qué hace
 `GET /api/lotes/{id}/pronostico/` devuelve lo que el productor necesita para
@@ -40,7 +40,8 @@ abajo).
    rain_past_7d_mm,
    daily: [{date, max_c, min_c, rain_mm, rain_probability_pct, sky}] (7),
    hourly: [{time, temperature_c, humidity_pct, wind_kmh, gust_kmh, rain_mm,
-             rain_probability_pct, sky, cloud_cover_pct}] (48),
+             rain_probability_pct, sky, cloud_cover_pct, wind_direction_deg,
+             spray: {level, causes: [str], delta_t_c, inversion} | null}] (48),
    decisions: {frost_tonight, spray_today, field_work, engine_version, validated}}
   ```
 - **Cielo de cada hora** (`now.sky`, `hourly[].sky`): alimenta el fondo animado. Las
@@ -52,6 +53,16 @@ abajo).
   - si no, decide la nubosidad: menos de 30 % es `sol`, menos de 70 % es `parcial` y
     el resto `nublado`. Sin dato de nubes, `parcial`.
   - `cloud_cover_pct` es la mediana entre modelos.
+- **Pulverización y viento de cada hora** (`hourly[].spray`, `hourly[].wind_direction_deg`;
+  feature `lote-tablero` S1): el detalle hora por hora para el ingeniero.
+  - `wind_direction_deg`: de dónde viene el viento a 10 m (`wind_direction_10m`), media
+    circular entre modelos redondeada al grado; null si ningún modelo la trae.
+  - `spray`: lo que devuelve `engine.rate_spray_hour` para esa hora, sobre la misma serie
+    de consenso que la decisión "Pulverizar hoy": `level`, `causes` (la peor primero,
+    vacía en verde), `delta_t_c` (redondeado a 0,1; null sin bulbo húmedo ni humedad) e
+    `inversion` (true si la regla de inversión dio posible o probable).
+  - Solo se califican las horas de luz (salida ≤ hora < puesta de ese día, con el sol de
+    cada día). De noche, o un día sin `sunrise`/`sunset`, `spray` es null.
 
 ### Pronóstico público (S8, S10)
 - Vista: `PublicForecastView` en `backend/apps/weather/views.py`; la lógica, en
@@ -112,6 +123,17 @@ abajo).
 - **Decisión:** ECMWF primero para la lluvia caída y el sol.
   **Por qué:** (sin confirmar) suele ser el global con mejor desempeño; falta
   medirlo en la zona.
+- **Decisión:** `hourly[].spray` califica también las horas de luz de mañana, no solo las
+  de hoy que mira la decisión.
+  **Por qué:** la tabla de horas (S4) es para planificar, y mañana temprano es cuando se
+  suele pulverizar. Las horas de hoy coinciden exactamente con las que califica
+  `spray_today`. De noche no se califica porque el motor no evalúa esas horas.
+  **Alternativas descartadas:** calificar las 48 h (de noche no se pulveriza y la regla
+  de inversión no fue pensada para eso); solo las de hoy (deja vacía la mañana siguiente).
+- **Decisión:** la dirección por hora se llama `wind_direction_deg`, aunque `now` use
+  `wind_dir_deg`.
+  **Por qué:** así lo fija el contrato S1 de `lote-tablero`; `now` no se renombra para
+  no romper a quien ya lo consume.
 - **Decisión:** `models_agreeing` es el texto `"N de M modelos"`.
   **Por qué:** así lo pide el contrato (S4) y se muestra tal cual.
 
@@ -134,3 +156,5 @@ abajo).
 - 2026-11-17: `sky` y `cloud_cover_pct` por hora, y `now.rain_mm`, para el fondo
   animado (feature `cielo-animado`). Son campos agregados; nadie que ya consuma la
   API se rompe.
+- 2026-11-20: `wind_direction_deg` y `spray` por hora (feature `lote-tablero`, S1). Campos
+  agregados; `decisions` no cambia.

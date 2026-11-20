@@ -1,5 +1,5 @@
 # Motor de decisiones v0
-> Última actualización: 2026-11-03
+> Última actualización: 2026-11-20
 
 ## Qué hace
 Convierte el pronóstico de un lote en tres decisiones con su motivo en una
@@ -30,6 +30,9 @@ está validado con backtesting: cada salida lleva `engine_version: "v0"` y
   mojada. La mejor ventana es la racha verde más larga entre ahora (o la salida
   del sol) y la puesta. `ok` con al menos 2 h verdes, `critical` si todas las
   horas de luz que quedan son rojas, `caution` en el resto.
+  - `rate_spray_hour` devuelve un `SprayHour` con `level`, `causes`, `delta_t_c` (sin
+    redondear) e `inversion` (la regla de inversión disparó, posible o probable). El
+    pronóstico del lote lo muestra hora por hora (`hourly[].spray`).
 - **Labores** (`fieldwork.py`, §3): el primer día con ≥ `HEAVY_RAIN_MM` (5 mm);
   `critical` con probabilidad ≥ 70 %, `caution` si es menor o no hay ensemble.
 - **Cielo del día** (`sky`): tormenta (código WMO 95–99 en la mayoría de los
@@ -71,3 +74,5 @@ está validado con backtesting: cada salida lleva `engine_version: "v0"` y
 
 ## Historial
 - 2026-11-03: versión v0 (helada, pulverización, labores, cielo y titular).
+- 2026-11-20: `SprayHour` expone `delta_t_c` e `inversion` para la tabla de horas
+  (feature `lote-tablero` S1). Las reglas no cambian.

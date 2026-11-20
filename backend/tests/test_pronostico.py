@@ -161,8 +161,15 @@ def test_payload_shape_matches_the_contract(auth_client, user):
             "rain_probability_pct",
             "sky",
             "cloud_cover_pct",
+            "wind_direction_deg",
+            "spray",
         }
         assert hour["sky"] in {"sol", "parcial", "nublado", "lluvia", "tormenta"}
+        if hour["spray"] is not None:
+            assert set(hour["spray"]) == {"level", "causes", "delta_t_c", "inversion"}
+            assert hour["spray"]["level"] in {"ok", "caution", "critical"}
+            assert isinstance(hour["spray"]["causes"], list)
+            assert isinstance(hour["spray"]["inversion"], bool)
     decisions = body["decisions"]
     assert set(decisions) == {
         "frost_tonight",
@@ -431,3 +438,89 @@ def test_field_work_counts_rain_still_to_come_today(auth_client, user):
         "mm": 12.0,
         "probability_pct": None,
     }
+
+
+# --- Hourly spraying data (odd/tasks/lote-tablero.md S1) ---------------------------------
+
+
+def archive_same_hours(**columns):
+    """The three deterministic models with the same overrides (see `with_hours`)."""
+    for model in ("ecmwf_ifs025", "gfs_seamless", "icon_seamless"):
+        payload = with_hours(deterministic(20.0), **columns)
+        store(model, ForecastSnapshot.Kind.DETERMINISTIC, payload)
+
+
+def hour_at(body, stamp):
+    return next(h for h in body["hourly"] if h["time"] == f"{stamp}:00{OFFSET}")
+
+
+@time_machine.travel(NOW, tick=False)
+def test_each_hour_carries_the_stored_wind_direction(auth_client, user):
+    det = ForecastSnapshot.Kind.DETERMINISTIC
+    stamp = "2026-11-03T16:00"
+    for model, direction in (("ecmwf_ifs025", 350), ("gfs_seamless", 10), ("icon_seamless", 20)):
+        store(model, det, with_hours(deterministic(20.0), wind_direction_10m={stamp: direction}))
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    assert hour_at(body, stamp)["wind_direction_deg"] == 7  # circular mean of 350, 10 and 20
+    assert hour_at(body, "2026-11-03T17:00")["wind_direction_deg"] == 350
+
+
+@time_machine.travel(NOW, tick=False)
+def test_hour_spray_is_the_engine_rating_of_that_hour(auth_client, user):
+    stamp = "2026-11-03T16:00"
+    archive_same_hours(temperature_2m={stamp: 29.0}, wind_speed_10m={stamp: 30.0})
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    # Delta T 29 − 15 = 14 and wind 30 · 0.75 = 22.5 km/h at 2 m are red; 29 °C is yellow.
+    assert hour_at(body, stamp)["spray"] == {
+        "level": "critical",
+        "causes": ["Delta T alto", "mucho viento", "mucho calor"],
+        "delta_t_c": 14.0,
+        "inversion": False,
+    }
+    assert hour_at(body, "2026-11-03T15:00")["spray"] == {
+        "level": "ok",
+        "causes": [],
+        "delta_t_c": 5.0,
+        "inversion": False,
+    }
+
+
+@time_machine.travel(NOW, tick=False)
+def test_hour_spray_delta_t_is_rounded_to_a_tenth(auth_client, user):
+    stamp = "2026-11-03T17:00"
+    archive_same_hours(wet_bulb_temperature_2m={stamp: 15.73})
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    assert hour_at(body, stamp)["spray"]["delta_t_c"] == 4.3
+
+
+@time_machine.travel(NOW, tick=False)
+def test_hour_spray_flags_an_inversion(auth_client, user):
+    stamp = "2026-11-03T18:00"
+    archive_same_hours(temperature_80m={stamp: 23.0})  # warmer at 80 m than at 2 m
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    spray = hour_at(body, stamp)["spray"]
+    assert spray["inversion"] is True
+    assert spray["level"] == "critical"
+    assert spray["causes"] == ["inversión térmica probable"]
+    assert hour_at(body, "2026-11-03T17:00")["spray"]["inversion"] is False
+
+
+@time_machine.travel(NOW, tick=False)
+def test_hours_out_of_daylight_are_not_rated(auth_client, user):
+    archive_same_hours()
+
+    body = auth_client.get(url(make_lote(user))).json()
+
+    # Sunrise 06:12 and sunset 19:50 every day: the engine rates daylight hours only.
+    assert hour_at(body, "2026-11-03T19:00")["spray"] is not None
+    assert hour_at(body, "2026-11-03T20:00")["spray"] is None
+    assert hour_at(body, "2026-11-04T06:00")["spray"] is None
+    assert hour_at(body, "2026-11-04T07:00")["spray"] is not None

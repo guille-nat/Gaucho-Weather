@@ -55,6 +55,7 @@ def rate_spray_hour(
     wet_bulb = hour.wet_bulb_c
     if wet_bulb is None and hour.humidity_pct is not None:
         wet_bulb = wet_bulb_stull(t, hour.humidity_pct)
+    delta_t: float | None = None
     if wet_bulb is not None:
         delta_t = t - wet_bulb
         state = _band(delta_t, (cfg.delta_t_min, cfg.delta_t_max), (-1e9, cfg.delta_t_red_above))
@@ -69,10 +70,13 @@ def rate_spray_hour(
     if state:
         findings.append((state, "mucho calor"))
 
-    state = _inversion(hour, sunrise, sunset, cfg)
-    if state:
+    inversion = _inversion(hour, sunrise, sunset, cfg)
+    if inversion:
         findings.append(
-            (state, "inversión térmica probable" if state == 2 else "posible inversión térmica")
+            (
+                inversion,
+                "inversión térmica probable" if inversion == 2 else "posible inversión térmica",
+            )
         )
 
     later = hours[index + 1 : index + 1 + wash_hours]
@@ -87,7 +91,13 @@ def rate_spray_hour(
 
     findings.sort(key=lambda f: -f[0])  # stable: rule order within a level
     level: Level = ("ok", "caution", "critical")[findings[0][0]] if findings else "ok"
-    return SprayHour(time=hour.time, level=level, causes=tuple(c for _, c in findings))
+    return SprayHour(
+        time=hour.time,
+        level=level,
+        causes=tuple(c for _, c in findings),
+        delta_t_c=delta_t,
+        inversion=bool(inversion),
+    )
 
 
 def wind_findings(
