@@ -1,10 +1,23 @@
 import { useState, type FormEvent } from 'react';
-import { listPrices, updatePrice, type PlanPrice, type PriceInput } from '../../api/backoffice';
+import {
+  cancelPriceChange,
+  listPrices,
+  schedulePriceChange,
+  updatePrice,
+  type PendingPriceChange,
+  type PlanPrice,
+  type PriceInput,
+} from '../../api/backoffice';
+import { formatMoney } from '../../api/payments';
+import { BackofficeDialog } from '../../components/backoffice/BackofficeDialog';
 import { LoadFailed, Loading } from '../../components/backoffice/Loading';
 import { FormAlert, TextField } from '../../components/Field';
+import { formatDate } from '../../lib/format';
 import { fieldError, formError } from '../../lib/formErrors';
 import { queryKeys } from '../../query/keys';
 import { Saved } from '../Perfil';
+import { ConfirmAction } from './cuenta/dialogs';
+import { tomorrowInBuenosAires } from './format';
 import { useBackofficeMutation, useBackofficeQuery } from './queries';
 
 const NOT_A_WHOLE_NUMBER = 'Usá un número entero, sin puntos ni comas.';
@@ -19,8 +32,107 @@ function parsePrice(text: string): number | null | undefined {
   return /^\d+$/.test(value) ? Number(value) : undefined;
 }
 
+const NOT_A_PRICE = 'Usá un número entero mayor que 0, sin puntos ni comas.';
+const NOTICE_DAYS = 30;
+
+/** The first day a change can take effect: 30 days after today in Buenos Aires (S1). */
+const earliestChangeDay = (now = Date.now()) =>
+  tomorrowInBuenosAires(now + (NOTICE_DAYS - 1) * 86_400_000);
+
+const subscriptions = (n: number) => (n === 1 ? '1 suscripción' : `${n} suscripciones`);
+
+/** `POST precios/{code}/cambio/`: the dialog is the confirmation, it says what goes out. */
+function ScheduleForm({
+  price,
+  onDone,
+  onCancel,
+}: {
+  price: PlanPrice;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [day, setDay] = useState('');
+  const [invalid, setInvalid] = useState<{ price?: string; day?: string }>({});
+  const schedule = useBackofficeMutation(
+    (input: { price_ars_month: number; effective_on: string }) =>
+      schedulePriceChange(price.code, input),
+  );
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const value = amount.trim();
+    const errors = {
+      price: /^\d+$/.test(value) && Number(value) > 0 ? undefined : NOT_A_PRICE,
+      day: day ? undefined : 'Elegí una fecha.',
+    };
+    setInvalid(errors);
+    if (errors.price || errors.day) return;
+    schedule.mutate({ price_ars_month: Number(value), effective_on: day }, { onSuccess: onDone });
+  }
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      <p className="fine">
+        Les manda un email ahora a las suscripciones de {price.name} cuyo monto cambia. Cada una
+        paga el precio nuevo desde su primer cobro 30 días después del email, y los checkouts nuevos
+        desde la fecha que elijas.
+      </p>
+      <TextField
+        label="Pesos por mes, nuevo"
+        name="price_ars_month"
+        inputMode="numeric"
+        autoComplete="off"
+        value={amount}
+        error={invalid.price ?? fieldError(schedule.error, 'price_ars_month')}
+        onChange={(e) => {
+          schedule.reset();
+          setInvalid({ ...invalid, price: undefined });
+          setAmount(e.target.value);
+        }}
+      />
+      <TextField
+        label="Rige desde"
+        name="effective_on"
+        type="date"
+        min={earliestChangeDay()}
+        required
+        hint="Al menos 30 días después de hoy, como prometen los términos."
+        value={day}
+        error={invalid.day ?? fieldError(schedule.error, 'effective_on')}
+        onChange={(e) => {
+          schedule.reset();
+          setInvalid({ ...invalid, day: undefined });
+          setDay(e.target.value);
+        }}
+      />
+      <FormAlert message={formError(schedule.error)} />
+      <div className="bo-dialog-actions">
+        <button type="submit" className="btn btn--primary" disabled={schedule.isPending}>
+          {schedule.isPending ? 'Programando…' : 'Programar y avisar'}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={onCancel}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** The pending change in words, or nothing. */
+function PendingChange({ change }: { change: PendingPriceChange }) {
+  return (
+    <p className="fine">
+      Desde el {formatDate(change.effective_on)}: {formatMoney(change.price_ars_month)} por mes.{' '}
+      Avisado a {change.notices_sent} de {subscriptions(change.notices)}.
+    </p>
+  );
+}
+
 /** One plan's two prices, sent together (`PUT precios/{code}/` needs both). */
 function PriceForm({ price }: { price: PlanPrice }) {
+  const [dialog, setDialog] = useState<'schedule' | 'cancel' | null>(null);
+  const close = () => setDialog(null);
   const [text, setText] = useState<Record<Field, string>>({
     price_ars_month: asText(price.price_ars_month),
     price_usd_month: asText(price.price_usd_month),
@@ -47,37 +159,101 @@ function PriceForm({ price }: { price: PlanPrice }) {
   }
 
   const error = (field: Field) => invalid[field] ?? fieldError(save.error, field);
+  const change = price.pending_change;
   return (
-    <form className="panel bo-price" onSubmit={submit} noValidate>
-      <fieldset className="bo-price-set">
-        <legend className="bo-price-name">{price.name}</legend>
-        <div className="bo-price-fields">
-          <TextField
-            label="Pesos por mes"
-            name="price_ars_month"
-            inputMode="numeric"
-            autoComplete="off"
-            value={text.price_ars_month}
-            error={error('price_ars_month')}
-            onChange={(e) => edit('price_ars_month', e.target.value)}
+    <>
+      <form className="panel bo-price" onSubmit={submit} noValidate>
+        <fieldset className="bo-price-set">
+          <legend className="bo-price-name">{price.name}</legend>
+          <div className="bo-price-fields">
+            <TextField
+              label="Pesos por mes"
+              name="price_ars_month"
+              inputMode="numeric"
+              autoComplete="off"
+              value={text.price_ars_month}
+              error={error('price_ars_month')}
+              onChange={(e) => edit('price_ars_month', e.target.value)}
+            />
+            <TextField
+              label="Dólares por mes"
+              name="price_usd_month"
+              inputMode="numeric"
+              autoComplete="off"
+              value={text.price_usd_month}
+              error={error('price_usd_month')}
+              onChange={(e) => edit('price_usd_month', e.target.value)}
+            />
+          </div>
+          <FormAlert message={formError(save.error)} />
+          <button type="submit" className="btn btn--secondary" disabled={save.isPending}>
+            {save.isPending ? 'Guardando…' : 'Guardar precios'}
+          </button>
+          <Saved message={save.isSuccess ? `Precios de ${price.name} guardados.` : null} />
+          {price.code === 'basico' ? null : (
+            <div className="bo-price-change">
+              <h3 className="bo-price-change-title">Cambio para los suscriptores</h3>
+              {change ? (
+                <>
+                  <PendingChange change={change} />
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setDialog('cancel')}
+                  >
+                    Cancelar el cambio
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="fine">
+                    Guardar precios solo cambia lo que pagan los checkouts nuevos. Para las
+                    suscripciones que ya cobran, programalo con 30 días de aviso.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setDialog('schedule')}
+                  >
+                    Programar un cambio
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </fieldset>
+      </form>
+      {/* Outside the form: the dialog has its own form, and forms do not nest. */}
+      <BackofficeDialog
+        open={dialog !== null}
+        title={
+          dialog === 'cancel'
+            ? `Cancelar el cambio de ${price.name}`
+            : `Programar un precio para ${price.name}`
+        }
+        onClose={close}
+      >
+        {dialog === 'schedule' ? (
+          <ScheduleForm price={price} onDone={close} onCancel={close} />
+        ) : dialog === 'cancel' && change ? (
+          <ConfirmAction
+            description={
+              <p>
+                El precio de {price.name} sigue como está y no se manda ningún email. Los avisos que
+                ya salieron no se pueden retirar.
+              </p>
+            }
+            confirmLabel="Cancelar el cambio"
+            pendingLabel="Cancelando…"
+            dismissLabel="Volver"
+            danger
+            run={() => cancelPriceChange(price.code)}
+            onDone={close}
+            onCancel={close}
           />
-          <TextField
-            label="Dólares por mes"
-            name="price_usd_month"
-            inputMode="numeric"
-            autoComplete="off"
-            value={text.price_usd_month}
-            error={error('price_usd_month')}
-            onChange={(e) => edit('price_usd_month', e.target.value)}
-          />
-        </div>
-        <FormAlert message={formError(save.error)} />
-        <button type="submit" className="btn btn--secondary" disabled={save.isPending}>
-          {save.isPending ? 'Guardando…' : 'Guardar precios'}
-        </button>
-        <Saved message={save.isSuccess ? `Precios de ${price.name} guardados.` : null} />
-      </fieldset>
-    </form>
+        ) : null}
+      </BackofficeDialog>
+    </>
   );
 }
 
@@ -88,7 +264,8 @@ export function Precios() {
     <div className="bo-tab">
       <p className="fine">
         Se actualizan cada 3 meses. Vacío es «Precio a confirmar» y 0 es gratis. Cada plan guarda
-        sus dos precios juntos.
+        sus dos precios juntos. A los suscriptores, un precio nuevo en pesos se les programa con 30
+        días de aviso.
       </p>
       {prices.data ? (
         <div className="bo-prices">

@@ -60,6 +60,13 @@ function describeAction({ action, payload }: ActionRow): string {
         `${price(before?.price_usd_month, 'USD')} → ${price(after?.price_usd_month, 'USD')}`
       );
     }
+    case 'price_schedule':
+    case 'price_unschedule':
+      return (
+        `Cambio de precio ${action === 'price_schedule' ? 'programado' : 'cancelado'}: ` +
+        `${planName(payload.plan)} a ${price(payload.price_ars_month as number, 'ARS')} ` +
+        `desde el ${calendarDay(payload.effective_on)}`
+      );
     case 'account_update':
       return `Datos editados: ${edited(payload)}`;
     case 'account_block':

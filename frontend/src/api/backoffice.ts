@@ -75,11 +75,21 @@ export interface RequestRow {
   user: Person & { plan: PlanRef; status: MembershipStatus };
 }
 
+/** A scheduled peso price (avisos-cambios S4): who it reaches and how many were emailed. */
+export interface PendingPriceChange {
+  price_ars_month: number;
+  /** `YYYY-MM-DD`: new checkouts pay it from then; each subscription 30 days after its email. */
+  effective_on: string;
+  notices: number;
+  notices_sent: number;
+}
+
 export interface PlanPrice {
   code: PlanCode;
   name: string;
   price_ars_month: number | null;
   price_usd_month: number | null;
+  pending_change: PendingPriceChange | null;
 }
 
 export type PriceInput = Pick<PlanPrice, 'price_ars_month' | 'price_usd_month'>;
@@ -89,6 +99,9 @@ export type BackofficeActionKind =
   | 'request_apply'
   | 'request_reject'
   | 'price_update'
+  // avisos-cambios S1
+  | 'price_schedule'
+  | 'price_unschedule'
   // backoffice-superadmin S1-S4, S8
   | 'account_update'
   | 'account_block'
@@ -198,6 +211,16 @@ export const listPrices = () => backoffice<PlanPrice[]>('precios/');
 /** Both prices at once; null is "Precio a confirmar", 0 is free. 400 names the bad field. */
 export const updatePrice = (code: PlanCode, input: PriceInput) =>
   backoffice<PlanPrice>(`precios/${code}/`, { method: 'PUT', body: input });
+
+/** `POST precios/{code}/cambio/`: at least 30 days ahead; emails the subscribers it reaches. */
+export const schedulePriceChange = (
+  code: PlanCode,
+  input: { price_ars_month: number; effective_on: string },
+) => backoffice<PlanPrice>(`precios/${code}/cambio/`, { method: 'POST', body: input });
+
+/** `DELETE precios/{code}/cambio/`: drops the pending change; sends no email. */
+export const cancelPriceChange = (code: PlanCode) =>
+  backoffice<PlanPrice>(`precios/${code}/cambio/`, { method: 'DELETE' });
 
 export const listActions = (page: number) =>
   backoffice<Page<ActionRow>>(`registro/${query({ page })}`);

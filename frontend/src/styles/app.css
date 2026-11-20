@@ -4219,6 +4219,20 @@ button.alert-event-tap:focus-visible {
   justify-self: start;
 }
 
+/* The scheduled change for subscribers (avisos-cambios S4), below the prices of today. */
+.bo-price-change {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bo-price-change-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 /* A write on one row, as a native modal like the plan cancel confirm (no display rule here). */
 .bo-dialog {
   width: min(32rem, 100% - 2 * var(--gutter));

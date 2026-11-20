@@ -313,7 +313,10 @@ API en `frontend/src/api/backoffice.ts`. Se entra desde Perfil, por la sección
 - Pestañas: Resumen, Cuentas (búsqueda, plan y estado; "Cambiar plan" con nota; el nombre
   abre la ficha),
   Pedidos (Aplicar; Rechazar con nota), Pagos (pagos o suscripciones), Precios (los dos
-  precios de cada plan; vacío es `null`) y Registro. La pestaña abierta queda en
+  precios de cada plan; vacío es `null`; debajo, "Cambio para los suscriptores": programar un
+  precio en pesos con fecha, en un diálogo que avisa que el email sale en el momento, o ver el
+  pendiente con cuántos avisos salieron y cancelarlo con confirmación; Básico no lo tiene) y
+  Registro. La pestaña abierta queda en
   `?seccion=`.
 - Las escrituras usan `apiFetch`, que manda el CSRF. Después de cada una se vuelven a
   pedir todas las listas y el resumen.

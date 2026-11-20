@@ -22,7 +22,7 @@ const formError = (error: Error | null, fields: string[]) =>
  * which has the focus when the dialog opens (modern-web-guidance `dialog`). A refusal stays in
  * the dialog, in the API's words.
  */
-export function ConfirmAction({
+export function ConfirmAction<T = AccountRecord>({
   description,
   confirmLabel,
   pendingLabel,
@@ -37,8 +37,8 @@ export function ConfirmAction({
   pendingLabel: string;
   dismissLabel?: string;
   danger?: boolean;
-  run: () => Promise<AccountRecord>;
-  onDone: Done;
+  run: () => Promise<T>;
+  onDone: (result: T) => void;
   onCancel: () => void;
 }) {
   const action = useBackofficeMutation(run);

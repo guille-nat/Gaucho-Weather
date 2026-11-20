@@ -7,6 +7,7 @@ import type {
   BackofficeSummary,
   Page,
   PaymentRow,
+  PendingPriceChange,
   Person,
   RecordAlertRule,
   RecordLote,
@@ -15,6 +16,7 @@ import type {
   SubscriptionRow,
 } from '../api/backoffice';
 import type { Plan, PlanCode, ProviderSubscriptionStatus, User } from '../api/types';
+import { tomorrowInBuenosAires } from '../pages/backoffice/format';
 
 /** Like plans.refuse_free_empresa: a founder moves up to Empresa only by paying (promociones SF4). */
 export function freeEmpresaRefusal(
@@ -53,6 +55,8 @@ export interface BackofficeDb {
   };
   /** Accounts a reset email went to: a second one inside the cooldown answers 429. */
   resetSent: number[];
+  /** The pending scheduled price of each plan (avisos-cambios S4). */
+  priceChanges: Partial<Record<PlanCode, PendingPriceChange>>;
 }
 
 export interface RecordExtras {
@@ -220,6 +224,7 @@ export function demoBackoffice(): BackofficeDb {
       },
     },
     founderNext: 8,
+    priceChanges: {},
     mercadoPago: { down: false, remote: {} },
     resetSent: [],
   };
@@ -602,6 +607,7 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
             name,
             price_ars_month,
             price_usd_month,
+            pending_change: db.backoffice.priceChanges[code] ?? null,
           })),
         )
       );
@@ -630,7 +636,103 @@ export function createBackofficeHandlers(db: BackofficeHost, csrf: CsrfCheck): H
       };
       db.plans = db.plans.map((p, i) => (i === index ? { ...p, ...after } : p));
       record('price_update', null, { plan: plan.code, before, after });
-      return HttpResponse.json({ code: plan.code, name: plan.name, ...after });
+      return HttpResponse.json({
+        code: plan.code,
+        name: plan.name,
+        ...after,
+        pending_change: db.backoffice.priceChanges[plan.code] ?? null,
+      });
+    }),
+
+    /** Like PriceChangeView: 30 days ahead, one pending per plan, never Básico. */
+    http.post('*/api/backoffice/precios/:code/cambio/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const plan = db.plans.find((p) => p.code === params.code);
+      if (!plan) return HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
+      if (plan.code === 'basico') {
+        return HttpResponse.json(
+          { detail: 'El plan Básico es gratis: no se le programa un precio.' },
+          { status: 400 },
+        );
+      }
+      const body = (await request.json()) as Record<string, unknown>;
+      const errors: Record<string, string[]> = {};
+      const amount = body.price_ars_month;
+      if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
+        errors.price_ars_month = ['Asegúrese de que este valor sea mayor o igual a 1.'];
+      }
+      const day = body.effective_on;
+      const earliest = tomorrowInBuenosAires(Date.now() + 29 * 86_400_000);
+      if (typeof day !== 'string' || !day) errors.effective_on = ['Este campo es requerido.'];
+      else if (day < earliest) {
+        errors.effective_on = ['La fecha tiene que ser al menos 30 días después de hoy.'];
+      }
+      if (Object.keys(errors).length) return HttpResponse.json(errors, { status: 400 });
+      if (db.backoffice.priceChanges[plan.code]) {
+        return HttpResponse.json(
+          {
+            detail:
+              'Ese plan ya tiene un cambio de precio programado. Cancelalo antes de programar otro.',
+          },
+          { status: 409 },
+        );
+      }
+      const reached = db.backoffice.subscriptions.filter(
+        (row) =>
+          row.plan.code === plan.code && (row.status === 'authorized' || row.status === 'paused'),
+      ).length;
+      const change = {
+        price_ars_month: amount as number,
+        effective_on: day as string,
+        notices: reached,
+        notices_sent: reached,
+      };
+      db.backoffice.priceChanges = { ...db.backoffice.priceChanges, [plan.code]: change };
+      record('price_schedule', null, {
+        plan: plan.code,
+        price_ars_month: change.price_ars_month,
+        effective_on: change.effective_on,
+      });
+      return HttpResponse.json(
+        {
+          code: plan.code,
+          name: plan.name,
+          price_ars_month: plan.price_ars_month,
+          price_usd_month: plan.price_usd_month,
+          pending_change: change,
+        },
+        { status: 201 },
+      );
+    }),
+
+    http.delete('*/api/backoffice/precios/:code/cambio/', async ({ request, params }) => {
+      const refused = await gate(request);
+      if (refused) return refused;
+      const plan = db.plans.find((p) => p.code === params.code);
+      if (!plan) return HttpResponse.json({ detail: 'No encontrado.' }, { status: 404 });
+      const change = db.backoffice.priceChanges[plan.code];
+      if (!change) {
+        return HttpResponse.json(
+          { detail: 'Ese plan no tiene un cambio de precio programado.' },
+          { status: 404 },
+        );
+      }
+      const rest = { ...db.backoffice.priceChanges };
+      delete rest[plan.code];
+      db.backoffice.priceChanges = rest;
+      record('price_unschedule', null, {
+        plan: plan.code,
+        price_ars_month: change.price_ars_month,
+        effective_on: change.effective_on,
+      });
+      return HttpResponse.json({
+        code: plan.code,
+        name: plan.name,
+        price_ars_month: plan.price_ars_month,
+        price_usd_month: plan.price_usd_month,
+        pending_change: null,
+      });
     }),
 
     http.get('*/api/backoffice/registro/', async ({ request }) => {
