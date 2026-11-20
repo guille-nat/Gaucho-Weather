@@ -19,6 +19,8 @@ from apps.accounts.models import Plan, PlanChange, PlanRequest, User
 from apps.payments import tasks
 from apps.payments.models import Payment, ProviderSubscription
 
+from .conftest import PASSWORD
+
 pytestmark = pytest.mark.django_db
 
 API = "https://api.mercadopago.test"
@@ -820,6 +822,69 @@ def test_cancelling_when_mercadopago_fails_is_502(user):
     response = client_for(user).post(CANCEL)
 
     assert response.status_code == 502
+    assert ProviderSubscription.objects.get().status == "authorized"
+
+
+# --- deleting the account cancels at Mercado Pago first -------------------------------------
+
+ME = "/api/auth/me/"
+
+
+@respx.mock
+@pytest.mark.parametrize("status", ["pending", "authorized", "paused"])
+def test_deleting_the_account_cancels_its_subscription_at_mercadopago(user, status):
+    subscription(user, status=status, next_payment_at=NEXT)
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(
+        return_value=httpx.Response(200, json=preapproval(status="cancelled"))
+    )
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert json.loads(route.calls.last.request.content) == {"status": "cancelled"}
+    assert not User.objects.filter(pk=user.pk).exists()
+    assert ProviderSubscription.objects.count() == 0
+
+
+@respx.mock
+def test_deleting_the_account_skips_a_subscription_already_cancelled(user):
+    subscription(user, status="cancelled")
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = client_for(user).delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 204
+    assert not route.called
+    assert not User.objects.filter(pk=user.pk).exists()
+
+
+@respx.mock
+def test_deleting_the_account_when_mercadopago_fails_is_502_and_keeps_everything(user):
+    on_plan(user, Plan.PRODUCTOR)
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}").mock(return_value=httpx.Response(500))
+    client = client_for(user)
+
+    response = client.delete(ME, {"password": PASSWORD}, format="json")
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "No pudimos conectar con Mercado Pago. Probá de nuevo en un rato."
+    }
+    assert User.objects.filter(pk=user.pk).exists()
+    assert ProviderSubscription.objects.get().status == "authorized"
+    assert client.get(ME).status_code == 200
+
+
+@respx.mock
+def test_deleting_the_account_with_a_wrong_password_does_not_touch_mercadopago(user):
+    subscription(user, status="authorized", next_payment_at=NEXT)
+    route = respx.put(f"{API}/preapproval/{PREAPPROVAL_ID}")
+
+    response = client_for(user).delete(ME, {"password": "nope"}, format="json")
+
+    assert response.status_code == 400
+    assert not route.called
     assert ProviderSubscription.objects.get().status == "authorized"
 
 

@@ -163,9 +163,10 @@ export function Terminos() {
         <p>
           El Usuario puede borrar su cuenta desde Perfil, confirmando con su contraseña. Se borran
           sus lotes, reglas, alertas y demás datos, como explica la{' '}
-          <Link to="/privacidad">Política de privacidad</Link>. Borrar la cuenta no cancela por sí
-          solo una suscripción en Mercado Pago: antes de borrarla, el Usuario debe darse de baja. Un
-          número de founder no se vuelve a asignar.
+          <Link to="/privacidad">Política de privacidad</Link>. Borrar la cuenta cancela su
+          suscripción en Mercado Pago, sin devolver el mes en curso; si Mercado Pago no responde, la
+          cuenta no se borra y el Usuario puede intentarlo de nuevo más tarde. Un número de founder
+          no se vuelve a asignar.
         </p>
       </Clause>
 

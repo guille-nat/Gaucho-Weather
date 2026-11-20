@@ -380,6 +380,21 @@ def current_subscription(user: User) -> ProviderSubscription | None:
     )
 
 
+def cancel_before_deleting(user: User) -> None:
+    """Cancel at the provider every subscription that could still charge, before the account
+    is deleted: a pending checkout, an authorized one and a paused one (it can be resumed).
+
+    If the provider cannot cancel one, raise PaymentRefusal(502) and the caller keeps the
+    account: deleting it would leave a subscription charging an account that no longer exists.
+    """
+    for sub in user.provider_subscriptions.exclude(status=S.CANCELLED):
+        try:
+            remote = get_provider(sub.provider).cancel_subscription(sub.external_id)
+        except ProviderError as exc:
+            raise PaymentRefusal(502, PROVIDER_DOWN) from exc
+        sync_subscription(sub.provider, remote)
+
+
 def cancel(user: User) -> ProviderSubscription:
     sub = user.provider_subscriptions.filter(status__in=RUNNING, ended_at=None).first()
     if sub is None:

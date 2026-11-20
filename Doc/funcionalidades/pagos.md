@@ -62,7 +62,11 @@ Rechazos de `suscribirme/` (todos con `detail` en español):
 | Mercado Pago no configurado: "Los pagos todavía no están habilitados." | 503 |
 | Mercado Pago no responde | 502 |
 
-`cancelar/` sin suscripción activa responde 404. Las cuentas sin suscripción de Mercado Pago
+`cancelar/` sin suscripción activa responde 404.
+
+Borrar la cuenta (`DELETE /api/auth/me/`) cancela antes en Mercado Pago toda suscripción que
+todavía pueda cobrar (`pending`, `authorized` o `paused`). Si Mercado Pago no responde, 502 con
+el mismo mensaje y la cuenta no se borra: así nada sigue cobrándole a una cuenta que ya no existe. Las cuentas sin suscripción de Mercado Pago
 siguen usando el pedido de baja de siempre (`/api/auth/suscripcion/`), sin cambios.
 
 ### Webhook

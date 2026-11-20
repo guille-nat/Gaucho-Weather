@@ -85,8 +85,10 @@ un abogado los revisa antes de salir a producción (Ley 24.240 y Ley 25.326).
 
 ## Pendientes
 - Revisión de un abogado antes de salir a producción.
-- Borrar la cuenta no cancela la suscripción en Mercado Pago. Los términos piden darse de baja
-  antes; falta que la app lo haga o lo impida.
 
 ## Historial
 - 2026-11-19: versión inicial (feature `promociones`, S0a–S0e).
+- 2026-11-20: `acepta_terminos` solo acepta el `true` de JSON; cualquier otro valor ("true", 1,
+  "on", null) responde el mensaje de la spec, sin los de DRF. La cláusula 9 dice que borrar la
+  cuenta cancela la suscripción (sin subir la versión: los textos siguen en borrador hasta la
+  revisión del abogado).

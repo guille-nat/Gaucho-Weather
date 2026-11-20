@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.providers import payments_enabled
-from apps.payments.services import founder_empresa_price
+from apps.payments.services import PaymentRefusal, cancel_before_deleting, founder_empresa_price
 
 from . import password_reset, plans, terms
 from .authentication import enforce_csrf
@@ -128,9 +128,17 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
     def delete(self, request):
-        """Deletes the account and everything it owns. A founder slot is not handed out again."""
+        """Deletes the account and everything it owns. A founder slot is not handed out again.
+
+        Its Mercado Pago subscriptions are cancelled first; if Mercado Pago cannot, 502 and the
+        account stays, so nothing keeps charging a deleted account.
+        """
         serializer = DeleteAccountSerializer(data=request.data, context={"user": request.user})
         serializer.is_valid(raise_exception=True)
+        try:
+            cancel_before_deleting(request.user)
+        except PaymentRefusal as exc:
+            return Response({"detail": exc.detail}, status=exc.status)
         with transaction.atomic():
             request.user.delete()
         logout(request)
