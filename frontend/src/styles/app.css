@@ -1348,8 +1348,9 @@
 }
 
 /* ───────── Lote board (lote-tablero) ─────────
- * A lote reads as a decision board: today's decisions and this hour on one side, the hours and
- * the week that back them on the other, the history and the folded lote data at the bottom.
+ * A lote reads as a decision board: today's decisions and this hour on one side and the week on
+ * the other, the hours that back them across the full width below, then the history and the
+ * folded lote data.
  */
 
 .forecast-stamp {
@@ -1360,15 +1361,14 @@
 }
 
 .board-main,
-.board-data,
 .board-after {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
+.forecast--board > *,
 .board-main > *,
-.board-data > *,
 .board-after > * {
   min-width: 0;
 }
@@ -1624,7 +1624,8 @@
   .forecast--board {
     grid-template-areas:
       'head head'
-      'main data'
+      'main week'
+      'hours hours'
       'after after'
       'credits credits';
   }
@@ -1633,8 +1634,18 @@
     grid-area: main;
   }
 
-  .board-data {
-    grid-area: data;
+  .forecast--board > .week {
+    grid-area: week;
+  }
+
+  /* The full width holds all ten columns of the hours, so none hides behind a scroll. */
+  .forecast--board > .lote-hours {
+    grid-area: hours;
+  }
+
+  /* Long causes wrap instead of pushing the table past a narrow desktop. */
+  .forecast--board .lote-hours-causes {
+    white-space: normal;
   }
 
   .board-after {

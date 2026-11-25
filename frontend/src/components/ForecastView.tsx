@@ -119,7 +119,8 @@ function ForecastBody({
 }: Pick<ForecastViewProps, 'decisions' | 'frostModels'> & { forecast: Forecast }) {
   if (decisions === 'block') {
     // A lote is a decision board (lote-tablero S2-S6): today's decisions first, then the hours
-    // an agronomist reads to back them, then the week.
+    // an agronomist reads to back them, then the week. On wide screens the week sits beside the
+    // decisions and the hours take the full width, so every column of the table is in view.
     return (
       <>
         <SkyMotion forecast={forecast} />
@@ -127,10 +128,8 @@ function ForecastBody({
           <DecisionsBlock forecast={forecast} frostModels={frostModels} />
           <NowStrip forecast={forecast} />
         </div>
-        <div className="board-data">
-          <SprayHours forecast={forecast} />
-          <Week forecast={forecast} />
-        </div>
+        <SprayHours forecast={forecast} />
+        <Week forecast={forecast} />
       </>
     );
   }
@@ -474,7 +473,11 @@ function SprayHours({ forecast }: { forecast: Forecast }) {
               <th scope="col">Humedad</th>
               <th scope="col">Lluvia (mm)</th>
               {withProbability ? <th scope="col">Prob.</th> : null}
-              {withSpray ? <th scope="col">Causas</th> : null}
+              {withSpray ? (
+                <th scope="col" className="lote-hours-causes">
+                  Causas
+                </th>
+              ) : null}
             </tr>
           </thead>
           {byDay(hours).map((day) => (

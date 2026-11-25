@@ -122,8 +122,9 @@ La página `/lotes/:id` (`frontend/src/pages/LoteDetail.tsx`, con la vista
   [pronostico.md](pronostico.md)).
 - Después de los 7 días: el enlace al Histórico, "Datos del lote" plegado
   (con "Cambiar cultivos") y los créditos.
-- En escritorio, las decisiones y "Ahora" van a la izquierda; las horas y los
-  7 días, a la derecha; el Histórico, los datos y los créditos, abajo.
+- En escritorio, las decisiones y "Ahora" van a la izquierda y los 7 días a la
+  derecha; debajo, las horas ocupan todo el ancho; al final, el Histórico, los
+  datos y los créditos.
 - "Borrar lote" está en la pantalla de edición, con la misma confirmación.
 
 ## Decisiones y por qué
@@ -211,6 +212,15 @@ La página `/lotes/:id` (`frontend/src/pages/LoteDetail.tsx`, con la vista
   y sin día.
   **Alternativas descartadas:** dejar la vista de Inicio con las decisiones
   agregadas (la que había).
+- **Decisión:** en escritorio, la tabla de horas va a todo el ancho, debajo de
+  las decisiones y los 7 días (2026-11-25).
+  **Por qué:** con las horas en la columna derecha, a 1280 px la tabla
+  necesitaba 927 px y tenía 618: "Lluvia" quedaba cortada y "Prob." y "Causas"
+  escondidas en un scroll sin aviso, mientras la columna izquierda quedaba
+  vacía. A todo el ancho entran las 10 columnas desde 960 px.
+  **Alternativas descartadas:** mantener las horas a la derecha y compactar la
+  tabla (columna izquierda más angosta, encabezados en dos líneas): entraba
+  justo a 1280 px y dejaba el hueco vacío.
 - **Decisión:** la mínima a 2 m se nombra como mediana y se muestra el modelo
   más frío al lado.
   **Por qué:** el motor usa la mediana de los modelos; "Ver modelos" mostraba

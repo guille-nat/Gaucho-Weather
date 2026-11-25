@@ -23,13 +23,14 @@ User's request (L1), verbatim: "http://127.0.0.1:5173/lotes/11 me parece que no 
 
 **S5 — Static data and actions.** "Datos del lote" is folded (a disclosure) near the end; the Histórico link sits right after the 7 days, before the data and the credits; "Borrar lote" moves to the edit screen; the crop and the edit action appear once.
 
-**S6 — Desktop.** At wide widths: decisions, the compact now strip and the sun on the left; the hours (with the window band) and the 7 days on the right; Histórico, lote data and credits at the bottom.
+**S6 — Desktop.** At wide widths: decisions, the compact now strip and the sun on the left and the 7 days on the right; the hours (with the window band) below them across the full width, with every column in view from 960 px; Histórico, lote data and credits at the bottom. (Rewritten 2026-11-25, L5.)
 
 ## Tasks
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1 backend: wind direction stored and fetched, hourly spray in the forecast payload | delegated writer (parallel units: disjoint backend surface) | done | 8557863 |
 | T2 | S2–S6 frontend, built on the S1 contract through the mock | delegated writer (parallel units: disjoint frontend surface) | done | 7247a5d |
+| T3 | S6 rewritten: full-width hours on desktop | inline (small) | done | pending commit |
 
 Risk: none expected (adds fields, changes layout); the parent re-checks after both. One seam check (both suites) at the end.
 
@@ -48,3 +49,4 @@ Risk: none expected (adds fields, changes layout); the parent re-checks after bo
   8. One commit of about 1,380 lines, as asked.
 
   Seen in the 1280 px screenshot: the "Lluvia" column is cut at the right edge, to check live. The sample forecast was 20 hours old ("Pronóstico jue 19 · 18:00"): the board now shows it plainly.
+- **L5** (2026-11-25): live check of the 1280 px cut. In the mock (lote 4) the hours table needed 927 px and the right column gave 618: "Lluvia" was cut and "Prob." and "Causas" hid behind a scroll with no visible hint, while the left column stayed empty below "Ahora". User's choice, verbatim: "Horas a todo el ancho (Recomendado)" (over keeping S6 and compacting). S6 rewritten; T3 reopened the layout. After: 1280 px table 1100/1100, 960 px 880/880 (causes wrap on desktop), 390 px unchanged (scrolls with the sticky hour). The "Causas" header now aligns left like its cells. Frontend 383 passed (with `NODE_OPTIONS=--no-experimental-webstorage`, see the Node 26 note in the close report).
