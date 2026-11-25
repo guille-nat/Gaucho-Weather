@@ -67,5 +67,9 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     restoreMocks: true,
+    // Node 25+ ships its own localStorage global, which shadows jsdom's and is undefined
+    // without --localstorage-file, so every test failed in the setup's localStorage.clear().
+    execArgv:
+      Number(process.versions.node.split('.')[0]) >= 25 ? ['--no-experimental-webstorage'] : [],
   },
 });

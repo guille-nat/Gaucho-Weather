@@ -30,7 +30,7 @@ User's request (L1), verbatim: "http://127.0.0.1:5173/lotes/11 me parece que no 
 |---|---|---|---|---|
 | T1 | S1 backend: wind direction stored and fetched, hourly spray in the forecast payload | delegated writer (parallel units: disjoint backend surface) | done | 8557863 |
 | T2 | S2–S6 frontend, built on the S1 contract through the mock | delegated writer (parallel units: disjoint frontend surface) | done | 7247a5d |
-| T3 | S6 rewritten: full-width hours on desktop | inline (small) | done | pending commit |
+| T3 | S6 rewritten: full-width hours on desktop | inline (small) | done | 32051c7 |
 
 Risk: none expected (adds fields, changes layout); the parent re-checks after both. One seam check (both suites) at the end.
 

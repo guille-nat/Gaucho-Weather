@@ -342,7 +342,11 @@ señal se siguen viendo los últimos datos.
   historial de pagos; `backoffice.test.tsx` cubre quién entra (sin pedir nada a la API),
   el enlace de Perfil, cada pestaña y cada escritura. El mock del backoffice está en
   `src/mocks/backoffice.ts` y `db.sent` guarda cada pedido con su cuerpo.
-  Ejecutalos con `pnpm test`.
+  Ejecutalos con `pnpm test`. Desde Node 25, Node trae su propio `localStorage`, que
+  tapa el de jsdom y queda indefinido; por eso `vite.config.ts` pasa
+  `--no-experimental-webstorage` a los workers de Vitest solo en Node 25 o más
+  (2026-11-25: con Node 26 fallaban los 383 tests en el `localStorage.clear()` del
+  setup). El CI usa Node 22 y no lo necesita.
 - **Mapa:** `src/lib/outline.ts` (área, centroide, GeoJSON y estados del dibujo) tiene
   sus tests en `outline.test.ts`. `src/test/loteForm.test.tsx` reemplaza el mapa por un
   doble que guarda sus props para tocar el mapa, mover esquinas y leer adónde vuela.
