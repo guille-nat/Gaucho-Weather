@@ -150,8 +150,9 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BEAT_SCHEDULE = {
     "archive-forecasts": {
+        # Hourly, but each 6-hour slot is fetched once: a missed slot is caught by the next run.
         "task": "archiver.fetch_forecasts",
-        "schedule": crontab(minute=0, hour="*/6"),
+        "schedule": crontab(minute=0),
     },
     "archive-smn-observations": {
         # Hourly: a missed run is caught by the next (auditoria-historico S5).

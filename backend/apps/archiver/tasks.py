@@ -23,6 +23,8 @@ from .stations import STATIONS, STATIONS_BY_NAME
 logger = logging.getLogger(__name__)
 
 HTTP_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+# The models publish a new run every 6 hours; the archive keeps one snapshot per slot.
+FORECAST_SLOT_HOURS = 6
 
 
 def forecast_cells() -> list[Cell]:
@@ -38,24 +40,24 @@ def archive_cell(
     jobs=openmeteo.JOBS,
     now=None,
     stats: dict[str, int] | None = None,
+    fresh_since=None,
 ) -> dict[str, int]:
     """Fetch and store each (kind, model) job of one cell, at most once per hour.
 
     The single idempotent archive path: the scheduled run and the public
-    on-demand forecast both store through it.
+    on-demand forecast both store through it. With `fresh_since`, a job that
+    already has a snapshot fetched at or after it is skipped too.
     """
     now = now or timezone.now()
     fetch_hour = now.replace(minute=0, second=0, microsecond=0)
     stats = stats if stats is not None else {"stored": 0, "skipped": 0, "failed": 0}
     for kind, model in jobs:
-        key = {
-            "cell_lat": cell[0],
-            "cell_lon": cell[1],
-            "model": model,
-            "kind": kind,
-            "fetch_hour": fetch_hour,
-        }
-        if ForecastSnapshot.objects.filter(**key).exists():
+        job = {"cell_lat": cell[0], "cell_lon": cell[1], "model": model, "kind": kind}
+        key = {**job, "fetch_hour": fetch_hour}
+        fresh = ForecastSnapshot.objects.filter(**key).exists()
+        if not fresh and fresh_since is not None:
+            fresh = ForecastSnapshot.objects.filter(**job, fetched_at__gte=fresh_since).exists()
+        if fresh:
             stats["skipped"] += 1
             continue
         try:
@@ -73,15 +75,30 @@ def archive_cell(
     return stats
 
 
+def forecast_slot_start(now):
+    """Start of the 6-hour slot (00, 06, 12 or 18, local time) that `now` falls in."""
+    local = timezone.localtime(now)
+    return local.replace(
+        hour=local.hour - local.hour % FORECAST_SLOT_HOURS, minute=0, second=0, microsecond=0
+    )
+
+
 @shared_task(name="archiver.fetch_forecasts")
 def fetch_forecasts() -> dict[str, int]:
+    """Hourly: fetch each cell's jobs that have no snapshot yet in the current 6-hour slot.
+
+    So a slot is fetched once, at its first run, and a slot missed while the stack was down
+    (or a job that failed) is caught up at the next hourly run instead of 6 hours later.
+    """
     now = timezone.now()
+    slot_start = forecast_slot_start(now)
     stats = {"stored": 0, "skipped": 0, "failed": 0}
     with httpx.Client(timeout=HTTP_TIMEOUT) as client:
         for cell in forecast_cells():
-            archive_cell(client, cell, openmeteo.JOBS, now, stats)
+            archive_cell(client, cell, openmeteo.JOBS, now, stats, fresh_since=slot_start)
     logger.info("Forecast archive run: %s", stats)
-    _queue_alert_evaluation()
+    if stats["stored"]:
+        _queue_alert_evaluation()
     return stats
 
 

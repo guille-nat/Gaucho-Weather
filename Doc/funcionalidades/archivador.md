@@ -1,5 +1,5 @@
 # Archivador de pronósticos y observaciones
-> Última actualización: 2026-11-20
+> Última actualización: 2026-11-26
 
 ## Qué hace
 Guarda desde la Fase 1 los pronósticos de Open-Meteo y las observaciones
@@ -9,13 +9,17 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
 ## Cómo funciona
 - App `backend/apps/archiver/`. Tareas Celery en `tasks.py`, programadas con
   beat (hora argentina):
-  - `archiver.fetch_forecasts`, cada 6 h (00, 06, 12 y 18).
-  - `archiver.fetch_smn_observations`, todos los días a las 03:00.
-  - `archiver.fetch_history`, todos los días a las 04:30: últimos 3 días del
-    clima pasado de cada celda con lotes. Ver [historico.md](historico.md).
+  - `archiver.fetch_forecasts`, cada hora en punto. Cada turno de 6 h (00, 06,
+    12 y 18) se baja una sola vez: la corrida solo pide los modelos de cada celda
+    que todavía no tienen un snapshot desde el inicio del turno
+    (`forecast_slot_start`). En marcha normal descarga a las 00, 06, 12 y 18, y
+    las demás horas no piden nada.
+  - `archiver.fetch_smn_observations`, cada hora a las y 10.
+  - `archiver.fetch_history`, cada hora a las y 20: clima pasado de cada celda
+    con lotes. Ver [historico.md](historico.md).
   - `archiver.backfill_history`, sin agenda: se encola al crear o mover un lote
     y carga 90 días de su celda.
-- Al terminar, `fetch_forecasts` encola `alerts.evaluate_rules`, que evalúa las
+- Si guardó algo, `fetch_forecasts` encola `alerts.evaluate_rules`, que evalúa las
   reglas de alerta con los pronósticos nuevos (ver [alertas.md](alertas.md)). Si
   el broker está caído lo registra y la corrida sigue.
 - **Pronósticos** (`ForecastSnapshot`):
@@ -74,6 +78,19 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   **Por qué:** un solo camino idempotente; si cambian las variables o la regla
   de una fila por hora, cambia para los dos.
 
+- **Decisión:** `fetch_forecasts` corre cada hora y baja solo lo que le falta al
+  turno de 6 h (2026-11-26; reemplaza al `crontab` de cada 6 h).
+  **Por qué:** beat no recupera corridas perdidas. Con el stack apagado (la PC de
+  dev de noche, un corte o un deploy en prod) el pronóstico quedaba viejo hasta
+  6 h después de volver: el 2026-11-20 el tablero del lote mostró uno de 20 h. Y
+  un modelo que fallaba (un 429 de Open-Meteo en los ensembles) esperaba al
+  turno siguiente. Ahora los dos casos se recuperan en la próxima hora, sin
+  pedidos extra en marcha normal. Las alertas no evalúan pronósticos de más de
+  `ALERTS_MAX_FORECAST_AGE_HOURS`, así que un hueco largo también las apagaba.
+  **Alternativas descartadas:** correr la descarga al arrancar el worker solo en
+  dev (no cubre los cortes en prod ni los 429); bajar todo cada hora (6 veces
+  más pedidos y espacio sin datos nuevos, porque los modelos salen cada 6 h).
+
 ## Cómo modificarlo
 - **Espacio en disco** (medido el 2026-11-03, ya comprimido por Postgres): un
   ensemble ECMWF ocupa ~265 kB, uno GFS ~132 kB y cada determinístico ~10 kB.
@@ -95,6 +112,9 @@ conserva los miembros del ensemble, así que si no se guardan, se pierden.
   determinísticos, para el pronóstico del lote (feature `clima-y-fileteado`).
 - 2026-11-03: `archive_cell` extraída de la tarea para reusarla en la descarga
   a demanda del pronóstico público (T5).
+- 2026-11-26: `fetch_forecasts` pasa a correr cada hora y baja solo lo que le falta
+  al turno de 6 h; una corrida que no guarda nada no evalúa alertas. Un turno
+  perdido o un modelo fallido se recupera en la próxima hora.
 - 2026-11-16: tareas `fetch_history` y `backfill_history` con la tabla
   `WeatherHour`, y la evaluación de alertas al final de `fetch_forecasts`
   (feature `cuenta-planes-alertas`).

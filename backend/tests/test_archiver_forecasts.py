@@ -7,6 +7,7 @@ import respx
 import time_machine
 from django.conf import settings
 
+from apps.alerts import tasks as alert_tasks
 from apps.archiver import openmeteo
 from apps.archiver.models import ForecastSnapshot
 from apps.archiver.tasks import fetch_forecasts
@@ -153,13 +154,78 @@ def test_second_run_in_the_same_hour_is_a_no_op(open_meteo):
     assert forecast.call_count + ensemble.call_count == 15
 
 
-def test_next_hour_stores_a_new_snapshot(open_meteo):
+def test_next_slot_stores_a_new_snapshot(open_meteo):
+    # 09:07 and 15:00 in Buenos Aires: the 06:00 and the 12:00 slots.
     with time_machine.travel(NOW, tick=False):
         fetch_forecasts()
     with time_machine.travel(NOW.replace(hour=18), tick=False):
         fetch_forecasts()
 
     assert ForecastSnapshot.objects.count() == 30
+
+
+def test_a_later_hour_of_the_same_slot_is_a_no_op(open_meteo):
+    forecast, ensemble = open_meteo
+    # 09:07 and 11:00 in Buenos Aires: both in the 06:00 slot.
+    with time_machine.travel(NOW, tick=False):
+        fetch_forecasts()
+    with time_machine.travel(NOW.replace(hour=14, minute=0), tick=False):
+        stats = fetch_forecasts()
+
+    assert stats == {"stored": 0, "skipped": 15, "failed": 0}
+    assert ForecastSnapshot.objects.count() == 15
+    assert forecast.call_count + ensemble.call_count == 15
+
+
+def test_a_missed_slot_is_caught_up_at_the_next_hourly_run(open_meteo):
+    # The stack was down: the last archive is from yesterday's 18:00 slot (21:00 UTC).
+    with time_machine.travel(datetime(2026, 11, 2, 21, 0, tzinfo=UTC), tick=False):
+        fetch_forecasts()
+    # It comes back at 09:07 in Buenos Aires, between the 06:00 and the 12:00 runs.
+    with time_machine.travel(NOW, tick=False):
+        stats = fetch_forecasts()
+
+    assert stats == {"stored": 15, "skipped": 0, "failed": 0}
+
+
+def test_a_failed_job_is_retried_at_the_next_hour_of_its_slot():
+    with respx.mock() as mock, time_machine.travel(NOW, tick=False):
+        mock.get(settings.OPEN_METEO_FORECAST_URL).mock(side_effect=payload)
+        mock.get(settings.OPEN_METEO_ENSEMBLE_URL).mock(return_value=httpx.Response(429))
+        assert fetch_forecasts() == {"stored": 9, "skipped": 0, "failed": 6}
+
+    with respx.mock(assert_all_called=False) as mock:
+        forecast = mock.get(settings.OPEN_METEO_FORECAST_URL).mock(side_effect=payload)
+        mock.get(settings.OPEN_METEO_ENSEMBLE_URL).mock(side_effect=payload)
+        with time_machine.travel(NOW.replace(hour=13, minute=0), tick=False):
+            stats = fetch_forecasts()
+
+    assert stats == {"stored": 6, "skipped": 9, "failed": 0}
+    assert forecast.call_count == 0  # the deterministic models were already in this slot
+    assert set(
+        ForecastSnapshot.objects.filter(kind="ensemble").values_list("fetch_hour", flat=True)
+    ) == {datetime(2026, 11, 3, 13, 0, tzinfo=UTC)}
+
+
+def test_a_run_that_stores_nothing_does_not_evaluate_the_alerts(open_meteo, monkeypatch):
+    with time_machine.travel(NOW, tick=False):
+        fetch_forecasts()
+    queued = []
+    monkeypatch.setattr(alert_tasks.evaluate_rules, "delay", lambda: queued.append(True))
+    with time_machine.travel(NOW.replace(hour=14, minute=0), tick=False):
+        fetch_forecasts()
+
+    assert queued == []
+
+
+def test_a_snapshot_from_before_the_slot_is_fetched_again(open_meteo):
+    # 05:00 in Buenos Aires (an on-demand search, say) belongs to the 00:00 slot.
+    with time_machine.travel(NOW.replace(hour=8, minute=0), tick=False):
+        fetch_forecasts()
+    with time_machine.travel(NOW, tick=False):
+        stats = fetch_forecasts()
+
+    assert stats == {"stored": 15, "skipped": 0, "failed": 0}
 
 
 @time_machine.travel(NOW, tick=False)
@@ -206,7 +272,8 @@ def test_beat_schedule():
 
     forecasts = schedule["archive-forecasts"]
     assert forecasts["task"] == "archiver.fetch_forecasts"
-    assert forecasts["schedule"].hour == {0, 6, 12, 18}
+    # Hourly: each run fetches only what its 6-hour slot lacks, so a missed slot is caught up.
+    assert forecasts["schedule"].hour == set(range(24))
     assert forecasts["schedule"].minute == {0}
     smn = schedule["archive-smn-observations"]
     assert smn["task"] == "archiver.fetch_smn_observations"
